@@ -1,3 +1,5 @@
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 plugins {
     // Apply the shared build logic from a convention plugin.
     // The shared code is located in `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts`.
@@ -7,10 +9,10 @@ plugins {
     application
 }
 
-import org.gradle.jvm.toolchain.JavaLanguageVersion
-
 dependencies {
     val lwjglVersion = "3.4.2"
+
+    implementation("com.github.ajalt.clikt:clikt:5.1.0")
 
     implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
     implementation("org.lwjgl:lwjgl")
