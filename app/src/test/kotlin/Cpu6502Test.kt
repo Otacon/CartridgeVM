@@ -204,41 +204,59 @@ class Cpu6502Test {
     }
 
     @Test
-    fun `lda opcodes load accumulator from every addressing mode`() {
-        val ldaAddressingProgram = program(
-            Cpu6502.OP_LDX_IMM,
-            0x04,
-            Cpu6502.OP_LDY_IMM,
-            0x05,
-            Cpu6502.OP_LDA_IMM,
-            0x11,
-            Cpu6502.OP_LDA_ZP,
-            0x10,
-            Cpu6502.OP_LDA_ZPX,
-            0x10,
-            Cpu6502.OP_LDA_ABS,
-            0x00,
-            0x02,
-            Cpu6502.OP_LDA_ABSX,
-            0x00,
-            0x02,
-            Cpu6502.OP_LDA_ABSY,
-            0x00,
-            0x02,
-            Cpu6502.OP_LDA_INDX,
-            0x30,
-            Cpu6502.OP_LDA_INDY,
-            0x40
-        )
-        val (cpu, bus, _) = cpuWithProgram(ldaAddressingProgram)
-        bus.write(0x0010, 0x22)
+    fun `lda zero page x loads accumulator from indexed zero page address`() {
+        val ldaZeroPageXProgram = program(Cpu6502.OP_LDX_IMM, 0x04, Cpu6502.OP_LDA_ZPX, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(ldaZeroPageXProgram)
         bus.write(0x0014, 0x33)
-        bus.write(0x0200, 0x44)
+
+        cpu.step()
+        cpu.step()
+
+        assertEquals(0x33, cpu.a, "LDA zero page,X loads from operand plus X")
+    }
+
+    @Test
+    fun `lda absolute x loads accumulator from indexed absolute address`() {
+        val ldaAbsoluteXProgram = program(Cpu6502.OP_LDX_IMM, 0x04, Cpu6502.OP_LDA_ABSX, 0x00, 0x02)
+        val (cpu, bus, _) = cpuWithProgram(ldaAbsoluteXProgram)
         bus.write(0x0204, 0x55)
+
+        cpu.step()
+        cpu.step()
+
+        assertEquals(0x55, cpu.a, "LDA absolute,X loads from operand plus X")
+    }
+
+    @Test
+    fun `lda absolute y loads accumulator from indexed absolute address`() {
+        val ldaAbsoluteYProgram = program(Cpu6502.OP_LDY_IMM, 0x05, Cpu6502.OP_LDA_ABSY, 0x00, 0x02)
+        val (cpu, bus, _) = cpuWithProgram(ldaAbsoluteYProgram)
         bus.write(0x0205, 0x66)
+
+        cpu.step()
+        cpu.step()
+
+        assertEquals(0x66, cpu.a, "LDA absolute,Y loads from operand plus Y")
+    }
+
+    @Test
+    fun `lda indexed indirect loads accumulator through zero page pointer plus x`() {
+        val ldaIndexedIndirectProgram = program(Cpu6502.OP_LDX_IMM, 0x04, Cpu6502.OP_LDA_INDX, 0x30)
+        val (cpu, bus, _) = cpuWithProgram(ldaIndexedIndirectProgram)
         bus.write(0x0034, 0x50)
         bus.write(0x0035, 0x02)
         bus.write(0x0250, 0x77)
+
+        cpu.step()
+        cpu.step()
+
+        assertEquals(0x77, cpu.a, "LDA indexed-indirect follows the zero page pointer selected by X")
+    }
+
+    @Test
+    fun `lda indirect indexed loads accumulator through zero page pointer plus y`() {
+        val ldaIndirectIndexedProgram = program(Cpu6502.OP_LDY_IMM, 0x05, Cpu6502.OP_LDA_INDY, 0x40)
+        val (cpu, bus, _) = cpuWithProgram(ldaIndirectIndexedProgram)
         bus.write(0x0040, 0x60)
         bus.write(0x0041, 0x02)
         bus.write(0x0265, 0x88)
@@ -246,167 +264,70 @@ class Cpu6502Test {
         cpu.step()
         cpu.step()
 
-        cpu.step()
-        assertEquals(0x11, cpu.a, "LDA immediate loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x22, cpu.a, "LDA zero page loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x33, cpu.a, "LDA zero page,X loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x44, cpu.a, "LDA absolute loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x55, cpu.a, "LDA absolute,X loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x66, cpu.a, "LDA absolute,Y loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x77, cpu.a, "LDA indexed-indirect loads the accumulator")
-
-        cpu.step()
-        assertEquals(0x88, cpu.a, "LDA indirect-indexed loads the accumulator")
+        assertEquals(0x88, cpu.a, "LDA indirect-indexed follows the zero page pointer and applies Y")
     }
 
     @Test
-    fun `ldx and ldy opcodes load index registers from every addressing mode`() {
-        val loadIndexRegistersProgram = program(
-            Cpu6502.OP_LDY_IMM,
-            0x03,
-            Cpu6502.OP_LDX_IMM,
-            0x11,
-            Cpu6502.OP_LDX_ZP,
-            0x10,
-            Cpu6502.OP_LDX_ZPY,
-            0x10,
-            Cpu6502.OP_LDX_ABS,
-            0x00,
-            0x02,
-            Cpu6502.OP_LDX_ABSY,
-            0x00,
-            0x02,
-            Cpu6502.OP_LDY_IMM,
-            0x22,
-            Cpu6502.OP_LDY_ZP,
-            0x11,
-            Cpu6502.OP_LDY_ZPX,
-            0x10,
-            Cpu6502.OP_LDY_ABS,
-            0x30,
-            0x02,
-            Cpu6502.OP_LDY_ABSX,
-            0x30,
-            0x02
-        )
-        val (cpu, bus, _) = cpuWithProgram(loadIndexRegistersProgram)
-        bus.write(0x0010, 0x33)
+    fun `ldx zero page y loads x from indexed zero page address`() {
+        val ldxZeroPageYProgram = program(Cpu6502.OP_LDY_IMM, 0x03, Cpu6502.OP_LDX_ZPY, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(ldxZeroPageYProgram)
         bus.write(0x0013, 0x44)
-        bus.write(0x0200, 0x55)
-        bus.write(0x0203, 0x66)
-        bus.write(0x0011, 0x77)
-        bus.write(0x0076, 0x88)
-        bus.write(0x0230, 0x99)
-        bus.write(0x0296, 0xAA)
 
         cpu.step()
-        assertEquals(0x03, cpu.y, "LDY immediate prepares the Y index")
-
         cpu.step()
-        assertEquals(0x11, cpu.x, "LDX immediate loads the X register")
 
-        cpu.step()
-        assertEquals(0x33, cpu.x, "LDX zero page loads the X register")
-
-        cpu.step()
-        assertEquals(0x44, cpu.x, "LDX zero page,Y loads the X register")
-
-        cpu.step()
-        assertEquals(0x55, cpu.x, "LDX absolute loads the X register")
-
-        cpu.step()
-        assertEquals(0x66, cpu.x, "LDX absolute,Y loads the X register")
-
-        cpu.step()
-        assertEquals(0x22, cpu.y, "LDY immediate loads the Y register")
-
-        cpu.step()
-        assertEquals(0x77, cpu.y, "LDY zero page loads the Y register")
-
-        cpu.step()
-        assertEquals(0x88, cpu.y, "LDY zero page,X loads the Y register")
-
-        cpu.step()
-        assertEquals(0x99, cpu.y, "LDY absolute loads the Y register")
-
-        cpu.step()
-        assertEquals(0xAA, cpu.y, "LDY absolute,X loads the Y register")
+        assertEquals(0x44, cpu.x, "LDX zero page,Y loads from operand plus Y")
     }
 
     @Test
-    fun `sta stx and sty opcodes store registers through every addressing mode`() {
-        val storeRegistersProgram = program(
+    fun `ldy zero page x loads y from indexed zero page address`() {
+        val ldyZeroPageXProgram = program(Cpu6502.OP_LDX_IMM, 0x04, Cpu6502.OP_LDY_ZPX, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(ldyZeroPageXProgram)
+        bus.write(0x0014, 0x88)
+
+        cpu.step()
+        cpu.step()
+
+        assertEquals(0x88, cpu.y, "LDY zero page,X loads from operand plus X")
+    }
+
+    @Test
+    fun `sta indirect indexed stores accumulator through zero page pointer plus y`() {
+        val staIndirectIndexedProgram = program(
             Cpu6502.OP_LDA_IMM,
             0x44,
+            Cpu6502.OP_LDY_IMM,
+            0x05,
+            Cpu6502.OP_STA_INDY,
+            0x40
+        )
+        val (cpu, bus, _) = cpuWithProgram(staIndirectIndexedProgram)
+        bus.write(0x0040, 0x80)
+        bus.write(0x0041, 0x02)
+
+        repeat(3) { cpu.step() }
+
+        assertEquals(0x44, bus.read(0x0285), "STA indirect-indexed stores at pointer plus Y")
+    }
+
+    @Test
+    fun `stx and sty indexed zero page opcodes store index registers`() {
+        val storeIndexRegistersProgram = program(
             Cpu6502.OP_LDX_IMM,
             0x04,
             Cpu6502.OP_LDY_IMM,
             0x05,
-            Cpu6502.OP_STA_ZP,
-            0x10,
-            Cpu6502.OP_STA_ZPX,
-            0x10,
-            Cpu6502.OP_STA_ABS,
-            0x00,
-            0x02,
-            Cpu6502.OP_STA_ABSX,
-            0x00,
-            0x02,
-            Cpu6502.OP_STA_ABSY,
-            0x00,
-            0x02,
-            Cpu6502.OP_STA_INDX,
-            0x30,
-            Cpu6502.OP_STA_INDY,
-            0x40,
-            Cpu6502.OP_STX_ZP,
-            0x50,
             Cpu6502.OP_STX_ZPY,
             0x50,
-            Cpu6502.OP_STX_ABS,
-            0x30,
-            0x02,
-            Cpu6502.OP_STY_ZP,
-            0x60,
             Cpu6502.OP_STY_ZPX,
-            0x60,
-            Cpu6502.OP_STY_ABS,
-            0x40,
-            0x02
+            0x60
         )
-        val (cpu, bus, _) = cpuWithProgram(storeRegistersProgram)
-        bus.write(0x0034, 0x70)
-        bus.write(0x0035, 0x02)
-        bus.write(0x0040, 0x80)
-        bus.write(0x0041, 0x02)
+        val (cpu, bus, _) = cpuWithProgram(storeIndexRegistersProgram)
 
-        repeat(18) { cpu.step() }
+        repeat(4) { cpu.step() }
 
-        assertEquals(0x44, bus.read(0x0010), "STA zero page stores the accumulator")
-        assertEquals(0x44, bus.read(0x0014), "STA zero page,X stores the accumulator")
-        assertEquals(0x44, bus.read(0x0200), "STA absolute stores the accumulator")
-        assertEquals(0x44, bus.read(0x0204), "STA absolute,X stores the accumulator")
-        assertEquals(0x44, bus.read(0x0205), "STA absolute,Y stores the accumulator")
-        assertEquals(0x44, bus.read(0x0270), "STA indexed-indirect stores the accumulator")
-        assertEquals(0x44, bus.read(0x0285), "STA indirect-indexed stores the accumulator")
-        assertEquals(0x04, bus.read(0x0050), "STX zero page stores the X register")
-        assertEquals(0x04, bus.read(0x0055), "STX zero page,Y stores the X register")
-        assertEquals(0x04, bus.read(0x0230), "STX absolute stores the X register")
-        assertEquals(0x05, bus.read(0x0060), "STY zero page stores the Y register")
-        assertEquals(0x05, bus.read(0x0064), "STY zero page,X stores the Y register")
-        assertEquals(0x05, bus.read(0x0240), "STY absolute stores the Y register")
+        assertEquals(0x04, bus.read(0x0055), "STX zero page,Y stores X at operand plus Y")
+        assertEquals(0x05, bus.read(0x0064), "STY zero page,X stores Y at operand plus X")
     }
 
     @Test
@@ -473,127 +394,96 @@ class Cpu6502Test {
     }
 
     @Test
-    fun `adc and sbc opcodes update accumulator carry and overflow`() {
-        val arithmeticProgram = program(
-            Cpu6502.OP_CLC,
-            Cpu6502.OP_LDA_IMM,
-            0x50,
-            Cpu6502.OP_ADC_IMM,
-            0x50,
-            Cpu6502.OP_SBC_IMM,
-            0x20,
-            Cpu6502.OP_SBC_IMM_UNOFFICIAL,
-            0x10,
-            Cpu6502.OP_ADC_ZP,
-            0x10,
-            Cpu6502.OP_ADC_ZPX,
-            0x10,
-            Cpu6502.OP_ADC_ABS,
-            0x00,
-            0x02,
-            Cpu6502.OP_ADC_ABSX,
-            0x00,
-            0x02,
-            Cpu6502.OP_ADC_ABSY,
-            0x00,
-            0x02,
-            Cpu6502.OP_ADC_INDX,
-            0x30,
-            Cpu6502.OP_ADC_INDY,
-            0x40,
-            Cpu6502.OP_SBC_ZP,
-            0x11,
-            Cpu6502.OP_SBC_ZPX,
-            0x11,
-            Cpu6502.OP_SBC_ABS,
-            0x01,
-            0x02,
-            Cpu6502.OP_SBC_ABSX,
-            0x01,
-            0x02,
-            Cpu6502.OP_SBC_ABSY,
-            0x01,
-            0x02,
-            Cpu6502.OP_SBC_INDX,
-            0x50,
-            Cpu6502.OP_SBC_INDY,
-            0x60
-        )
-        val (cpu, bus, _) = cpuWithProgram(arithmeticProgram)
-        bus.write(0x0010, 0x01)
-        bus.write(0x0014, 0x01)
-        bus.write(0x0200, 0x01)
-        bus.write(0x0204, 0x01)
-        bus.write(0x0205, 0x01)
-        bus.write(0x0034, 0x70)
-        bus.write(0x0035, 0x02)
-        bus.write(0x0270, 0x01)
-        bus.write(0x0040, 0x80)
-        bus.write(0x0041, 0x02)
-        bus.write(0x0280, 0x01)
-        bus.write(0x0011, 0x01)
-        bus.write(0x0015, 0x01)
-        bus.write(0x0201, 0x01)
-        bus.write(0x0205, 0x01)
-        bus.write(0x0206, 0x01)
-        bus.write(0x0054, 0x90)
-        bus.write(0x0055, 0x02)
-        bus.write(0x0290, 0x01)
-        bus.write(0x0060, 0xA0)
-        bus.write(0x0061, 0x02)
-        bus.write(0x02A5, 0x01)
+    fun `adc zero page adds memory and carry to accumulator`() {
+        val adcZeroPageProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x10, Cpu6502.OP_ADC_ZP, 0x20)
+        val (cpu, bus, _) = cpuWithProgram(adcZeroPageProgram)
+        bus.write(0x0020, 0x0F)
 
-        cpu.step()
-        cpu.step()
-        cpu.step()
-        assertEquals(0xA0, cpu.a, "ADC immediate adds to the accumulator")
-        assertTrue((cpu.status and Cpu6502.V) != 0, "ADC immediate sets overflow for signed overflow")
+        repeat(3) { cpu.step() }
 
-        repeat(16) { cpu.step() }
-        assertEquals(0x70, cpu.a, "ADC and SBC addressing variants update the accumulator")
+        assertEquals(0x20, cpu.a, "ADC zero page adds memory and incoming carry")
+        assertFalse((cpu.status and Cpu6502.C) != 0, "ADC clears carry when result fits in a byte")
     }
 
     @Test
-    fun `logical opcodes and ora and eor combine accumulator with memory`() {
-        val logicalProgram = program(
+    fun `adc absolute indexed addressing reads from indexed memory`() {
+        val adcAbsoluteIndexedProgram = program(
             Cpu6502.OP_LDA_IMM,
-            0xF0.toByte(),
-            Cpu6502.OP_AND_IMM,
-            0x0F,
-            Cpu6502.OP_ORA_IMM,
-            0x30,
-            Cpu6502.OP_EOR_IMM,
             0x10,
-            Cpu6502.OP_AND_ZP,
-            0x10,
-            Cpu6502.OP_ORA_ZP,
-            0x11,
-            Cpu6502.OP_EOR_ZP,
-            0x12
+            Cpu6502.OP_LDX_IMM,
+            0x04,
+            Cpu6502.OP_ADC_ABSX,
+            0x00,
+            0x02
         )
-        val (cpu, bus, _) = cpuWithProgram(logicalProgram)
-        bus.write(0x0010, 0x2F)
-        bus.write(0x0011, 0x80)
-        bus.write(0x0012, 0xFF)
+        val (cpu, bus, _) = cpuWithProgram(adcAbsoluteIndexedProgram)
+        bus.write(0x0204, 0x05)
+
+        repeat(3) { cpu.step() }
+
+        assertEquals(0x15, cpu.a, "ADC absolute,X reads from base address plus X")
+    }
+
+    @Test
+    fun `sbc immediate subtracts from accumulator using carry`() {
+        val sbcImmediateProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_SBC_IMM, 0x10)
+        val (cpu, _, _) = cpuWithProgram(sbcImmediateProgram)
+
+        repeat(3) { cpu.step() }
+
+        assertEquals(0x20, cpu.a, "SBC immediate subtracts operand from accumulator")
+        assertTrue((cpu.status and Cpu6502.C) != 0, "SBC keeps carry set when no borrow occurs")
+    }
+
+    @Test
+    fun `unofficial sbc immediate behaves like sbc immediate`() {
+        val unofficialSbcImmediateProgram = program(
+            Cpu6502.OP_SEC,
+            Cpu6502.OP_LDA_IMM,
+            0x30,
+            Cpu6502.OP_SBC_IMM_UNOFFICIAL,
+            0x10
+        )
+        val (cpu, _, _) = cpuWithProgram(unofficialSbcImmediateProgram)
+
+        repeat(3) { cpu.step() }
+
+        assertEquals(0x20, cpu.a, "Unofficial SBC immediate subtracts operand from accumulator")
+    }
+
+    @Test
+    fun `and immediate masks accumulator and updates zero flag`() {
+        val andImmediateProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_AND_IMM, 0x0F)
+        val (cpu, _, _) = cpuWithProgram(andImmediateProgram)
 
         cpu.step()
         cpu.step()
+
         assertEquals(0x00, cpu.a, "AND immediate masks the accumulator")
         assertTrue((cpu.status and Cpu6502.Z) != 0, "AND immediate updates the zero flag")
+    }
+
+    @Test
+    fun `ora zero page sets accumulator bits from memory`() {
+        val oraZeroPageProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_ORA_ZP, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(oraZeroPageProgram)
+        bus.write(0x0010, 0x80)
 
         cpu.step()
-        assertEquals(0x30, cpu.a, "ORA immediate sets accumulator bits")
-
         cpu.step()
-        assertEquals(0x20, cpu.a, "EOR immediate toggles accumulator bits")
 
-        cpu.step()
-        assertEquals(0x20, cpu.a, "AND zero page masks accumulator bits")
-
-        cpu.step()
         assertEquals(0xA0, cpu.a, "ORA zero page sets accumulator bits from memory")
+    }
+
+    @Test
+    fun `eor zero page toggles accumulator bits from memory`() {
+        val eorZeroPageProgram = program(Cpu6502.OP_LDA_IMM, 0xA0, Cpu6502.OP_EOR_ZP, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(eorZeroPageProgram)
+        bus.write(0x0010, 0xFF)
 
         cpu.step()
+        cpu.step()
+
         assertEquals(0x5F, cpu.a, "EOR zero page toggles accumulator bits from memory")
     }
 
@@ -647,96 +537,96 @@ class Cpu6502Test {
     }
 
     @Test
-    fun `inc dec inx iny dex and dey opcodes mutate values and flags`() {
-        val incrementDecrementProgram = program(
-            Cpu6502.OP_INC_ZP,
-            0x10,
-            Cpu6502.OP_DEC_ZP,
-            0x10,
-            Cpu6502.OP_LDX_IMM,
-            0xFF.toByte(),
-            Cpu6502.OP_INX,
-            Cpu6502.OP_DEX,
-            Cpu6502.OP_LDY_IMM,
-            0x00,
-            Cpu6502.OP_DEY,
-            Cpu6502.OP_INY
-        )
-        val (cpu, bus, _) = cpuWithProgram(incrementDecrementProgram)
+    fun `inc zero page increments memory and updates negative flag`() {
+        val incZeroPageProgram = program(Cpu6502.OP_INC_ZP, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(incZeroPageProgram)
         bus.write(0x0010, 0x7F)
 
         cpu.step()
+
         assertEquals(0x80, bus.read(0x0010), "INC zero page increments memory")
         assertTrue((cpu.status and Cpu6502.N) != 0, "INC zero page updates the negative flag")
-
-        cpu.step()
-        assertEquals(0x7F, bus.read(0x0010), "DEC zero page decrements memory")
-
-        cpu.step()
-        cpu.step()
-        assertEquals(0x00, cpu.x, "INX increments X with 8-bit wraparound")
-        assertTrue((cpu.status and Cpu6502.Z) != 0, "INX updates the zero flag")
-
-        cpu.step()
-        assertEquals(0xFF, cpu.x, "DEX decrements X with 8-bit wraparound")
-
-        cpu.step()
-        cpu.step()
-        assertEquals(0xFF, cpu.y, "DEY decrements Y with 8-bit wraparound")
-
-        cpu.step()
-        assertEquals(0x00, cpu.y, "INY increments Y with 8-bit wraparound")
     }
 
     @Test
-    fun `shift and rotate opcodes move bits through carry`() {
-        val shiftRotateProgram = program(
-            Cpu6502.OP_LDA_IMM,
-            0x81.toByte(),
-            Cpu6502.OP_ASL_ACC,
-            Cpu6502.OP_LSR_ACC,
-            Cpu6502.OP_ROL_ACC,
-            Cpu6502.OP_ROR_ACC,
-            Cpu6502.OP_ASL_ZP,
-            0x10,
-            Cpu6502.OP_LSR_ZP,
-            0x11,
-            Cpu6502.OP_ROL_ZP,
-            0x12,
-            Cpu6502.OP_ROR_ZP,
-            0x13
-        )
-        val (cpu, bus, _) = cpuWithProgram(shiftRotateProgram)
+    fun `dec zero page decrements memory`() {
+        val decZeroPageProgram = program(Cpu6502.OP_DEC_ZP, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(decZeroPageProgram)
         bus.write(0x0010, 0x80)
-        bus.write(0x0011, 0x01)
-        bus.write(0x0012, 0x40)
-        bus.write(0x0013, 0x02)
+
+        cpu.step()
+
+        assertEquals(0x7F, bus.read(0x0010), "DEC zero page decrements memory")
+    }
+
+    @Test
+    fun `inx wraps x register and updates zero flag`() {
+        val inxWrapProgram = program(Cpu6502.OP_LDX_IMM, 0xFF, Cpu6502.OP_INX)
+        val (cpu, _, _) = cpuWithProgram(inxWrapProgram)
 
         cpu.step()
         cpu.step()
+
+        assertEquals(0x00, cpu.x, "INX increments X with 8-bit wraparound")
+        assertTrue((cpu.status and Cpu6502.Z) != 0, "INX updates the zero flag")
+    }
+
+    @Test
+    fun `dey wraps y register and updates negative flag`() {
+        val deyWrapProgram = program(Cpu6502.OP_LDY_IMM, 0x00, Cpu6502.OP_DEY)
+        val (cpu, _, _) = cpuWithProgram(deyWrapProgram)
+
+        cpu.step()
+        cpu.step()
+
+        assertEquals(0xFF, cpu.y, "DEY decrements Y with 8-bit wraparound")
+        assertTrue((cpu.status and Cpu6502.N) != 0, "DEY updates the negative flag")
+    }
+
+    @Test
+    fun `asl accumulator shifts left and moves bit seven into carry`() {
+        val aslAccumulatorProgram = program(Cpu6502.OP_LDA_IMM, 0x81, Cpu6502.OP_ASL_ACC)
+        val (cpu, _, _) = cpuWithProgram(aslAccumulatorProgram)
+
+        cpu.step()
+        cpu.step()
+
         assertEquals(0x02, cpu.a, "ASL accumulator shifts the accumulator left")
         assertTrue((cpu.status and Cpu6502.C) != 0, "ASL accumulator moves bit seven into carry")
+    }
+
+    @Test
+    fun `lsr zero page shifts memory right and moves bit zero into carry`() {
+        val lsrZeroPageProgram = program(Cpu6502.OP_LSR_ZP, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(lsrZeroPageProgram)
+        bus.write(0x0010, 0x01)
 
         cpu.step()
-        assertEquals(0x01, cpu.a, "LSR accumulator shifts the accumulator right")
+
+        assertEquals(0x00, bus.read(0x0010), "LSR zero page writes the shifted value to memory")
+        assertTrue((cpu.status and Cpu6502.C) != 0, "LSR zero page moves bit zero into carry")
+    }
+
+    @Test
+    fun `rol zero page rotates memory left through carry`() {
+        val rolZeroPageProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_ROL_ZP, 0x10)
+        val (cpu, bus, _) = cpuWithProgram(rolZeroPageProgram)
+        bus.write(0x0010, 0x40)
 
         cpu.step()
-        assertEquals(0x02, cpu.a, "ROL accumulator rotates the accumulator left through carry")
-
         cpu.step()
-        assertEquals(0x01, cpu.a, "ROR accumulator rotates the accumulator right through carry")
 
-        cpu.step()
-        assertEquals(0x00, bus.read(0x0010), "ASL zero page writes the shifted value to memory")
+        assertEquals(0x81, bus.read(0x0010), "ROL zero page writes the rotated value to memory")
+    }
 
-        cpu.step()
-        assertEquals(0x00, bus.read(0x0011), "LSR zero page writes the shifted value to memory")
+    @Test
+    fun `ror accumulator rotates right through carry`() {
+        val rorAccumulatorProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x02, Cpu6502.OP_ROR_ACC)
+        val (cpu, _, _) = cpuWithProgram(rorAccumulatorProgram)
 
-        cpu.step()
-        assertEquals(0x81, bus.read(0x0012), "ROL zero page writes the rotated value to memory")
+        repeat(3) { cpu.step() }
 
-        cpu.step()
-        assertEquals(0x01, bus.read(0x0013), "ROR zero page writes the rotated value to memory")
+        assertEquals(0x81, cpu.a, "ROR accumulator rotates the accumulator right through carry")
     }
 
     @Test
@@ -915,5 +805,569 @@ class Cpu6502Test {
 
         assertEquals(0x8001, cpu.pc, "NOP advances the program counter by one byte")
         assertEquals(2, cycles, "NOP consumes two cycles")
+    }
+
+    @Test
+    fun `remaining load opcodes read from their addressed memory`() {
+        val ldaZeroPageProgram = program(Cpu6502.OP_LDA_ZP, 0x10)
+        val (ldaZeroPageCpu, ldaZeroPageBus, _) = cpuWithProgram(ldaZeroPageProgram)
+        ldaZeroPageBus.write(0x0010, 0x21)
+        ldaZeroPageCpu.step()
+        assertEquals(0x21, ldaZeroPageCpu.a, "LDA zero page reads memory into accumulator")
+
+        val ldaAbsoluteProgram = program(Cpu6502.OP_LDA_ABS, 0x00, 0x02)
+        val (ldaAbsoluteCpu, ldaAbsoluteBus, _) = cpuWithProgram(ldaAbsoluteProgram)
+        ldaAbsoluteBus.write(0x0200, 0x22)
+        ldaAbsoluteCpu.step()
+        assertEquals(0x22, ldaAbsoluteCpu.a, "LDA absolute reads memory into accumulator")
+
+        val ldxZeroPageProgram = program(Cpu6502.OP_LDX_ZP, 0x10)
+        val (ldxZeroPageCpu, ldxZeroPageBus, _) = cpuWithProgram(ldxZeroPageProgram)
+        ldxZeroPageBus.write(0x0010, 0x23)
+        ldxZeroPageCpu.step()
+        assertEquals(0x23, ldxZeroPageCpu.x, "LDX zero page reads memory into X")
+
+        val ldxAbsoluteProgram = program(Cpu6502.OP_LDX_ABS, 0x00, 0x02)
+        val (ldxAbsoluteCpu, ldxAbsoluteBus, _) = cpuWithProgram(ldxAbsoluteProgram)
+        ldxAbsoluteBus.write(0x0200, 0x24)
+        ldxAbsoluteCpu.step()
+        assertEquals(0x24, ldxAbsoluteCpu.x, "LDX absolute reads memory into X")
+
+        val ldxAbsoluteYProgram = program(Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_LDX_ABSY, 0x00, 0x02)
+        val (ldxAbsoluteYCpu, ldxAbsoluteYBus, _) = cpuWithProgram(ldxAbsoluteYProgram)
+        ldxAbsoluteYBus.write(0x0202, 0x25)
+        ldxAbsoluteYCpu.step()
+        ldxAbsoluteYCpu.step()
+        assertEquals(0x25, ldxAbsoluteYCpu.x, "LDX absolute,Y reads memory into X")
+
+        val ldyZeroPageProgram = program(Cpu6502.OP_LDY_ZP, 0x10)
+        val (ldyZeroPageCpu, ldyZeroPageBus, _) = cpuWithProgram(ldyZeroPageProgram)
+        ldyZeroPageBus.write(0x0010, 0x26)
+        ldyZeroPageCpu.step()
+        assertEquals(0x26, ldyZeroPageCpu.y, "LDY zero page reads memory into Y")
+
+        val ldyAbsoluteProgram = program(Cpu6502.OP_LDY_ABS, 0x00, 0x02)
+        val (ldyAbsoluteCpu, ldyAbsoluteBus, _) = cpuWithProgram(ldyAbsoluteProgram)
+        ldyAbsoluteBus.write(0x0200, 0x27)
+        ldyAbsoluteCpu.step()
+        assertEquals(0x27, ldyAbsoluteCpu.y, "LDY absolute reads memory into Y")
+
+        val ldyAbsoluteXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_LDY_ABSX, 0x00, 0x02)
+        val (ldyAbsoluteXCpu, ldyAbsoluteXBus, _) = cpuWithProgram(ldyAbsoluteXProgram)
+        ldyAbsoluteXBus.write(0x0202, 0x28)
+        ldyAbsoluteXCpu.step()
+        ldyAbsoluteXCpu.step()
+        assertEquals(0x28, ldyAbsoluteXCpu.y, "LDY absolute,X reads memory into Y")
+    }
+
+    @Test
+    fun `remaining store opcodes write registers to their addressed memory`() {
+        val staZeroPageXProgram = program(Cpu6502.OP_LDA_IMM, 0x31, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_STA_ZPX, 0x10)
+        val (staZeroPageXCpu, staZeroPageXBus, _) = cpuWithProgram(staZeroPageXProgram)
+        repeat(3) { staZeroPageXCpu.step() }
+        assertEquals(0x31, staZeroPageXBus.read(0x0012), "STA zero page,X writes accumulator to indexed memory")
+
+        val staAbsoluteProgram = program(Cpu6502.OP_LDA_IMM, 0x32, Cpu6502.OP_STA_ABS, 0x00, 0x02)
+        val (staAbsoluteCpu, staAbsoluteBus, _) = cpuWithProgram(staAbsoluteProgram)
+        staAbsoluteCpu.step()
+        staAbsoluteCpu.step()
+        assertEquals(0x32, staAbsoluteBus.read(0x0200), "STA absolute writes accumulator to memory")
+
+        val staAbsoluteXProgram = program(Cpu6502.OP_LDA_IMM, 0x33, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_STA_ABSX, 0x00, 0x02)
+        val (staAbsoluteXCpu, staAbsoluteXBus, _) = cpuWithProgram(staAbsoluteXProgram)
+        repeat(3) { staAbsoluteXCpu.step() }
+        assertEquals(0x33, staAbsoluteXBus.read(0x0202), "STA absolute,X writes accumulator to indexed memory")
+
+        val staAbsoluteYProgram = program(Cpu6502.OP_LDA_IMM, 0x34, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_STA_ABSY, 0x00, 0x02)
+        val (staAbsoluteYCpu, staAbsoluteYBus, _) = cpuWithProgram(staAbsoluteYProgram)
+        repeat(3) { staAbsoluteYCpu.step() }
+        assertEquals(0x34, staAbsoluteYBus.read(0x0202), "STA absolute,Y writes accumulator to indexed memory")
+
+        val staIndexedIndirectProgram = program(Cpu6502.OP_LDA_IMM, 0x35, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_STA_INDX, 0x20)
+        val (staIndexedIndirectCpu, staIndexedIndirectBus, _) = cpuWithProgram(staIndexedIndirectProgram)
+        staIndexedIndirectBus.write(0x0022, 0x00)
+        staIndexedIndirectBus.write(0x0023, 0x02)
+        repeat(3) { staIndexedIndirectCpu.step() }
+        assertEquals(0x35, staIndexedIndirectBus.read(0x0200), "STA indexed-indirect writes accumulator through pointer")
+
+        val stxZeroPageProgram = program(Cpu6502.OP_LDX_IMM, 0x36, Cpu6502.OP_STX_ZP, 0x10)
+        val (stxZeroPageCpu, stxZeroPageBus, _) = cpuWithProgram(stxZeroPageProgram)
+        stxZeroPageCpu.step()
+        stxZeroPageCpu.step()
+        assertEquals(0x36, stxZeroPageBus.read(0x0010), "STX zero page writes X to memory")
+
+        val stxAbsoluteProgram = program(Cpu6502.OP_LDX_IMM, 0x37, Cpu6502.OP_STX_ABS, 0x00, 0x02)
+        val (stxAbsoluteCpu, stxAbsoluteBus, _) = cpuWithProgram(stxAbsoluteProgram)
+        stxAbsoluteCpu.step()
+        stxAbsoluteCpu.step()
+        assertEquals(0x37, stxAbsoluteBus.read(0x0200), "STX absolute writes X to memory")
+
+        val styZeroPageProgram = program(Cpu6502.OP_LDY_IMM, 0x38, Cpu6502.OP_STY_ZP, 0x10)
+        val (styZeroPageCpu, styZeroPageBus, _) = cpuWithProgram(styZeroPageProgram)
+        styZeroPageCpu.step()
+        styZeroPageCpu.step()
+        assertEquals(0x38, styZeroPageBus.read(0x0010), "STY zero page writes Y to memory")
+
+        val styAbsoluteProgram = program(Cpu6502.OP_LDY_IMM, 0x39, Cpu6502.OP_STY_ABS, 0x00, 0x02)
+        val (styAbsoluteCpu, styAbsoluteBus, _) = cpuWithProgram(styAbsoluteProgram)
+        styAbsoluteCpu.step()
+        styAbsoluteCpu.step()
+        assertEquals(0x39, styAbsoluteBus.read(0x0200), "STY absolute writes Y to memory")
+    }
+
+    @Test
+    fun `remaining adc opcodes add addressed memory to accumulator`() {
+        val adcZeroPageXProgram = program(Cpu6502.OP_LDA_IMM, 0x10, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ADC_ZPX, 0x20)
+        val (adcZeroPageXCpu, adcZeroPageXBus, _) = cpuWithProgram(adcZeroPageXProgram)
+        adcZeroPageXBus.write(0x0022, 0x03)
+        repeat(3) { adcZeroPageXCpu.step() }
+        assertEquals(0x13, adcZeroPageXCpu.a, "ADC zero page,X adds indexed memory")
+
+        val adcAbsoluteProgram = program(Cpu6502.OP_LDA_IMM, 0x10, Cpu6502.OP_ADC_ABS, 0x00, 0x02)
+        val (adcAbsoluteCpu, adcAbsoluteBus, _) = cpuWithProgram(adcAbsoluteProgram)
+        adcAbsoluteBus.write(0x0200, 0x04)
+        adcAbsoluteCpu.step()
+        adcAbsoluteCpu.step()
+        assertEquals(0x14, adcAbsoluteCpu.a, "ADC absolute adds memory")
+
+        val adcAbsoluteYProgram = program(Cpu6502.OP_LDA_IMM, 0x10, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_ADC_ABSY, 0x00, 0x02)
+        val (adcAbsoluteYCpu, adcAbsoluteYBus, _) = cpuWithProgram(adcAbsoluteYProgram)
+        adcAbsoluteYBus.write(0x0202, 0x05)
+        repeat(3) { adcAbsoluteYCpu.step() }
+        assertEquals(0x15, adcAbsoluteYCpu.a, "ADC absolute,Y adds indexed memory")
+
+        val adcIndexedIndirectProgram = program(Cpu6502.OP_LDA_IMM, 0x10, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ADC_INDX, 0x20)
+        val (adcIndexedIndirectCpu, adcIndexedIndirectBus, _) = cpuWithProgram(adcIndexedIndirectProgram)
+        adcIndexedIndirectBus.write(0x0022, 0x00)
+        adcIndexedIndirectBus.write(0x0023, 0x02)
+        adcIndexedIndirectBus.write(0x0200, 0x06)
+        repeat(3) { adcIndexedIndirectCpu.step() }
+        assertEquals(0x16, adcIndexedIndirectCpu.a, "ADC indexed-indirect adds memory through pointer")
+
+        val adcIndirectIndexedProgram = program(Cpu6502.OP_LDA_IMM, 0x10, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_ADC_INDY, 0x20)
+        val (adcIndirectIndexedCpu, adcIndirectIndexedBus, _) = cpuWithProgram(adcIndirectIndexedProgram)
+        adcIndirectIndexedBus.write(0x0020, 0x00)
+        adcIndirectIndexedBus.write(0x0021, 0x02)
+        adcIndirectIndexedBus.write(0x0202, 0x07)
+        repeat(3) { adcIndirectIndexedCpu.step() }
+        assertEquals(0x17, adcIndirectIndexedCpu.a, "ADC indirect-indexed adds memory through pointer plus Y")
+    }
+
+    @Test
+    fun `remaining sbc opcodes subtract addressed memory from accumulator`() {
+        val sbcZeroPageProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_SBC_ZP, 0x10)
+        val (sbcZeroPageCpu, sbcZeroPageBus, _) = cpuWithProgram(sbcZeroPageProgram)
+        sbcZeroPageBus.write(0x0010, 0x01)
+        repeat(3) { sbcZeroPageCpu.step() }
+        assertEquals(0x1F, sbcZeroPageCpu.a, "SBC zero page subtracts memory")
+
+        val sbcZeroPageXProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_SBC_ZPX, 0x10)
+        val (sbcZeroPageXCpu, sbcZeroPageXBus, _) = cpuWithProgram(sbcZeroPageXProgram)
+        sbcZeroPageXBus.write(0x0012, 0x02)
+        repeat(4) { sbcZeroPageXCpu.step() }
+        assertEquals(0x1E, sbcZeroPageXCpu.a, "SBC zero page,X subtracts indexed memory")
+
+        val sbcAbsoluteProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_SBC_ABS, 0x00, 0x02)
+        val (sbcAbsoluteCpu, sbcAbsoluteBus, _) = cpuWithProgram(sbcAbsoluteProgram)
+        sbcAbsoluteBus.write(0x0200, 0x03)
+        repeat(3) { sbcAbsoluteCpu.step() }
+        assertEquals(0x1D, sbcAbsoluteCpu.a, "SBC absolute subtracts memory")
+
+        val sbcAbsoluteXProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_SBC_ABSX, 0x00, 0x02)
+        val (sbcAbsoluteXCpu, sbcAbsoluteXBus, _) = cpuWithProgram(sbcAbsoluteXProgram)
+        sbcAbsoluteXBus.write(0x0202, 0x04)
+        repeat(4) { sbcAbsoluteXCpu.step() }
+        assertEquals(0x1C, sbcAbsoluteXCpu.a, "SBC absolute,X subtracts indexed memory")
+
+        val sbcAbsoluteYProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_SBC_ABSY, 0x00, 0x02)
+        val (sbcAbsoluteYCpu, sbcAbsoluteYBus, _) = cpuWithProgram(sbcAbsoluteYProgram)
+        sbcAbsoluteYBus.write(0x0202, 0x05)
+        repeat(4) { sbcAbsoluteYCpu.step() }
+        assertEquals(0x1B, sbcAbsoluteYCpu.a, "SBC absolute,Y subtracts indexed memory")
+
+        val sbcIndexedIndirectProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_SBC_INDX, 0x20)
+        val (sbcIndexedIndirectCpu, sbcIndexedIndirectBus, _) = cpuWithProgram(sbcIndexedIndirectProgram)
+        sbcIndexedIndirectBus.write(0x0022, 0x00)
+        sbcIndexedIndirectBus.write(0x0023, 0x02)
+        sbcIndexedIndirectBus.write(0x0200, 0x06)
+        repeat(4) { sbcIndexedIndirectCpu.step() }
+        assertEquals(0x1A, sbcIndexedIndirectCpu.a, "SBC indexed-indirect subtracts memory through pointer")
+
+        val sbcIndirectIndexedProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_SBC_INDY, 0x20)
+        val (sbcIndirectIndexedCpu, sbcIndirectIndexedBus, _) = cpuWithProgram(sbcIndirectIndexedProgram)
+        sbcIndirectIndexedBus.write(0x0020, 0x00)
+        sbcIndirectIndexedBus.write(0x0021, 0x02)
+        sbcIndirectIndexedBus.write(0x0202, 0x07)
+        repeat(4) { sbcIndirectIndexedCpu.step() }
+        assertEquals(0x19, sbcIndirectIndexedCpu.a, "SBC indirect-indexed subtracts memory through pointer plus Y")
+    }
+
+    @Test
+    fun `remaining and opcodes mask accumulator with addressed memory`() {
+        val andZeroPageProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_AND_ZP, 0x10)
+        val (andZeroPageCpu, andZeroPageBus, _) = cpuWithProgram(andZeroPageProgram)
+        andZeroPageBus.write(0x0010, 0x0F)
+        andZeroPageCpu.step()
+        andZeroPageCpu.step()
+        assertEquals(0x03, andZeroPageCpu.a, "AND zero page masks accumulator with memory")
+
+        val andZeroPageXProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_AND_ZPX, 0x10)
+        val (andZeroPageXCpu, andZeroPageXBus, _) = cpuWithProgram(andZeroPageXProgram)
+        andZeroPageXBus.write(0x0012, 0x0F)
+        repeat(3) { andZeroPageXCpu.step() }
+        assertEquals(0x03, andZeroPageXCpu.a, "AND zero page,X masks accumulator with indexed memory")
+
+        val andAbsoluteProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_AND_ABS, 0x00, 0x02)
+        val (andAbsoluteCpu, andAbsoluteBus, _) = cpuWithProgram(andAbsoluteProgram)
+        andAbsoluteBus.write(0x0200, 0x0F)
+        andAbsoluteCpu.step()
+        andAbsoluteCpu.step()
+        assertEquals(0x03, andAbsoluteCpu.a, "AND absolute masks accumulator with memory")
+
+        val andAbsoluteXProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_AND_ABSX, 0x00, 0x02)
+        val (andAbsoluteXCpu, andAbsoluteXBus, _) = cpuWithProgram(andAbsoluteXProgram)
+        andAbsoluteXBus.write(0x0202, 0x0F)
+        repeat(3) { andAbsoluteXCpu.step() }
+        assertEquals(0x03, andAbsoluteXCpu.a, "AND absolute,X masks accumulator with indexed memory")
+
+        val andAbsoluteYProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_AND_ABSY, 0x00, 0x02)
+        val (andAbsoluteYCpu, andAbsoluteYBus, _) = cpuWithProgram(andAbsoluteYProgram)
+        andAbsoluteYBus.write(0x0202, 0x0F)
+        repeat(3) { andAbsoluteYCpu.step() }
+        assertEquals(0x03, andAbsoluteYCpu.a, "AND absolute,Y masks accumulator with indexed memory")
+
+        val andIndexedIndirectProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_AND_INDX, 0x20)
+        val (andIndexedIndirectCpu, andIndexedIndirectBus, _) = cpuWithProgram(andIndexedIndirectProgram)
+        andIndexedIndirectBus.write(0x0022, 0x00)
+        andIndexedIndirectBus.write(0x0023, 0x02)
+        andIndexedIndirectBus.write(0x0200, 0x0F)
+        repeat(3) { andIndexedIndirectCpu.step() }
+        assertEquals(0x03, andIndexedIndirectCpu.a, "AND indexed-indirect masks accumulator through pointer")
+
+        val andIndirectIndexedProgram = program(Cpu6502.OP_LDA_IMM, 0xF3, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_AND_INDY, 0x20)
+        val (andIndirectIndexedCpu, andIndirectIndexedBus, _) = cpuWithProgram(andIndirectIndexedProgram)
+        andIndirectIndexedBus.write(0x0020, 0x00)
+        andIndirectIndexedBus.write(0x0021, 0x02)
+        andIndirectIndexedBus.write(0x0202, 0x0F)
+        repeat(3) { andIndirectIndexedCpu.step() }
+        assertEquals(0x03, andIndirectIndexedCpu.a, "AND indirect-indexed masks accumulator through pointer plus Y")
+    }
+
+    @Test
+    fun `remaining ora opcodes set accumulator bits from addressed memory`() {
+        val oraImmediateProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_ORA_IMM, 0x0F)
+        val (oraImmediateCpu, _, _) = cpuWithProgram(oraImmediateProgram)
+        oraImmediateCpu.step()
+        oraImmediateCpu.step()
+        assertEquals(0x3F, oraImmediateCpu.a, "ORA immediate sets accumulator bits from operand")
+
+        val oraZeroPageXProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ORA_ZPX, 0x10)
+        val (oraZeroPageXCpu, oraZeroPageXBus, _) = cpuWithProgram(oraZeroPageXProgram)
+        oraZeroPageXBus.write(0x0012, 0x0F)
+        repeat(3) { oraZeroPageXCpu.step() }
+        assertEquals(0x3F, oraZeroPageXCpu.a, "ORA zero page,X sets accumulator bits from indexed memory")
+
+        val oraAbsoluteProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_ORA_ABS, 0x00, 0x02)
+        val (oraAbsoluteCpu, oraAbsoluteBus, _) = cpuWithProgram(oraAbsoluteProgram)
+        oraAbsoluteBus.write(0x0200, 0x0F)
+        oraAbsoluteCpu.step()
+        oraAbsoluteCpu.step()
+        assertEquals(0x3F, oraAbsoluteCpu.a, "ORA absolute sets accumulator bits from memory")
+
+        val oraAbsoluteXProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ORA_ABSX, 0x00, 0x02)
+        val (oraAbsoluteXCpu, oraAbsoluteXBus, _) = cpuWithProgram(oraAbsoluteXProgram)
+        oraAbsoluteXBus.write(0x0202, 0x0F)
+        repeat(3) { oraAbsoluteXCpu.step() }
+        assertEquals(0x3F, oraAbsoluteXCpu.a, "ORA absolute,X sets accumulator bits from indexed memory")
+
+        val oraAbsoluteYProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_ORA_ABSY, 0x00, 0x02)
+        val (oraAbsoluteYCpu, oraAbsoluteYBus, _) = cpuWithProgram(oraAbsoluteYProgram)
+        oraAbsoluteYBus.write(0x0202, 0x0F)
+        repeat(3) { oraAbsoluteYCpu.step() }
+        assertEquals(0x3F, oraAbsoluteYCpu.a, "ORA absolute,Y sets accumulator bits from indexed memory")
+
+        val oraIndexedIndirectProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ORA_INDX, 0x20)
+        val (oraIndexedIndirectCpu, oraIndexedIndirectBus, _) = cpuWithProgram(oraIndexedIndirectProgram)
+        oraIndexedIndirectBus.write(0x0022, 0x00)
+        oraIndexedIndirectBus.write(0x0023, 0x02)
+        oraIndexedIndirectBus.write(0x0200, 0x0F)
+        repeat(3) { oraIndexedIndirectCpu.step() }
+        assertEquals(0x3F, oraIndexedIndirectCpu.a, "ORA indexed-indirect sets accumulator bits through pointer")
+
+        val oraIndirectIndexedProgram = program(Cpu6502.OP_LDA_IMM, 0x30, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_ORA_INDY, 0x20)
+        val (oraIndirectIndexedCpu, oraIndirectIndexedBus, _) = cpuWithProgram(oraIndirectIndexedProgram)
+        oraIndirectIndexedBus.write(0x0020, 0x00)
+        oraIndirectIndexedBus.write(0x0021, 0x02)
+        oraIndirectIndexedBus.write(0x0202, 0x0F)
+        repeat(3) { oraIndirectIndexedCpu.step() }
+        assertEquals(0x3F, oraIndirectIndexedCpu.a, "ORA indirect-indexed sets accumulator bits through pointer plus Y")
+    }
+
+    @Test
+    fun `remaining eor opcodes toggle accumulator bits from addressed memory`() {
+        val eorImmediateProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_EOR_IMM, 0x0F)
+        val (eorImmediateCpu, _, _) = cpuWithProgram(eorImmediateProgram)
+        eorImmediateCpu.step()
+        eorImmediateCpu.step()
+        assertEquals(0xFF, eorImmediateCpu.a, "EOR immediate toggles accumulator bits from operand")
+
+        val eorZeroPageXProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_EOR_ZPX, 0x10)
+        val (eorZeroPageXCpu, eorZeroPageXBus, _) = cpuWithProgram(eorZeroPageXProgram)
+        eorZeroPageXBus.write(0x0012, 0x0F)
+        repeat(3) { eorZeroPageXCpu.step() }
+        assertEquals(0xFF, eorZeroPageXCpu.a, "EOR zero page,X toggles accumulator bits from indexed memory")
+
+        val eorAbsoluteProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_EOR_ABS, 0x00, 0x02)
+        val (eorAbsoluteCpu, eorAbsoluteBus, _) = cpuWithProgram(eorAbsoluteProgram)
+        eorAbsoluteBus.write(0x0200, 0x0F)
+        eorAbsoluteCpu.step()
+        eorAbsoluteCpu.step()
+        assertEquals(0xFF, eorAbsoluteCpu.a, "EOR absolute toggles accumulator bits from memory")
+
+        val eorAbsoluteXProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_EOR_ABSX, 0x00, 0x02)
+        val (eorAbsoluteXCpu, eorAbsoluteXBus, _) = cpuWithProgram(eorAbsoluteXProgram)
+        eorAbsoluteXBus.write(0x0202, 0x0F)
+        repeat(3) { eorAbsoluteXCpu.step() }
+        assertEquals(0xFF, eorAbsoluteXCpu.a, "EOR absolute,X toggles accumulator bits from indexed memory")
+
+        val eorAbsoluteYProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_EOR_ABSY, 0x00, 0x02)
+        val (eorAbsoluteYCpu, eorAbsoluteYBus, _) = cpuWithProgram(eorAbsoluteYProgram)
+        eorAbsoluteYBus.write(0x0202, 0x0F)
+        repeat(3) { eorAbsoluteYCpu.step() }
+        assertEquals(0xFF, eorAbsoluteYCpu.a, "EOR absolute,Y toggles accumulator bits from indexed memory")
+
+        val eorIndexedIndirectProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_EOR_INDX, 0x20)
+        val (eorIndexedIndirectCpu, eorIndexedIndirectBus, _) = cpuWithProgram(eorIndexedIndirectProgram)
+        eorIndexedIndirectBus.write(0x0022, 0x00)
+        eorIndexedIndirectBus.write(0x0023, 0x02)
+        eorIndexedIndirectBus.write(0x0200, 0x0F)
+        repeat(3) { eorIndexedIndirectCpu.step() }
+        assertEquals(0xFF, eorIndexedIndirectCpu.a, "EOR indexed-indirect toggles accumulator bits through pointer")
+
+        val eorIndirectIndexedProgram = program(Cpu6502.OP_LDA_IMM, 0xF0, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_EOR_INDY, 0x20)
+        val (eorIndirectIndexedCpu, eorIndirectIndexedBus, _) = cpuWithProgram(eorIndirectIndexedProgram)
+        eorIndirectIndexedBus.write(0x0020, 0x00)
+        eorIndirectIndexedBus.write(0x0021, 0x02)
+        eorIndirectIndexedBus.write(0x0202, 0x0F)
+        repeat(3) { eorIndirectIndexedCpu.step() }
+        assertEquals(0xFF, eorIndirectIndexedCpu.a, "EOR indirect-indexed toggles accumulator bits through pointer plus Y")
+    }
+
+    @Test
+    fun `remaining compare opcodes update flags from addressed memory`() {
+        val cmpZeroPageXProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_CMP_ZPX, 0x10)
+        val (cmpZeroPageXCpu, cmpZeroPageXBus, _) = cpuWithProgram(cmpZeroPageXProgram)
+        cmpZeroPageXBus.write(0x0012, 0x20)
+        repeat(3) { cmpZeroPageXCpu.step() }
+        assertTrue((cmpZeroPageXCpu.status and Cpu6502.Z) != 0, "CMP zero page,X sets zero when values match")
+
+        val cmpAbsoluteProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_CMP_ABS, 0x00, 0x02)
+        val (cmpAbsoluteCpu, cmpAbsoluteBus, _) = cpuWithProgram(cmpAbsoluteProgram)
+        cmpAbsoluteBus.write(0x0200, 0x10)
+        cmpAbsoluteCpu.step()
+        cmpAbsoluteCpu.step()
+        assertTrue((cmpAbsoluteCpu.status and Cpu6502.C) != 0, "CMP absolute sets carry when accumulator is greater")
+
+        val cmpAbsoluteXProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_CMP_ABSX, 0x00, 0x02)
+        val (cmpAbsoluteXCpu, cmpAbsoluteXBus, _) = cpuWithProgram(cmpAbsoluteXProgram)
+        cmpAbsoluteXBus.write(0x0202, 0x30)
+        repeat(3) { cmpAbsoluteXCpu.step() }
+        assertTrue((cmpAbsoluteXCpu.status and Cpu6502.N) != 0, "CMP absolute,X sets negative when accumulator is smaller")
+
+        val cmpAbsoluteYProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_CMP_ABSY, 0x00, 0x02)
+        val (cmpAbsoluteYCpu, cmpAbsoluteYBus, _) = cpuWithProgram(cmpAbsoluteYProgram)
+        cmpAbsoluteYBus.write(0x0202, 0x20)
+        repeat(3) { cmpAbsoluteYCpu.step() }
+        assertTrue((cmpAbsoluteYCpu.status and Cpu6502.Z) != 0, "CMP absolute,Y sets zero when values match")
+
+        val cmpIndexedIndirectProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_CMP_INDX, 0x20)
+        val (cmpIndexedIndirectCpu, cmpIndexedIndirectBus, _) = cpuWithProgram(cmpIndexedIndirectProgram)
+        cmpIndexedIndirectBus.write(0x0022, 0x00)
+        cmpIndexedIndirectBus.write(0x0023, 0x02)
+        cmpIndexedIndirectBus.write(0x0200, 0x20)
+        repeat(3) { cmpIndexedIndirectCpu.step() }
+        assertTrue((cmpIndexedIndirectCpu.status and Cpu6502.Z) != 0, "CMP indexed-indirect sets zero through pointer")
+
+        val cmpIndirectIndexedProgram = program(Cpu6502.OP_LDA_IMM, 0x20, Cpu6502.OP_LDY_IMM, 0x02, Cpu6502.OP_CMP_INDY, 0x20)
+        val (cmpIndirectIndexedCpu, cmpIndirectIndexedBus, _) = cpuWithProgram(cmpIndirectIndexedProgram)
+        cmpIndirectIndexedBus.write(0x0020, 0x00)
+        cmpIndirectIndexedBus.write(0x0021, 0x02)
+        cmpIndirectIndexedBus.write(0x0202, 0x20)
+        repeat(3) { cmpIndirectIndexedCpu.step() }
+        assertTrue((cmpIndirectIndexedCpu.status and Cpu6502.Z) != 0, "CMP indirect-indexed sets zero through pointer plus Y")
+
+        val cpxAbsoluteProgram = program(Cpu6502.OP_LDX_IMM, 0x20, Cpu6502.OP_CPX_ABS, 0x00, 0x02)
+        val (cpxAbsoluteCpu, cpxAbsoluteBus, _) = cpuWithProgram(cpxAbsoluteProgram)
+        cpxAbsoluteBus.write(0x0200, 0x20)
+        cpxAbsoluteCpu.step()
+        cpxAbsoluteCpu.step()
+        assertTrue((cpxAbsoluteCpu.status and Cpu6502.Z) != 0, "CPX absolute sets zero when values match")
+
+        val cpyAbsoluteProgram = program(Cpu6502.OP_LDY_IMM, 0x20, Cpu6502.OP_CPY_ABS, 0x00, 0x02)
+        val (cpyAbsoluteCpu, cpyAbsoluteBus, _) = cpuWithProgram(cpyAbsoluteProgram)
+        cpyAbsoluteBus.write(0x0200, 0x20)
+        cpyAbsoluteCpu.step()
+        cpyAbsoluteCpu.step()
+        assertTrue((cpyAbsoluteCpu.status and Cpu6502.Z) != 0, "CPY absolute sets zero when values match")
+    }
+
+    @Test
+    fun `remaining increment and decrement opcodes mutate addressed memory and registers`() {
+        val incZeroPageXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_INC_ZPX, 0x10)
+        val (incZeroPageXCpu, incZeroPageXBus, _) = cpuWithProgram(incZeroPageXProgram)
+        incZeroPageXBus.write(0x0012, 0x01)
+        incZeroPageXCpu.step()
+        incZeroPageXCpu.step()
+        assertEquals(0x02, incZeroPageXBus.read(0x0012), "INC zero page,X increments indexed memory")
+
+        val incAbsoluteProgram = program(Cpu6502.OP_INC_ABS, 0x00, 0x02)
+        val (incAbsoluteCpu, incAbsoluteBus, _) = cpuWithProgram(incAbsoluteProgram)
+        incAbsoluteBus.write(0x0200, 0x01)
+        incAbsoluteCpu.step()
+        assertEquals(0x02, incAbsoluteBus.read(0x0200), "INC absolute increments memory")
+
+        val incAbsoluteXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_INC_ABSX, 0x00, 0x02)
+        val (incAbsoluteXCpu, incAbsoluteXBus, _) = cpuWithProgram(incAbsoluteXProgram)
+        incAbsoluteXBus.write(0x0202, 0x01)
+        incAbsoluteXCpu.step()
+        incAbsoluteXCpu.step()
+        assertEquals(0x02, incAbsoluteXBus.read(0x0202), "INC absolute,X increments indexed memory")
+
+        val decZeroPageXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_DEC_ZPX, 0x10)
+        val (decZeroPageXCpu, decZeroPageXBus, _) = cpuWithProgram(decZeroPageXProgram)
+        decZeroPageXBus.write(0x0012, 0x02)
+        decZeroPageXCpu.step()
+        decZeroPageXCpu.step()
+        assertEquals(0x01, decZeroPageXBus.read(0x0012), "DEC zero page,X decrements indexed memory")
+
+        val decAbsoluteProgram = program(Cpu6502.OP_DEC_ABS, 0x00, 0x02)
+        val (decAbsoluteCpu, decAbsoluteBus, _) = cpuWithProgram(decAbsoluteProgram)
+        decAbsoluteBus.write(0x0200, 0x02)
+        decAbsoluteCpu.step()
+        assertEquals(0x01, decAbsoluteBus.read(0x0200), "DEC absolute decrements memory")
+
+        val decAbsoluteXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_DEC_ABSX, 0x00, 0x02)
+        val (decAbsoluteXCpu, decAbsoluteXBus, _) = cpuWithProgram(decAbsoluteXProgram)
+        decAbsoluteXBus.write(0x0202, 0x02)
+        decAbsoluteXCpu.step()
+        decAbsoluteXCpu.step()
+        assertEquals(0x01, decAbsoluteXBus.read(0x0202), "DEC absolute,X decrements indexed memory")
+
+        val dexProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_DEX)
+        val (dexCpu, _, _) = cpuWithProgram(dexProgram)
+        dexCpu.step()
+        dexCpu.step()
+        assertEquals(0x01, dexCpu.x, "DEX decrements X")
+
+        val inyProgram = program(Cpu6502.OP_LDY_IMM, 0x01, Cpu6502.OP_INY)
+        val (inyCpu, _, _) = cpuWithProgram(inyProgram)
+        inyCpu.step()
+        inyCpu.step()
+        assertEquals(0x02, inyCpu.y, "INY increments Y")
+    }
+
+    @Test
+    fun `remaining shift and rotate opcodes mutate addressed values`() {
+        val aslZeroPageProgram = program(Cpu6502.OP_ASL_ZP, 0x10)
+        val (aslZeroPageCpu, aslZeroPageBus, _) = cpuWithProgram(aslZeroPageProgram)
+        aslZeroPageBus.write(0x0010, 0x40)
+        aslZeroPageCpu.step()
+        assertEquals(0x80, aslZeroPageBus.read(0x0010), "ASL zero page shifts memory left")
+
+        val aslZeroPageXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ASL_ZPX, 0x10)
+        val (aslZeroPageXCpu, aslZeroPageXBus, _) = cpuWithProgram(aslZeroPageXProgram)
+        aslZeroPageXBus.write(0x0012, 0x40)
+        aslZeroPageXCpu.step()
+        aslZeroPageXCpu.step()
+        assertEquals(0x80, aslZeroPageXBus.read(0x0012), "ASL zero page,X shifts indexed memory left")
+
+        val aslAbsoluteProgram = program(Cpu6502.OP_ASL_ABS, 0x00, 0x02)
+        val (aslAbsoluteCpu, aslAbsoluteBus, _) = cpuWithProgram(aslAbsoluteProgram)
+        aslAbsoluteBus.write(0x0200, 0x40)
+        aslAbsoluteCpu.step()
+        assertEquals(0x80, aslAbsoluteBus.read(0x0200), "ASL absolute shifts memory left")
+
+        val aslAbsoluteXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ASL_ABSX, 0x00, 0x02)
+        val (aslAbsoluteXCpu, aslAbsoluteXBus, _) = cpuWithProgram(aslAbsoluteXProgram)
+        aslAbsoluteXBus.write(0x0202, 0x40)
+        aslAbsoluteXCpu.step()
+        aslAbsoluteXCpu.step()
+        assertEquals(0x80, aslAbsoluteXBus.read(0x0202), "ASL absolute,X shifts indexed memory left")
+
+        val lsrAccumulatorProgram = program(Cpu6502.OP_LDA_IMM, 0x02, Cpu6502.OP_LSR_ACC)
+        val (lsrAccumulatorCpu, _, _) = cpuWithProgram(lsrAccumulatorProgram)
+        lsrAccumulatorCpu.step()
+        lsrAccumulatorCpu.step()
+        assertEquals(0x01, lsrAccumulatorCpu.a, "LSR accumulator shifts accumulator right")
+
+        val lsrZeroPageXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_LSR_ZPX, 0x10)
+        val (lsrZeroPageXCpu, lsrZeroPageXBus, _) = cpuWithProgram(lsrZeroPageXProgram)
+        lsrZeroPageXBus.write(0x0012, 0x02)
+        lsrZeroPageXCpu.step()
+        lsrZeroPageXCpu.step()
+        assertEquals(0x01, lsrZeroPageXBus.read(0x0012), "LSR zero page,X shifts indexed memory right")
+
+        val lsrAbsoluteProgram = program(Cpu6502.OP_LSR_ABS, 0x00, 0x02)
+        val (lsrAbsoluteCpu, lsrAbsoluteBus, _) = cpuWithProgram(lsrAbsoluteProgram)
+        lsrAbsoluteBus.write(0x0200, 0x02)
+        lsrAbsoluteCpu.step()
+        assertEquals(0x01, lsrAbsoluteBus.read(0x0200), "LSR absolute shifts memory right")
+
+        val lsrAbsoluteXProgram = program(Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_LSR_ABSX, 0x00, 0x02)
+        val (lsrAbsoluteXCpu, lsrAbsoluteXBus, _) = cpuWithProgram(lsrAbsoluteXProgram)
+        lsrAbsoluteXBus.write(0x0202, 0x02)
+        lsrAbsoluteXCpu.step()
+        lsrAbsoluteXCpu.step()
+        assertEquals(0x01, lsrAbsoluteXBus.read(0x0202), "LSR absolute,X shifts indexed memory right")
+
+        val rolAccumulatorProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDA_IMM, 0x40, Cpu6502.OP_ROL_ACC)
+        val (rolAccumulatorCpu, _, _) = cpuWithProgram(rolAccumulatorProgram)
+        repeat(3) { rolAccumulatorCpu.step() }
+        assertEquals(0x81, rolAccumulatorCpu.a, "ROL accumulator rotates accumulator left through carry")
+
+        val rolZeroPageXProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ROL_ZPX, 0x10)
+        val (rolZeroPageXCpu, rolZeroPageXBus, _) = cpuWithProgram(rolZeroPageXProgram)
+        rolZeroPageXBus.write(0x0012, 0x40)
+        repeat(3) { rolZeroPageXCpu.step() }
+        assertEquals(0x81, rolZeroPageXBus.read(0x0012), "ROL zero page,X rotates indexed memory left through carry")
+
+        val rolAbsoluteProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_ROL_ABS, 0x00, 0x02)
+        val (rolAbsoluteCpu, rolAbsoluteBus, _) = cpuWithProgram(rolAbsoluteProgram)
+        rolAbsoluteBus.write(0x0200, 0x40)
+        rolAbsoluteCpu.step()
+        rolAbsoluteCpu.step()
+        assertEquals(0x81, rolAbsoluteBus.read(0x0200), "ROL absolute rotates memory left through carry")
+
+        val rolAbsoluteXProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ROL_ABSX, 0x00, 0x02)
+        val (rolAbsoluteXCpu, rolAbsoluteXBus, _) = cpuWithProgram(rolAbsoluteXProgram)
+        rolAbsoluteXBus.write(0x0202, 0x40)
+        repeat(3) { rolAbsoluteXCpu.step() }
+        assertEquals(0x81, rolAbsoluteXBus.read(0x0202), "ROL absolute,X rotates indexed memory left through carry")
+
+        val rorZeroPageProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_ROR_ZP, 0x10)
+        val (rorZeroPageCpu, rorZeroPageBus, _) = cpuWithProgram(rorZeroPageProgram)
+        rorZeroPageBus.write(0x0010, 0x02)
+        rorZeroPageCpu.step()
+        rorZeroPageCpu.step()
+        assertEquals(0x81, rorZeroPageBus.read(0x0010), "ROR zero page rotates memory right through carry")
+
+        val rorZeroPageXProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ROR_ZPX, 0x10)
+        val (rorZeroPageXCpu, rorZeroPageXBus, _) = cpuWithProgram(rorZeroPageXProgram)
+        rorZeroPageXBus.write(0x0012, 0x02)
+        repeat(3) { rorZeroPageXCpu.step() }
+        assertEquals(0x81, rorZeroPageXBus.read(0x0012), "ROR zero page,X rotates indexed memory right through carry")
+
+        val rorAbsoluteProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_ROR_ABS, 0x00, 0x02)
+        val (rorAbsoluteCpu, rorAbsoluteBus, _) = cpuWithProgram(rorAbsoluteProgram)
+        rorAbsoluteBus.write(0x0200, 0x02)
+        rorAbsoluteCpu.step()
+        rorAbsoluteCpu.step()
+        assertEquals(0x81, rorAbsoluteBus.read(0x0200), "ROR absolute rotates memory right through carry")
+
+        val rorAbsoluteXProgram = program(Cpu6502.OP_SEC, Cpu6502.OP_LDX_IMM, 0x02, Cpu6502.OP_ROR_ABSX, 0x00, 0x02)
+        val (rorAbsoluteXCpu, rorAbsoluteXBus, _) = cpuWithProgram(rorAbsoluteXProgram)
+        rorAbsoluteXBus.write(0x0202, 0x02)
+        repeat(3) { rorAbsoluteXCpu.step() }
+        assertEquals(0x81, rorAbsoluteXBus.read(0x0202), "ROR absolute,X rotates indexed memory right through carry")
     }
 }
