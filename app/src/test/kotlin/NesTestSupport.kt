@@ -1,6 +1,7 @@
 import nes.cartridge.Cartridge
 import nes.cartridge.Mirroring
 import nes.cartridge.Mapper0
+import nes.apu.NesApu
 import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
 import nes.input.NesController
@@ -28,7 +29,7 @@ fun cpuWithProgram(program: ByteArray, start: Int = 0x8000): Triple<Cpu6502, Cpu
     val cart = Cartridge(0, Mirroring.HORIZONTAL, prg, ByteArray(8192), true, false)
     val mapper = Mapper0(cart)
     val ppu = Ppu(mapper, cart.mirroring)
-    val bus = CpuBus(mapper, ppu, NesController())
+    val bus = CpuBus(mapper, ppu, NesController(), NesApu())
     val cpu = Cpu6502(bus)
     cpu.reset()
     return Triple(cpu, bus, ppu)

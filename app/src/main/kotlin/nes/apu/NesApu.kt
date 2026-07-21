@@ -1,0 +1,298 @@
+package nes.apu
+
+import nes.Timing
+import kotlin.math.max
+
+class NesApu(private val sampleRate: Int = 44_100) {
+    companion object {
+        private val LENGTH_TABLE = intArrayOf(
+            10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
+            12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30,
+        )
+        private val DUTY_TABLE = arrayOf(
+            intArrayOf(0, 1, 0, 0, 0, 0, 0, 0),
+            intArrayOf(0, 1, 1, 0, 0, 0, 0, 0),
+            intArrayOf(0, 1, 1, 1, 1, 0, 0, 0),
+            intArrayOf(1, 0, 0, 1, 1, 1, 1, 1),
+        )
+        private val TRIANGLE_TABLE = intArrayOf(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+        private val NOISE_PERIODS = intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068)
+        const val DEFAULT_SAMPLE_RATE = 44_100
+        const val MAX_FRAME_SAMPLES = 2048
+    }
+
+    val samples = ShortArray(MAX_FRAME_SAMPLES)
+    var sampleCount = 0
+        private set
+
+    private val pulse1 = PulseChannel(channelOne = true)
+    private val pulse2 = PulseChannel(channelOne = false)
+    private val triangle = TriangleChannel()
+    private val noise = NoiseChannel()
+    private var frameCycle = 0
+    private var frameMode = 0
+    private var apuCycle = false
+    private var sampleAccumulator = 0.0
+    private val cyclesPerSample = Timing.CPU_HZ / sampleRate
+
+    fun reset() {
+        pulse1.reset(); pulse2.reset(); triangle.reset(); noise.reset()
+        frameCycle = 0; frameMode = 0; apuCycle = false; sampleAccumulator = 0.0; sampleCount = 0
+    }
+
+    fun beginFrame() { sampleCount = 0 }
+
+    fun cpuRead(address: Int): Int = if ((address and 0xFFFF) == 0x4015) {
+        (if (pulse1.lengthCounter > 0) 0x01 else 0) or
+            (if (pulse2.lengthCounter > 0) 0x02 else 0) or
+            (if (triangle.lengthCounter > 0) 0x04 else 0) or
+            (if (noise.lengthCounter > 0) 0x08 else 0)
+    } else 0
+
+    fun cpuWrite(address: Int, value: Int) {
+        val v = value and 0xFF
+        when (address and 0xFFFF) {
+            in 0x4000..0x4003 -> pulse1.write((address and 3), v)
+            in 0x4004..0x4007 -> pulse2.write((address and 3), v)
+            in 0x4008..0x400B -> triangle.write((address and 3), v)
+            in 0x400C..0x400F -> noise.write((address and 3), v)
+            0x4010, 0x4011, 0x4012, 0x4013 -> Unit // DMC is not implemented for this SMB-focused MVP.
+            0x4015 -> {
+                pulse1.enabled = (v and 0x01) != 0
+                pulse2.enabled = (v and 0x02) != 0
+                triangle.enabled = (v and 0x04) != 0
+                noise.enabled = (v and 0x08) != 0
+                if (!pulse1.enabled) pulse1.lengthCounter = 0
+                if (!pulse2.enabled) pulse2.lengthCounter = 0
+                if (!triangle.enabled) triangle.lengthCounter = 0
+                if (!noise.enabled) noise.lengthCounter = 0
+            }
+            0x4017 -> {
+                frameMode = (v shr 7) and 1
+                frameCycle = 0
+                if (frameMode == 1) {
+                    quarterFrame()
+                    halfFrame()
+                }
+            }
+        }
+    }
+
+    fun step(cpuCycles: Int) {
+        var i = 0
+        while (i < cpuCycles) {
+            triangle.stepTimer()
+            apuCycle = !apuCycle
+            if (apuCycle) {
+                pulse1.stepTimer(); pulse2.stepTimer(); noise.stepTimer()
+            }
+            stepFrameCounter()
+            sampleAccumulator += 1.0
+            if (sampleAccumulator >= cyclesPerSample) {
+                sampleAccumulator -= cyclesPerSample
+                appendSample(mix())
+            }
+            i++
+        }
+    }
+
+    private fun stepFrameCounter() {
+        frameCycle++
+        if (frameMode == 0) {
+            when (frameCycle) {
+                7457, 22371 -> quarterFrame()
+                14913 -> { quarterFrame(); halfFrame() }
+                29829 -> { quarterFrame(); halfFrame(); frameCycle = 0 }
+            }
+        } else {
+            when (frameCycle) {
+                7457, 22371 -> quarterFrame()
+                14913, 37281 -> { quarterFrame(); halfFrame() }
+                37282 -> frameCycle = 0
+            }
+        }
+    }
+
+    private fun quarterFrame() {
+        pulse1.clockEnvelope(); pulse2.clockEnvelope(); triangle.clockLinearCounter(); noise.clockEnvelope()
+    }
+
+    private fun halfFrame() {
+        pulse1.clockLength(); pulse2.clockLength(); triangle.clockLength(); noise.clockLength()
+        pulse1.clockSweep(); pulse2.clockSweep()
+    }
+
+    private fun mix(): Double {
+        val p1 = pulse1.output()
+        val p2 = pulse2.output()
+        val t = triangle.output()
+        val n = noise.output()
+        val pulseOut = if (p1 + p2 == 0) 0.0 else 95.88 / ((8128.0 / (p1 + p2)) + 100.0)
+        val tndOut = if (t + n == 0) 0.0 else 159.79 / (1.0 / (t / 8227.0 + n / 12241.0) + 100.0)
+        return (pulseOut + tndOut) * 1.4 - 0.45
+    }
+
+    private fun appendSample(value: Double) {
+        if (sampleCount >= samples.size) return
+        val clamped = when {
+            value > 1.0 -> 1.0
+            value < -1.0 -> -1.0
+            else -> value
+        }
+        samples[sampleCount++] = (clamped * Short.MAX_VALUE).toInt().toShort()
+    }
+
+    private class PulseChannel(private val channelOne: Boolean) {
+        var enabled = false
+        var lengthCounter = 0
+        private var duty = 0
+        private var timer = 0
+        private var timerCounter = 0
+        private var sequence = 0
+        private var envelopeLoop = false
+        private var constantVolume = false
+        private var volume = 0
+        private var envelopeStart = false
+        private var envelopeDivider = 0
+        private var envelopeDecay = 0
+        private var sweepEnabled = false
+        private var sweepPeriod = 0
+        private var sweepNegate = false
+        private var sweepShift = 0
+        private var sweepReload = false
+        private var sweepDivider = 0
+
+        fun reset() {
+            enabled = false; lengthCounter = 0; duty = 0; timer = 0; timerCounter = 0; sequence = 0
+            envelopeLoop = false; constantVolume = false; volume = 0; envelopeStart = false; envelopeDivider = 0; envelopeDecay = 0
+            sweepEnabled = false; sweepPeriod = 0; sweepNegate = false; sweepShift = 0; sweepReload = false; sweepDivider = 0
+        }
+
+        fun write(register: Int, value: Int) {
+            when (register) {
+                0 -> { duty = (value shr 6) and 3; envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume = value and 0x0F }
+                1 -> { sweepEnabled = (value and 0x80) != 0; sweepPeriod = ((value shr 4) and 7) + 1; sweepNegate = (value and 0x08) != 0; sweepShift = value and 7; sweepReload = true }
+                2 -> timer = (timer and 0x700) or value
+                3 -> { timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; sequence = 0; envelopeStart = true }
+            }
+        }
+
+        fun stepTimer() {
+            if (timerCounter <= 0) {
+                timerCounter = timer
+                sequence = (sequence + 1) and 7
+            } else timerCounter--
+        }
+
+        fun clockEnvelope() {
+            if (envelopeStart) {
+                envelopeStart = false; envelopeDecay = 15; envelopeDivider = volume
+            } else if (envelopeDivider == 0) {
+                envelopeDivider = volume
+                if (envelopeDecay > 0) envelopeDecay-- else if (envelopeLoop) envelopeDecay = 15
+            } else envelopeDivider--
+        }
+
+        fun clockLength() { if (!envelopeLoop && lengthCounter > 0) lengthCounter-- }
+
+        fun clockSweep() {
+            if (sweepDivider == 0) {
+                if (sweepEnabled && sweepShift > 0 && timer >= 8) {
+                    val delta = timer shr sweepShift
+                    val target = if (sweepNegate) timer - delta - if (channelOne) 1 else 0 else timer + delta
+                    if (target in 0..0x7FF) timer = target
+                }
+                sweepDivider = sweepPeriod
+            } else sweepDivider--
+            if (sweepReload) { sweepReload = false; sweepDivider = sweepPeriod }
+        }
+
+        fun output(): Int {
+            if (!enabled || lengthCounter == 0 || timer < 8 || DUTY_TABLE[duty][sequence] == 0) return 0
+            return if (constantVolume) volume else envelopeDecay
+        }
+    }
+
+    private class TriangleChannel {
+        var enabled = false
+        var lengthCounter = 0
+        private var control = false
+        private var reloadValue = 0
+        private var reloadFlag = false
+        private var linearCounter = 0
+        private var timer = 0
+        private var timerCounter = 0
+        private var sequence = 0
+
+        fun reset() { enabled = false; lengthCounter = 0; control = false; reloadValue = 0; reloadFlag = false; linearCounter = 0; timer = 0; timerCounter = 0; sequence = 0 }
+
+        fun write(register: Int, value: Int) {
+            when (register) {
+                0 -> { control = (value and 0x80) != 0; reloadValue = value and 0x7F }
+                2 -> timer = (timer and 0x700) or value
+                3 -> { timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; reloadFlag = true }
+            }
+        }
+
+        fun stepTimer() {
+            if (timerCounter <= 0) {
+                timerCounter = timer
+                if (lengthCounter > 0 && linearCounter > 0 && timer > 1) sequence = (sequence + 1) and 31
+            } else timerCounter--
+        }
+
+        fun clockLinearCounter() {
+            if (reloadFlag) linearCounter = reloadValue else if (linearCounter > 0) linearCounter--
+            if (!control) reloadFlag = false
+        }
+
+        fun clockLength() { if (!control && lengthCounter > 0) lengthCounter-- }
+        fun output(): Int = if (enabled && lengthCounter > 0 && linearCounter > 0) TRIANGLE_TABLE[sequence] else 0
+    }
+
+    private class NoiseChannel {
+        var enabled = false
+        var lengthCounter = 0
+        private var envelopeLoop = false
+        private var constantVolume = false
+        private var volume = 0
+        private var envelopeStart = false
+        private var envelopeDivider = 0
+        private var envelopeDecay = 0
+        private var mode = false
+        private var timer = 0
+        private var timerCounter = 0
+        private var shift = 1
+
+        fun reset() { enabled = false; lengthCounter = 0; envelopeLoop = false; constantVolume = false; volume = 0; envelopeStart = false; envelopeDivider = 0; envelopeDecay = 0; mode = false; timer = 0; timerCounter = 0; shift = 1 }
+
+        fun write(register: Int, value: Int) {
+            when (register) {
+                0 -> { envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume = value and 0x0F }
+                2 -> { mode = (value and 0x80) != 0; timer = NOISE_PERIODS[value and 0x0F] }
+                3 -> { if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; envelopeStart = true }
+            }
+        }
+
+        fun stepTimer() {
+            if (timerCounter <= 0) {
+                timerCounter = timer
+                val tap = if (mode) 6 else 1
+                val feedback = (shift xor (shift shr tap)) and 1
+                shift = (shift shr 1) or (feedback shl 14)
+            } else timerCounter--
+        }
+
+        fun clockEnvelope() {
+            if (envelopeStart) {
+                envelopeStart = false; envelopeDecay = 15; envelopeDivider = volume
+            } else if (envelopeDivider == 0) {
+                envelopeDivider = volume
+                if (envelopeDecay > 0) envelopeDecay-- else if (envelopeLoop) envelopeDecay = 15
+            } else envelopeDivider--
+        }
+
+        fun clockLength() { if (!envelopeLoop && lengthCounter > 0) lengthCounter-- }
+        fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) max(0, if (constantVolume) volume else envelopeDecay) else 0
+    }
+}

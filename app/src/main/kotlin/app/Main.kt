@@ -3,6 +3,7 @@ package app
 import frontend.FramePacer
 import frontend.GlfwWindow
 import frontend.KeyboardInput
+import frontend.OpenAlAudio
 import frontend.OpenGlRenderer
 import nes.NesMachine
 import nes.Timing
@@ -34,6 +35,7 @@ fun main(args: Array<String>) {
         GlfwWindow("CartridgeVM NES", 256 * 3, 240 * 3).use { window ->
             val renderer = OpenGlRenderer()
             renderer.init()
+            val audio = OpenAlAudio()
             val input = KeyboardInput(window.handle, machine.controller, cli.debug)
             val pacer = FramePacer(Timing.FRAME_NANOS)
             if (cli.debug) {
@@ -50,6 +52,7 @@ fun main(args: Array<String>) {
                 if (input.consumeReset()) { machine.reset(); paused = false }
                 if (input.quitRequested()) window.requestClose()
                 if (!paused) machine.runUntilFrame() else Thread.sleep(8)
+                if (!paused) audio.submit(machine.apu.samples, machine.apu.sampleCount)
                 renderer.present(machine.ppu.framebuffer, window.width(), window.height())
                 window.swapBuffers()
                 if (!cli.unlimited) pacer.waitForNextFrame()
@@ -59,6 +62,7 @@ fun main(args: Array<String>) {
                     if (now - fpsTime >= 1_000_000_000L) { println("FPS: $frames"); frames = 0; fpsTime = now }
                 }
             }
+            audio.close()
             renderer.close()
         }
     } catch (e: RomFormatException) {

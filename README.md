@@ -6,7 +6,7 @@ No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassem
 
 ## Requirements
 
-Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin/JVM, LWJGL, GLFW, OpenGL, and Kotlin Test/JUnit 5.
+Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin/JVM, LWJGL, GLFW, OpenGL, OpenAL, and Kotlin Test/JUnit 5.
 
 ## Build
 
@@ -78,8 +78,9 @@ Implemented:
 * PPU registers, nametable and palette memory, CHR ROM/RAM access
 * Background rendering, 8x8 sprite rendering, palette selection, sprite priority, sprite-zero hit approximation
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
+* SMB-focused APU audio with pulse, triangle, and noise channels
 * One standard NES controller via `$4016` serial protocol
-* LWJGL GLFW window and OpenGL texture presentation of a software framebuffer
+* LWJGL GLFW window, OpenGL texture presentation of a software framebuffer, and OpenAL audio playback
 * NTSC-oriented frame pacing with `--unlimited` for debugging
 * Pause, reset, and quit controls
 
@@ -87,7 +88,7 @@ Implemented:
 
 This is an MVP, not a cycle-perfect emulator.
 
-* No audio or APU emulation beyond safe CPU-bus stubs
+* APU support is approximate and focused on Super Mario Bros.; DMC sample playback is stubbed
 * Mapper 0 only
 * NTSC timing only
 * No save states, rewind, cheats, debugger UI, gamepad support, two-player input, ZIP loading, network features, shaders, downloading, or patching
@@ -103,6 +104,7 @@ Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLF
 
 * `nes.cartridge`: iNES parsing, cartridge metadata, Mapper 0
 * `nes.cpu`: CPU core and CPU bus memory map
+* `nes.apu`: pulse, triangle, and noise channel audio generation
 * `nes.ppu`: PPU registers, memory, timing, and framebuffer generation
 * `nes.input`: NES controller strobe/serial protocol
 * `nes.NesMachine`: core CPU/PPU/controller orchestration
@@ -111,6 +113,7 @@ Frontend code is under `app/src/main/kotlin/frontend`.
 
 * `GlfwWindow`: window/context lifecycle
 * `KeyboardInput`: fixed keyboard bindings
+* `OpenAlAudio`: queues generated mono PCM samples to OpenAL
 * `OpenGlRenderer`: uploads the 256x240 software framebuffer to one nearest-neighbor OpenGL texture
 * `FramePacer`: monotonic accumulated-deadline frame limiter
 

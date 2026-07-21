@@ -1,10 +1,11 @@
 package nes.cpu
 
 import nes.cartridge.Mapper
+import nes.apu.NesApu
 import nes.input.NesController
 import nes.ppu.Ppu
 
-class CpuBus(private val mapper: Mapper, val ppu: Ppu, private val controller: NesController) {
+class CpuBus(private val mapper: Mapper, val ppu: Ppu, private val controller: NesController, private val apu: NesApu) {
     val ram = ByteArray(2048)
     var dmaCycles = 0
         private set
@@ -14,9 +15,9 @@ class CpuBus(private val mapper: Mapper, val ppu: Ppu, private val controller: N
         return when (a) {
             in 0x0000..0x1FFF -> ram[a and 0x07FF].toInt() and 0xFF
             in 0x2000..0x3FFF -> ppu.cpuRead(0x2000 + (a and 7))
-            in 0x4000..0x4013 -> 0
+            in 0x4000..0x4013 -> apu.cpuRead(a)
             0x4014 -> 0
-            0x4015 -> 0
+            0x4015 -> apu.cpuRead(a)
             0x4016 -> controller.read()
             0x4017 -> 0
             in 0x4020..0xFFFF -> mapper.cpuRead(a)
@@ -30,8 +31,11 @@ class CpuBus(private val mapper: Mapper, val ppu: Ppu, private val controller: N
         when (a) {
             in 0x0000..0x1FFF -> ram[a and 0x07FF] = v.toByte()
             in 0x2000..0x3FFF -> ppu.cpuWrite(0x2000 + (a and 7), v)
+            in 0x4000..0x4013 -> apu.cpuWrite(a, v)
             0x4014 -> doOamDma(v)
+            0x4015 -> apu.cpuWrite(a, v)
             0x4016 -> controller.write(v)
+            0x4017 -> apu.cpuWrite(a, v)
             in 0x4020..0xFFFF -> mapper.cpuWrite(a, v)
         }
     }
