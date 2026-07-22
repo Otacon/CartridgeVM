@@ -14,6 +14,9 @@ dependencies {
 
     implementation("com.github.ajalt.clikt:clikt:5.1.0")
 
+    implementation("org.slf4j:slf4j-api:2.0.18")
+    runtimeOnly("ch.qos.logback:logback-classic:1.5.38")
+
     implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
     implementation("org.lwjgl:lwjgl")
     implementation("org.lwjgl:lwjgl-glfw")

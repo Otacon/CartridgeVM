@@ -6,29 +6,26 @@ import nes.NesMachine
 import nes.Timing
 import nes.cartridge.InesParser
 import nes.cartridge.RomFormatException
-import java.nio.file.Files
+import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     val parser = CliArgsParser()
     parser.main(args)
-
+    val log = LoggerFactory.getLogger("Main")
+    val loggingLevel = if (parser.debug) Level.DEBUG else Level.INFO
+    log.atLevel(loggingLevel)
     try {
-        val cartridge = InesParser.parse(Files.readAllBytes(parser.rom))
-        if (parser.debug) {
-            println("ROM: ${parser.rom}")
-            println("Mapper: ${cartridge.mapperNumber}")
-            println("PRG ROM: ${cartridge.prgRom.size / 1024} KiB")
-            println("CHR: ${cartridge.chr.size / 1024} KiB ${if (cartridge.chrRam) "RAM" else "ROM"}")
-            println("Mirroring: ${cartridge.mirroring}")
-        }
-
+        val cartridge = InesParser.parse(parser.rom)
         val machine = NesMachine(cartridge)
-        GlfwWindow("CartridgeVM NES", 256 * 3, 240 * 3).use { window ->
+        log.info("Emulation started")
+        GlfwWindow().use { window ->
+            val handle = window.create(256 * 3, 240 * 3)
             val renderer = OpenGlRenderer()
             renderer.init()
             val audio = OpenAlAudio()
-            val input = KeyboardInput(window.handle, machine.controller, parser.debug)
+            val input = KeyboardInput(handle, machine.controller)
             val pacer = FramePacer(Timing.FRAME_NANOS)
             var paused = false
             var frames = 0
@@ -54,7 +51,7 @@ fun main(args: Array<String>) {
                 if (!paused) {
                     audio.submit(machine.apu.samples, machine.apu.sampleCount)
                 }
-                renderer.present(machine.ppu.framebuffer, window.width(), window.height())
+                renderer.present(machine.ppu.framebuffer, window.width, window.height)
                 window.swapBuffers()
                 if (!parser.unlimited) {
                     pacer.waitForNextFrame()
@@ -71,16 +68,13 @@ fun main(args: Array<String>) {
             audio.close()
             renderer.close()
         }
-
+        log.info("Emulation finished")
     } catch (e: RomFormatException) {
+        log.error("Unable to load rom", e)
         System.err.println(e.message)
         exitProcess(2)
     } catch (e: Exception) {
-        if (parser.debug) {
-            e.printStackTrace()
-        } else {
-            System.err.println(e.message ?: e::class.simpleName)
-        }
+        log.error("Runtime error", e)
         exitProcess(1)
     }
 }
