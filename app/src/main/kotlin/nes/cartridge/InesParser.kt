@@ -1,14 +1,12 @@
 package nes.cartridge
 
+import me.tatarka.inject.annotations.Inject
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.io.path.readBytes
 
-object InesParser {
-    private const val HEADER_SIZE = 16
-    private const val TRAINER_SIZE = 512
-    private const val PRG_BANK_SIZE = 16 * 1024
-    private const val CHR_BANK_SIZE = 8 * 1024
+@Inject
+class InesParser {
 
     private val log = LoggerFactory.getLogger("InesParser")
 
@@ -92,5 +90,12 @@ object InesParser {
             chrRam = chrRam,
             trainerPresent = trainer
         )
+    }
+
+    companion object {
+        private const val HEADER_SIZE = 16
+        private const val TRAINER_SIZE = 512
+        private const val PRG_BANK_SIZE = 16 * 1024
+        private const val CHR_BANK_SIZE = 8 * 1024
     }
 }

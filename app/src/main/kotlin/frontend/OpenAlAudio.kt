@@ -1,5 +1,6 @@
 package frontend
 
+import me.tatarka.inject.annotations.Inject
 import nes.apu.NesApu
 import org.lwjgl.BufferUtils
 import org.lwjgl.openal.AL
@@ -8,7 +9,10 @@ import org.lwjgl.openal.ALC
 import org.lwjgl.openal.ALC10.*
 import java.nio.ShortBuffer
 
-class OpenAlAudio(private val sampleRate: Int = NesApu.DEFAULT_SAMPLE_RATE) : AutoCloseable {
+@Inject
+class OpenAlAudio(
+    private val sampleRate: Int = NesApu.DEFAULT_SAMPLE_RATE
+) : AutoCloseable {
     private val device: Long
     private val context: Long
     private val source: Int
@@ -50,7 +54,8 @@ class OpenAlAudio(private val sampleRate: Int = NesApu.DEFAULT_SAMPLE_RATE) : Au
     private fun unqueueProcessed() {
         var processed = alGetSourcei(source, AL_BUFFERS_PROCESSED)
         while (processed > 0) {
-            if (freeCount < freeBuffers.size) freeBuffers[freeCount++] = alSourceUnqueueBuffers(source) else alSourceUnqueueBuffers(source)
+            if (freeCount < freeBuffers.size) freeBuffers[freeCount++] =
+                alSourceUnqueueBuffers(source) else alSourceUnqueueBuffers(source)
             processed--
         }
     }

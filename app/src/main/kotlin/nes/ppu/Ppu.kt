@@ -3,7 +3,10 @@ package nes.ppu
 import nes.cartridge.Mapper
 import nes.cartridge.Mirroring
 
-class Ppu(private val mapper: Mapper, private val mirroring: Mirroring) {
+class Ppu(
+    private val mapper: Mapper,
+    private val mirroring: Mirroring
+) {
     val framebuffer = IntArray(256 * 240)
     val oam = ByteArray(256)
     private val nametables = ByteArray(2048)

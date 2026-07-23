@@ -1,11 +1,8 @@
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
-    // Apply the shared build logic from a convention plugin.
-    // The shared code is located in `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts`.
+    id("com.google.devtools.ksp") version "2.3.4"
     id("buildsrc.convention.kotlin-jvm")
-
-    // Apply the Application plugin to add support for building an executable JVM application.
     application
 }
 
@@ -16,6 +13,8 @@ dependencies {
 
     implementation("org.slf4j:slf4j-api:2.0.18")
     runtimeOnly("ch.qos.logback:logback-classic:1.5.38")
+    ksp("me.tatarka.inject:kotlin-inject-compiler-ksp:0.9.0")
+    implementation("me.tatarka.inject:kotlin-inject-runtime:0.9.0")
 
     implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
     implementation("org.lwjgl:lwjgl")
