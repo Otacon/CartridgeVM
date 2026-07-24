@@ -6,56 +6,50 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 @AppScope
 class CartridgeSocket {
-    private var mapper: Mapper? = null
-    private var cartridgeMirroring: Mirroring? = null
-    private var effectiveMirroring: Mirroring? = null
+    private var cartridge: Cartridge? = null
 
-    val mirroring: Mirroring?
-        get() = effectiveMirroring
+    var mirroring: Mirroring? = null
+        private set
 
     fun insert(cartridge: Cartridge) {
-        mapper = cartridge.mapper
-        cartridgeMirroring = cartridge.mirroring
-        updateMirroring()
+        this.cartridge = cartridge
+        mirroring = cartridge.mapper.mirroring() ?: cartridge.mirroring
     }
 
     fun remove() {
-        mapper = null
-        cartridgeMirroring = null
-        effectiveMirroring = null
+        cartridge = null
+        mirroring = null
     }
 
     fun reset() {
-        mapper?.reset()
-        updateMirroring()
+        val inserted = cartridge ?: return
+        inserted.mapper.reset()
+        mirroring = inserted.mapper.mirroring() ?: inserted.mirroring
     }
 
     fun cpuRead(address: Int): Int {
-        return mapper?.cpuRead(address) ?: 0
+        return cartridge?.mapper?.cpuRead(address) ?: 0
     }
 
     fun cpuWrite(address: Int, value: Int) {
-        mapper?.cpuWrite(address, value)
-        updateMirroring()
+        val inserted = cartridge ?: return
+        inserted.mapper.cpuWrite(address, value)
+        mirroring = inserted.mapper.mirroring() ?: inserted.mirroring
     }
 
     fun ppuRead(address: Int): Int {
-        return mapper?.ppuRead(address) ?: 0
+        return cartridge?.mapper?.ppuRead(address) ?: 0
     }
 
     fun ppuWrite(address: Int, value: Int) {
-        mapper?.ppuWrite(address, value)
+        cartridge?.mapper?.ppuWrite(address, value)
     }
 
     fun clockScanline() {
-        mapper?.clockScanline()
+        cartridge?.mapper?.clockScanline()
     }
 
     fun irqPending(): Boolean {
-        return mapper?.irqPending() ?: false
-    }
-
-    private fun updateMirroring() {
-        effectiveMirroring = mapper?.mirroring() ?: cartridgeMirroring
+        return cartridge?.mapper?.irqPending() ?: false
     }
 }

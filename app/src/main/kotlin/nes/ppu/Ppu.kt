@@ -2,6 +2,7 @@ package nes.ppu
 
 import di.AppScope
 import me.tatarka.inject.annotations.Inject
+import nes.Timing
 import nes.util.low8Bits
 import nes.util.toUnsignedInt
 
@@ -73,10 +74,10 @@ class Ppu(
             return
         }
         cycle++
-        if (cycle >= DOTS_PER_SCANLINE) {
+        if (cycle >= Timing.PPU_CYCLES_PER_SCANLINE) {
             cycle = 0
             scanline++
-            if (scanline >= SCANLINES_PER_FRAME) finishFrame()
+            if (scanline >= Timing.SCANLINES_PER_FRAME) finishFrame()
         }
     }
 
@@ -344,8 +345,6 @@ class Ppu(
     companion object {
         private const val SCREEN_WIDTH = 256
         private const val SCREEN_HEIGHT = 240
-        private const val DOTS_PER_SCANLINE = 341
-        private const val SCANLINES_PER_FRAME = 262
         private const val VBLANK_SCANLINE = 241
         private const val PRE_RENDER_SCANLINE = 261
         private const val FIRST_VISIBLE_DOT = 1
