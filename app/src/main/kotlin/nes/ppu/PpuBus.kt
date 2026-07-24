@@ -43,6 +43,8 @@ class PpuBus(
         val physical = when (cartridgeSocket.mirroring) {
             Mirroring.VERTICAL -> table and 1
             Mirroring.HORIZONTAL -> table shr 1
+            Mirroring.SINGLE_SCREEN_LOWER -> 0
+            Mirroring.SINGLE_SCREEN_UPPER -> 1
             else -> table shr 1
         }
         return (physical shl 10) + offset

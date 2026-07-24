@@ -1,6 +1,6 @@
 # CartridgeVM
 
-CartridgeVM is a focused Kotlin/JVM NES emulator MVP. Its current compatibility target is Mapper 0 / NROM NTSC software, with validation intended against the original NTSC Super Mario Bros. when the user supplies a legally obtained ROM. Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are also supported.
+CartridgeVM is a focused Kotlin/JVM NES emulator MVP. Its current compatibility target is Mapper 0 / NROM NTSC software, with validation intended against the original NTSC Super Mario Bros. when the user supplies a legally obtained ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are also supported.
 
 No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassemblies, or ROM patches are included in this repository.
 
@@ -74,25 +74,27 @@ Pass `--controller` to use the first connected controller. GLFW's standard gamep
 
 ## Supported ROM Format
 
-The loader supports iNES 1.0 Mapper 0 / NROM, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3:
+The loader supports iNES 1.0 and NES 2.0 ROMs using Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, or Mapper 4 / MMC3 with submapper 0:
 
 * NROM-128 with 16 KiB PRG ROM mirrored at `$C000-$FFFF`
 * NROM-256 with 32 KiB PRG ROM
 * 8 KiB CHR ROM
 * 8 KiB CHR RAM when CHR ROM size is zero
+* MMC1 with serial register loading, 16/32 KiB PRG banking, 4/8 KiB CHR ROM/RAM banking, 8 KiB PRG RAM, and runtime mirroring
 * UxROM/UNROM with 32 KiB to 256 KiB PRG ROM, switchable `$8000-$BFFF`, fixed last bank at `$C000-$FFFF`, and 8 KiB CHR RAM
 * CNROM with 16 KiB or 32 KiB PRG ROM and switchable 8 KiB CHR ROM banks
 * MMC3 with 32 KiB to 512 KiB PRG ROM, 8 KiB PRG bank switching, CHR ROM/RAM banking, PRG RAM, runtime mirroring control, and scanline IRQs
 * Horizontal and vertical nametable mirroring
+* NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, and explicit CHR RAM/NVRAM sizes
 
-Unsupported formats are rejected with clear startup errors, including NES 2.0, unsupported mappers, four-screen mirroring, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
+Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, four-screen mirroring, PAL/Dendy-only NES 2.0 ROMs, nonstandard console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
 
 ## Current Emulator Scope
 
 Implemented:
 
 * Single command-line application in `app`
-* iNES parser and Mapper 0 / Mapper 2 / Mapper 3 / Mapper 4 cartridge mapping
+* iNES 1.0 / NES 2.0 parser and Mapper 0 / Mapper 1 / Mapper 2 / Mapper 3 / Mapper 4 cartridge mapping
 * Cartridge socket abstraction for insertion/removal and CPU/PPU cartridge access
 * 2A03-style 6502 CPU core for official opcodes
 * CPU bus RAM/register/controller/OAM DMA mapping, with cartridge space routed through the cartridge socket
@@ -110,7 +112,8 @@ Implemented:
 This is an MVP, not a cycle-perfect emulator.
 
 * APU support is approximate and focused on Mario-era software; DMC sample playback is approximate
-* Mapper 0, Mapper 2, Mapper 3, and Mapper 4 only
+* Mapper 0, Mapper 1, Mapper 2, Mapper 3, and Mapper 4 only
+* Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
 * NTSC timing only
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, shaders, downloading, or patching
@@ -124,7 +127,7 @@ Super Mario Bros. compatibility has not been claimed unless tested locally with 
 
 Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLFW or OpenGL.
 
-* `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 2, Mapper 3, Mapper 4
+* `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4
 * `nes.cpu`: CPU core and CPU bus memory map
 * `nes.apu`: pulse, triangle, noise, and DMC channel audio generation
 * `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation

@@ -1,6 +1,6 @@
 package nes.cartridge
 
-enum class Mirroring { HORIZONTAL, VERTICAL }
+enum class Mirroring { HORIZONTAL, VERTICAL, SINGLE_SCREEN_LOWER, SINGLE_SCREEN_UPPER }
 
 class RomFormatException(message: String) : IllegalArgumentException(message)
 

@@ -1,7 +1,7 @@
 # Agent Handoff
 
 CartridgeVM is a Kotlin/JVM NES emulator MVP. The near-term objective is practical compatibility with the original NTSC
-Super Mario Bros. from a user-supplied Mapper 0 `.nes` ROM. Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are also supported.
+Super Mario Bros. from a user-supplied Mapper 0 `.nes` ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are also supported.
 
 Do not add ROMs, BIOS files, Nintendo assets, screenshots, extracted data, disassemblies, or ROM patches.
 
@@ -52,7 +52,7 @@ app/src/main/kotlin/app/          CLI entry point and argument parsing
 app/src/main/kotlin/frontend/     GLFW, OpenGL presentation, OpenAL audio, keyboard input, pacing
 app/src/main/kotlin/nes/          Machine orchestration and timing
 app/src/main/kotlin/nes/apu/      APU audio generation
-app/src/main/kotlin/nes/cartridge/iNES parser, cartridge socket, Mapper 0, Mapper 2, Mapper 3, and Mapper 4
+app/src/main/kotlin/nes/cartridge/iNES parser, cartridge socket, Mapper 0, Mapper 1, Mapper 2, Mapper 3, and Mapper 4
 app/src/main/kotlin/nes/cpu/      6502 CPU and CPU bus
 app/src/main/kotlin/nes/input/    NES controller protocol
 app/src/main/kotlin/nes/ppu/      PPU registers, memory, timing, and software rendering
@@ -68,9 +68,10 @@ app/src/test/kotlin/
 
 ROM/cartridge:
 
-* iNES 1.0 parsing.
-* Mapper 0 / NROM, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3.
+* iNES 1.0 and NES 2.0 parsing.
+* Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3.
 * NROM-128 and NROM-256.
+* MMC1 with serial register loading, PRG/CHR banking, PRG RAM, and runtime one-screen/horizontal/vertical mirroring.
 * UxROM/UNROM with switchable 16 KiB lower PRG bank and fixed last 16 KiB upper PRG bank.
 * CNROM with fixed PRG ROM and switchable 8 KiB CHR ROM banks.
 * MMC3 with precomputed 8 KiB PRG/1 KiB CHR page offsets, PRG RAM, runtime mirroring control, and approximate scanline IRQs.
@@ -78,8 +79,8 @@ ROM/cartridge:
 * Horizontal and vertical mirroring.
 * `Cartridge` stores ROM metadata/data plus a generic `Mapper` instance.
 * `CartridgeSocket` simulates cartridge insertion/removal and is the only cartridge access point for CPU/PPU buses.
-* Clear rejection for invalid headers, truncated ROMs, NES 2.0, unsupported mappers, four-screen mirroring, and invalid
-  mapper sizes.
+* Clear rejection for invalid headers, truncated ROMs, unsupported mappers/submappers, unsupported NES 2.0 hardware,
+  four-screen mirroring, and invalid mapper sizes.
 
 CPU/bus:
 
@@ -153,7 +154,8 @@ Architecture notes:
 ## Known Limitations
 
 * Compatibility target is Super Mario Bros. / Mapper 0, not broad NES compatibility.
-* No mappers beyond Mapper 0, Mapper 2, Mapper 3, and Mapper 4.
+* No mappers beyond Mapper 0, Mapper 1, Mapper 2, Mapper 3, and Mapper 4.
+* Mapper 1 does not support SUROM/SOROM/SXROM-style extended banking variants.
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing.
 * NTSC only.
 * PPU is approximate, not cycle-perfect.

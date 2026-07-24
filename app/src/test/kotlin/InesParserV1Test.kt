@@ -1,14 +1,9 @@
-import kotlin.test.*
-import nes.cartridge.InesParser
-import nes.cartridge.Mapper2
-import nes.cartridge.Mapper3
-import nes.cartridge.Mapper4
-import nes.cartridge.Mirroring
-import nes.cartridge.RomFormatException
+import nes.cartridge.*
 import nes.util.toUnsignedInt
+import kotlin.test.*
 
-class InesParserTest {
-    private val parser = InesParser()
+class InesParserV1Test {
+    private val parser = InesParserV1(utils = InesParserUtils())
 
     @Test
     fun `valid NROM-128 parses PRG ROM and CHR ROM`() {
@@ -23,6 +18,16 @@ class InesParserTest {
         val cartridge = parser.parse(ines(2, 1))
 
         assertEquals(32 * 1024, cartridge.prgRom.size)
+    }
+
+    @Test
+    fun `valid MMC1 parses PRG ROM and CHR ROM`() {
+        val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 2, flags6 = 0x10))
+
+        assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertEquals(16 * 1024, cartridge.chr.size)
+        assertFalse(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper1)
     }
 
     @Test
@@ -99,6 +104,15 @@ class InesParserTest {
     }
 
     @Test
+    fun `NES 2 header throws ROM format exception`() {
+        val exception = assertFailsWith<RomFormatException> {
+            parser.parse(nes2())
+        }
+
+        assertContains(exception.message.orEmpty(), "Expected iNES 1.0")
+    }
+
+    @Test
     fun `truncated data throws ROM format exception`() {
         assertFailsWith<RomFormatException> {
             parser.parse(ines().copyOf(20))
@@ -107,9 +121,11 @@ class InesParserTest {
 
     @Test
     fun `unsupported mapper throws ROM format exception`() {
-        assertFailsWith<RomFormatException> {
-            parser.parse(ines(flags6 = 0x10))
+        val exception = assertFailsWith<RomFormatException> {
+            parser.parse(ines(flags6 = 0x50))
         }
+
+        assertContains(exception.message.orEmpty(), "mapper 5")
     }
 
     @Test
@@ -145,5 +161,17 @@ class InesParserTest {
         assertFailsWith<RomFormatException> {
             parser.parse(ines(prgBanks = 1, chrBanks = 1, flags6 = 0x40))
         }
+    }
+
+    private fun nes2(): ByteArray {
+        val header = ByteArray(16)
+        header[0] = 'N'.code.toByte()
+        header[1] = 'E'.code.toByte()
+        header[2] = 'S'.code.toByte()
+        header[3] = 0x1A
+        header[4] = 1
+        header[5] = 1
+        header[7] = 0x08
+        return header + ByteArray(16 * 1024) + ByteArray(8 * 1024)
     }
 }

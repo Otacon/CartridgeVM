@@ -10,7 +10,7 @@ import frontend.ControllerInput
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 import nes.Timing
-import nes.cartridge.InesParser
+import nes.cartridge.InesParserComposite
 import nes.cartridge.RomFormatException
 import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
@@ -19,7 +19,7 @@ import kotlin.system.exitProcess
 @AppScope
 class EmulatorApplication(
     private val cliArgs: CliArgsParser,
-    private val inesParser: InesParser,
+    private val inesParser: InesParserComposite,
     private val renderer: OpenGlRenderer,
     private val audio: OpenAlAudio,
     private val machine: NesMachine,
