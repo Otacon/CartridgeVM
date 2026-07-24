@@ -7,7 +7,7 @@ import nes.ppu.Ppu
 
 class CpuBus(
     private val cartridge: Cartridge,
-    val ppu: Ppu,
+    private val ppu: Ppu,
     private val controller: NesController,
     private val apu: NesApu
 ) {
@@ -16,8 +16,7 @@ class CpuBus(
         private set
 
     fun read(address: Int): Int {
-        val a = address and 0xFFFF
-        return when (a) {
+        return when (val a = address and 0xFFFF) {
             in 0x0000..0x1FFF -> ram[a and 0x07FF].toInt() and 0xFF
             in 0x2000..0x3FFF -> ppu.cpuRead(0x2000 + (a and 7))
             in 0x4000..0x4013 -> apu.cpuRead(a)
@@ -55,7 +54,10 @@ class CpuBus(
         val bytes = ByteArray(256)
         val base = page shl 8
         var i = 0
-        while (i < 256) { bytes[i] = read(base + i).toByte(); i++ }
+        while (i < 256) {
+            bytes[i] = read(base + i).toByte()
+            i++
+        }
         ppu.writeOamDma(bytes)
         dmaCycles += 513
     }

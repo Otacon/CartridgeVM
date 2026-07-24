@@ -1,13 +1,14 @@
 import kotlin.test.*
 import nes.cartridge.Cartridge
-import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.ppu.Ppu
+import nes.ppu.PpuBus
 
 class PpuTest {
     private fun ppu(mirroring: Mirroring = Mirroring.HORIZONTAL): Ppu {
         val chr = ByteArray(8192)
-        return Ppu(Mapper0(Cartridge(0, mirroring, ByteArray(16 * 1024), chr, true, false)), mirroring)
+        val cart = Cartridge(0, mirroring, ByteArray(16 * 1024), chr, true, false)
+        return Ppu(PpuBus(cart.mapper, cart.mirroring))
     }
 
     @Test fun nametableMirroring() { val p = ppu(Mirroring.VERTICAL); p.ppuWrite(0x2000, 0x22); assertEquals(0x22, p.ppuRead(0x2800)) }

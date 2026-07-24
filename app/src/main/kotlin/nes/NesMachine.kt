@@ -6,10 +6,12 @@ import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
 import nes.input.NesController
 import nes.ppu.Ppu
+import nes.ppu.PpuBus
 
 class NesMachine(cartridge: Cartridge) {
     val controller = NesController()
-    val ppu = Ppu(cartridge)
+    val ppuBus = PpuBus(cartridge.mapper, cartridge.mirroring)
+    val ppu = Ppu(ppuBus)
     val apu = NesApu()
     val bus = CpuBus(cartridge, ppu, controller, apu)
     val cpu = Cpu6502(bus)
