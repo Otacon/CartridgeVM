@@ -1,22 +1,22 @@
 package nes
 
-import nes.cartridge.Cartridge
-import nes.cartridge.Mapper0
 import nes.apu.NesApu
+import nes.cartridge.Cartridge
 import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
 import nes.input.NesController
 import nes.ppu.Ppu
 
-class NesMachine(private val cartridge: Cartridge) {
+class NesMachine(cartridge: Cartridge) {
     val controller = NesController()
-    private val mapper = Mapper0(cartridge)
-    val ppu = Ppu(mapper, cartridge.mirroring)
+    val ppu = Ppu(cartridge)
     val apu = NesApu()
-    val bus = CpuBus(mapper, ppu, controller, apu)
+    val bus = CpuBus(cartridge, ppu, controller, apu)
     val cpu = Cpu6502(bus)
 
-    init { reset() }
+    init {
+        reset()
+    }
 
     fun reset() {
         ppu.reset()

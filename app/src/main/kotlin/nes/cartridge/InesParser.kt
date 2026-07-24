@@ -67,8 +67,8 @@ class InesParser {
         val prg = bytes.copyOfRange(offset, offset + prgSize)
         log.debug("PRG ROM: {}KiB", prg.size / 1024)
         offset += prgSize
-        val chrRam = chrBanks == 0
-        val chr = if (chrRam) {
+        val isChrRam = chrBanks == 0
+        val chr = if (isChrRam) {
             log.debug("CHR: {} KiB RAM", chrSize / 1024)
             ByteArray(CHR_BANK_SIZE)
         } else {
@@ -87,7 +87,7 @@ class InesParser {
             mirroring = mirroring,
             prgRom = prg,
             chr = chr,
-            chrRam = chrRam,
+            isChrRam = isChrRam,
             trainerPresent = trainer
         )
     }

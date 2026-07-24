@@ -1,11 +1,11 @@
 package nes.ppu
 
+import nes.cartridge.Cartridge
 import nes.cartridge.Mapper
 import nes.cartridge.Mirroring
 
 class Ppu(
-    private val mapper: Mapper,
-    private val mirroring: Mirroring
+    private val cartridge: Cartridge,
 ) {
     val framebuffer = IntArray(256 * 240)
     val oam = ByteArray(256)
@@ -124,7 +124,7 @@ class Ppu(
     fun ppuRead(address: Int): Int {
         val a = address and 0x3FFF
         return when {
-            a < 0x2000 -> mapper.ppuRead(a)
+            a < 0x2000 -> cartridge.mapper.ppuRead(a)
             a < 0x3F00 -> nametables[mirrorNametable(a)].toInt() and 0xFF
             else -> paletteRam[mirrorPalette(a)].toInt() and 0x3F
         }
@@ -133,7 +133,7 @@ class Ppu(
     fun ppuWrite(address: Int, value: Int) {
         val a = address and 0x3FFF
         when {
-            a < 0x2000 -> mapper.ppuWrite(a, value)
+            a < 0x2000 -> cartridge.mapper.ppuWrite(a, value)
             a < 0x3F00 -> nametables[mirrorNametable(a)] = value.toByte()
             else -> paletteRam[mirrorPalette(a)] = (value and 0x3F).toByte()
         }
@@ -200,7 +200,7 @@ class Ppu(
         val index = (address - 0x2000) and 0x0FFF
         val table = index / 0x400
         val offset = index and 0x3FF
-        val physical = when (mirroring) {
+        val physical = when (cartridge.mirroring) {
             Mirroring.VERTICAL -> table and 1
             Mirroring.HORIZONTAL -> table shr 1
         }
