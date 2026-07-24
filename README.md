@@ -34,9 +34,12 @@ Optional flags:
 ./gradlew run --args="--debug /path/to/game.nes"
 ./gradlew run --args="--unlimited /path/to/game.nes"
 ./gradlew run --args="--controller /path/to/game.nes"
+./gradlew run --args="--crt /path/to/game.nes"
 ```
 
 Running without a ROM path prints usage information and exits non-zero.
+
+Use `--crt` to enable a stable 4:3 consumer CRT simulation with overscan, scanline beam shaping, phosphor slot masking, analog color bleed, halation, and edge falloff. The default renderer remains pixel-sharp when the flag is omitted.
 
 ## Controls
 
@@ -136,7 +139,7 @@ Frontend code is under `app/src/main/kotlin/frontend`.
 * `KeyboardInput`: fixed keyboard bindings
 * `ControllerInput`: GLFW gamepad bindings enabled with `--controller`
 * `OpenAlAudio`: queues generated mono PCM samples to OpenAL
-* `OpenGlRenderer`: uploads the 256x240 software framebuffer to one nearest-neighbor OpenGL texture
+* `OpenGlRenderer`: presents the 256x240 framebuffer with nearest-neighbor scaling or the optional GLSL CRT pipeline
 * `FramePacer`: monotonic accumulated-deadline frame limiter
 
 CLI code is under `app/src/main/kotlin/app`.

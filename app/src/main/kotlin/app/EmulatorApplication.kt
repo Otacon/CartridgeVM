@@ -33,7 +33,13 @@ class EmulatorApplication(
             machine.insert(cartridge)
             machine.reset()
             log.info("Emulation started")
-            window.use { runWindowLoop() }
+            window.use {
+                try {
+                    runWindowLoop()
+                } finally {
+                    renderer.close()
+                }
+            }
             log.info("Emulation finished")
         } catch (e: RomFormatException) {
             log.error("Unable to load rom", e)
@@ -43,13 +49,12 @@ class EmulatorApplication(
             exitProcess(1)
         } finally {
             audio.close()
-            renderer.close()
         }
     }
 
     private fun runWindowLoop() {
-        val handle = window.create(256 * 3, 240 * 3)
-        renderer.init()
+        val handle = if (cliArgs.crt) window.create(1152, 864) else window.create(256 * 3, 240 * 3)
+        renderer.init(cliArgs.crt)
         val input = if (cliArgs.controller) {
             ControllerInput(machine.controller)
         } else {

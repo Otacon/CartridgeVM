@@ -23,6 +23,9 @@ class CliArgsParser : CliktCommand("cartridgevm") {
         help = "Use a connected controller instead of keyboard input",
     ).flag()
 
+    val crt: Boolean by option(names = arrayOf("--crt"), help = "Enable consumer CRT display emulation")
+        .flag()
+
     val rom: Path by argument(help = "Path to .nes ROM")
         .path(mustExist = true, canBeDir = false)
 
