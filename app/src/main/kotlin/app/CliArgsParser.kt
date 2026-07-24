@@ -18,6 +18,11 @@ class CliArgsParser : CliktCommand("cartridgevm") {
     val unlimited: Boolean by option(names = arrayOf("-u", "--unlimited"), help = "Allow unlimited framerate")
         .flag()
 
+    val controller: Boolean by option(
+        names = arrayOf("-c", "--controller"),
+        help = "Use a connected controller instead of keyboard input",
+    ).flag()
+
     val rom: Path by argument(help = "Path to .nes ROM")
         .path(mustExist = true, canBeDir = false)
 

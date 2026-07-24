@@ -6,6 +6,7 @@ import frontend.GlfwWindow
 import frontend.KeyboardInput
 import frontend.OpenAlAudio
 import frontend.OpenGlRenderer
+import frontend.ControllerInput
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 import nes.Timing
@@ -49,7 +50,11 @@ class EmulatorApplication(
     private fun runWindowLoop() {
         val handle = window.create(256 * 3, 240 * 3)
         renderer.init()
-        val input = KeyboardInput(handle, machine.controller)
+        val input = if (cliArgs.controller) {
+            ControllerInput(machine.controller)
+        } else {
+            KeyboardInput(handle, machine.controller)
+        }
         val pollInput = {
             window.pollEvents()
             input.poll()
@@ -58,35 +63,37 @@ class EmulatorApplication(
         var paused = false
         var frames = 0
         var fpsTime = System.nanoTime()
-        while (!window.shouldClose()) {
-            pollInput()
-            if (input.consumePause()) {
-                paused = !paused
-            }
-            if (input.consumeReset()) {
-                machine.reset()
-                paused = false
-            }
-            if (input.quitRequested()) {
-                window.requestClose()
-            }
-            if (!paused) {
-                machine.runUntilFrame(pollInput)
-                audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            } else {
-                Thread.sleep(8)
-            }
-            renderer.present(machine.ppu.framebuffer, window.width, window.height)
-            window.swapBuffers()
-            if (!cliArgs.unlimited) {
-                pacer.waitForNextFrame()
-            }
-            frames++
-            val now = System.nanoTime()
-            if (now - fpsTime >= 1_000_000_000L) {
-                window.title = "CartridgeVM NES [${cliArgs.rom.fileName} | FPS: $frames]"
-                frames = 0
-                fpsTime = now
+        input.use {
+            while (!window.shouldClose()) {
+                pollInput()
+                if (input.consumePause()) {
+                    paused = !paused
+                }
+                if (input.consumeReset()) {
+                    machine.reset()
+                    paused = false
+                }
+                if (input.quitRequested()) {
+                    window.requestClose()
+                }
+                if (!paused) {
+                    machine.runUntilFrame(pollInput)
+                    audio.submit(machine.apu.samples, machine.apu.sampleCount)
+                } else {
+                    Thread.sleep(8)
+                }
+                renderer.present(machine.ppu.framebuffer, window.width, window.height)
+                window.swapBuffers()
+                if (!cliArgs.unlimited) {
+                    pacer.waitForNextFrame()
+                }
+                frames++
+                val now = System.nanoTime()
+                if (now - fpsTime >= 1_000_000_000L) {
+                    window.title = "CartridgeVM NES [${cliArgs.rom.fileName} | FPS: $frames]"
+                    frames = 0
+                    fpsTime = now
+                }
             }
         }
     }

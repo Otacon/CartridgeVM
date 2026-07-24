@@ -33,6 +33,7 @@ Optional flags:
 ```bash
 ./gradlew run --args="--debug /path/to/game.nes"
 ./gradlew run --args="--unlimited /path/to/game.nes"
+./gradlew run --args="--controller /path/to/game.nes"
 ```
 
 Running without a ROM path prints usage information and exits non-zero.
@@ -54,6 +55,19 @@ Running without a ROM path prints usage information and exits non-zero.
 | Escape | Quit |
 
 Opposite directions are filtered so left/right and up/down are not both sent to the emulated controller at the same time.
+
+Pass `--controller` to use the first connected controller. GLFW's standard gamepad mapping is preferred; controllers without a known mapping, including some 8BitDo modes on macOS, use an Xbox-compatible raw input fallback. Without the flag, keyboard input is used.
+
+| Controller          | NES input |
+|---------------------| --- |
+| A                   | A |
+| B                   | B |
+| View / Back         | Select |
+| Menu / Start        | Start |
+| D-pad               | D-pad |
+| Right bumper        | Pause |
+| Left bumper         | Reset |
+| Guide               | Quit |
 
 ## Supported ROM Format
 
@@ -96,7 +110,7 @@ This is an MVP, not a cycle-perfect emulator.
 * Mapper 0, Mapper 2, Mapper 3, and Mapper 4 only
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
 * NTSC timing only
-* No save states, rewind, cheats, debugger UI, gamepad support, two-player input, ZIP loading, network features, shaders, downloading, or patching
+* No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, shaders, downloading, or patching
 * PPU rendering is approximate in several edge cases
 * Sprite overflow behavior is not cycle-accurate
 * The steady-state CPU path avoids collections in dispatch, but address helper objects remain and should be removed before claiming strict allocation-free operation
@@ -120,6 +134,7 @@ Frontend code is under `app/src/main/kotlin/frontend`.
 
 * `GlfwWindow`: window/context lifecycle
 * `KeyboardInput`: fixed keyboard bindings
+* `ControllerInput`: GLFW gamepad bindings enabled with `--controller`
 * `OpenAlAudio`: queues generated mono PCM samples to OpenAL
 * `OpenGlRenderer`: uploads the 256x240 software framebuffer to one nearest-neighbor OpenGL texture
 * `FramePacer`: monotonic accumulated-deadline frame limiter

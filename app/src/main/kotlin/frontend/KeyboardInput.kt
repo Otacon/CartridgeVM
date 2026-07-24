@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 class KeyboardInput(
     private val window: Long,
     private val controller: NesController,
-) {
+) : EmulatorInput {
     private var prevPause = false
     private var prevReset = false
     private var pauseEdge = false
@@ -16,7 +16,7 @@ class KeyboardInput(
 
     private val log = LoggerFactory.getLogger("KeyboardInput")
 
-    fun poll() {
+    override fun poll() {
         var buttons = 0
         if (GLFW_KEY_Z.isKeyPressed()) buttons = buttons or (1 shl NesController.A)
         if (GLFW_KEY_X.isKeyPressed()) buttons = buttons or (1 shl NesController.B)
@@ -38,19 +38,19 @@ class KeyboardInput(
         prevReset = r
     }
 
-    fun consumePause(): Boolean {
+    override fun consumePause(): Boolean {
         val v = pauseEdge
         pauseEdge = false
         return v
     }
 
-    fun consumeReset(): Boolean {
+    override fun consumeReset(): Boolean {
         val v = resetEdge
         resetEdge = false
         return v
     }
 
-    fun quitRequested() = GLFW_KEY_ESCAPE.isKeyPressed()
+    override fun quitRequested() = GLFW_KEY_ESCAPE.isKeyPressed()
 
     private fun Int.isKeyPressed(): Boolean = glfwGetKey(window, this) == GLFW_PRESS
 
