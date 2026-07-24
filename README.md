@@ -1,6 +1,6 @@
 # CartridgeVM
 
-CartridgeVM is a focused Kotlin/JVM NES emulator MVP. Its current compatibility target is Mapper 0 / NROM NTSC software, with validation intended against the original NTSC Super Mario Bros. when the user supplies a legally obtained ROM. Mapper 2 / UxROM is also supported.
+CartridgeVM is a focused Kotlin/JVM NES emulator MVP. Its current compatibility target is Mapper 0 / NROM NTSC software, with validation intended against the original NTSC Super Mario Bros. when the user supplies a legally obtained ROM. Mapper 2 / UxROM and Mapper 3 / CNROM are also supported.
 
 No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassemblies, or ROM patches are included in this repository.
 
@@ -57,13 +57,14 @@ Opposite directions are filtered so left/right and up/down are not both sent to 
 
 ## Supported ROM Format
 
-The loader supports iNES 1.0 Mapper 0 / NROM and Mapper 2 / UxROM:
+The loader supports iNES 1.0 Mapper 0 / NROM, Mapper 2 / UxROM, and Mapper 3 / CNROM:
 
 * NROM-128 with 16 KiB PRG ROM mirrored at `$C000-$FFFF`
 * NROM-256 with 32 KiB PRG ROM
 * 8 KiB CHR ROM
 * 8 KiB CHR RAM when CHR ROM size is zero
 * UxROM/UNROM with 32 KiB to 256 KiB PRG ROM, switchable `$8000-$BFFF`, fixed last bank at `$C000-$FFFF`, and 8 KiB CHR RAM
+* CNROM with 16 KiB or 32 KiB PRG ROM and switchable 8 KiB CHR ROM banks
 * Horizontal and vertical nametable mirroring
 
 Unsupported formats are rejected with clear startup errors, including NES 2.0, unsupported mappers, four-screen mirroring, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
@@ -73,7 +74,7 @@ Unsupported formats are rejected with clear startup errors, including NES 2.0, u
 Implemented:
 
 * Single command-line application in `app`
-* iNES parser and Mapper 0 / Mapper 2 cartridge mapping
+* iNES parser and Mapper 0 / Mapper 2 / Mapper 3 cartridge mapping
 * Cartridge socket abstraction for insertion/removal and CPU/PPU cartridge access
 * 2A03-style 6502 CPU core for official opcodes
 * CPU bus RAM/register/controller/OAM DMA mapping, with cartridge space routed through the cartridge socket
@@ -91,7 +92,7 @@ Implemented:
 This is an MVP, not a cycle-perfect emulator.
 
 * APU support is approximate and focused on Super Mario Bros.; DMC sample playback is stubbed
-* Mapper 0 and Mapper 2 only
+* Mapper 0, Mapper 2, and Mapper 3 only
 * NTSC timing only
 * No save states, rewind, cheats, debugger UI, gamepad support, two-player input, ZIP loading, network features, shaders, downloading, or patching
 * PPU rendering is approximate in several edge cases
@@ -104,7 +105,7 @@ Super Mario Bros. compatibility has not been claimed unless tested locally with 
 
 Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLFW or OpenGL.
 
-* `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 2
+* `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 2, Mapper 3
 * `nes.cpu`: CPU core and CPU bus memory map
 * `nes.apu`: pulse, triangle, and noise channel audio generation
 * `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation
