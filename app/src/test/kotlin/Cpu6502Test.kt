@@ -141,11 +141,27 @@ class Cpu6502Test {
         val nmiProgram = program(Cpu6502.OP_NOP)
         val (cpu, bus, _) = cpuWithProgram(nmiProgram)
         bus.write(0x9000, Cpu6502.OP_NOP)
+        val cyclesBefore = cpu.totalCycles
 
         cpu.requestNmi()
-        cpu.step()
+        val cycles = cpu.step()
 
         assertEquals(0x9000, cpu.pc, "NMI vector is loaded")
+        assertEquals(7, cycles)
+        assertEquals(cyclesBefore + cycles, cpu.totalCycles)
+    }
+
+    @Test
+    fun `deasserted IRQ line does not leave a stale interrupt`() {
+        val (cpu, _, _) = cpuWithProgram(program(Cpu6502.OP_CLI, Cpu6502.OP_NOP))
+        cpu.step()
+
+        cpu.setIrqLine(true)
+        cpu.setIrqLine(false)
+        val cycles = cpu.step()
+
+        assertEquals(0x8002, cpu.pc)
+        assertEquals(2, cycles)
     }
 
     @Test

@@ -5,6 +5,7 @@ import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
+import nes.cpu.CpuStall
 
 class ApuTest {
     private fun apu(prg: ByteArray = ByteArray(16 * 1024)): NesApu {
@@ -20,7 +21,7 @@ class ApuTest {
                 mapper = Mapper0(prgRom = prg, chr = chr, isChrRam = true)
             )
         )
-        return NesApu(DmcDma(socket))
+        return NesApu(DmcDma(socket, CpuStall()))
     }
 
     @Test
@@ -87,5 +88,19 @@ class ApuTest {
 
         assertTrue((apu.cpuRead(0x4015) and 0x10) != 0)
         assertTrue(apu.samples.take(apu.sampleCount).any { it.toInt() != 0 })
+    }
+
+    @Test
+    fun `DMC sample fetch requests CPU stall cycles`() {
+        val socket = CartridgeSocket()
+        val prg = ByteArray(16 * 1024)
+        val chr = ByteArray(8192)
+        socket.insert(Cartridge(Mirroring.HORIZONTAL, prg, chr, true, false, Mapper0(prg, chr, true)))
+        val cpuStall = CpuStall()
+        val apu = NesApu(DmcDma(socket, cpuStall))
+
+        apu.cpuWrite(0x4015, 0x10)
+
+        assertEquals(4, cpuStall.drain())
     }
 }

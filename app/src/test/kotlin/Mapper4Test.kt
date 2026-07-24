@@ -136,6 +136,23 @@ class Mapper4Test {
         assertFalse(mapper.irqPending())
     }
 
+    @Test
+    fun `reset restores initial banking mirroring and IRQ state`() {
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = chrBanks(8), isChrRam = false)
+        mapper.cpuWrite(0x8000, 6)
+        mapper.cpuWrite(0x8001, 1)
+        mapper.cpuWrite(0xA000, 1)
+        mapper.cpuWrite(0xC000, 0)
+        mapper.cpuWrite(0xE001, 0)
+        mapper.clockScanline()
+
+        mapper.reset()
+
+        assertEquals(0x10, mapper.cpuRead(0x8000))
+        assertEquals(null, mapper.mirroring())
+        assertFalse(mapper.irqPending())
+    }
+
     private fun prgBanks(count: Int): ByteArray {
         val prg = ByteArray(count * 8192)
         var bank = 0

@@ -6,6 +6,7 @@ import nes.cartridge.Mirroring
 import nes.ppu.Palette
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
+import nes.util.toUnsignedInt
 
 class PpuTest {
     private fun ppu(mirroring: Mirroring = Mirroring.HORIZONTAL): Ppu {
@@ -193,6 +194,64 @@ class PpuTest {
         repeat(4) { ppu.step() }
 
         assertTrue((ppu.status and 0x40) != 0)
+    }
+
+    @Test
+    fun `ninth visible sprite sets overflow flag`() {
+        val ppu = ppu()
+        repeat(9) { sprite -> ppu.oam[sprite * 4] = 0 }
+        ppu.cpuWrite(1, 0x10)
+
+        repeat(341 + 2) { ppu.step() }
+
+        assertTrue((ppu.status and 0x20) != 0)
+    }
+
+    @Test
+    fun `background-only rendering still evaluates sprite overflow`() {
+        val ppu = ppu()
+        repeat(9) { sprite -> ppu.oam[sprite * 4] = 0 }
+        ppu.cpuWrite(1, 0x08)
+
+        repeat(341 + 2) { ppu.step() }
+
+        assertTrue((ppu.status and 0x20) != 0)
+    }
+
+    @Test
+    fun `rendered odd frame skips one PPU dot`() {
+        val ppu = ppu()
+        ppu.cpuWrite(1, 0x18)
+
+        var firstFrameDots = 0
+        while (!ppu.frameComplete) {
+            ppu.step()
+            firstFrameDots++
+        }
+        ppu.clearFrameComplete()
+
+        var secondFrameDots = 0
+        while (!ppu.frameComplete) {
+            ppu.step()
+            secondFrameDots++
+        }
+
+        assertEquals(341 * 262, firstFrameDots)
+        assertEquals(firstFrameDots - 1, secondFrameDots)
+    }
+
+    @Test
+    fun `OAM DMA wraps around current OAM address`() {
+        val ppu = ppu()
+        val page = ByteArray(256) { it.toByte() }
+        ppu.cpuWrite(3, 0xFE)
+
+        ppu.writeOamDma(page)
+
+        assertEquals(0, ppu.oam[0xFE].toUnsignedInt())
+        assertEquals(1, ppu.oam[0xFF].toUnsignedInt())
+        assertEquals(2, ppu.oam[0].toUnsignedInt())
+        assertEquals(0xFE, ppu.oamAddress)
     }
 
     @Test

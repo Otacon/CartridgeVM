@@ -28,6 +28,8 @@ class NesMachine(
     }
 
     fun reset() {
+        cartridgeSocket.reset()
+        controller.reset()
         ppu.reset()
         apu.reset()
         cpu.reset()
@@ -37,18 +39,20 @@ class NesMachine(
         ppu.clearFrameComplete()
         apu.beginFrame()
         while (!ppu.frameComplete) {
-            if (ppu.pollNmi()) cpu.requestNmi()
-            if (cartridgeSocket.irqPending()) cpu.requestIrq()
+            latchInterrupts()
             val cycles = cpu.step()
             apu.step(cycles)
             var i = 0
             val ppuCycles = cycles * Timing.PPU_PER_CPU
             while (i < ppuCycles) {
                 ppu.step()
-                if (ppu.pollNmi()) cpu.requestNmi()
-                if (cartridgeSocket.irqPending()) cpu.requestIrq()
                 i++
             }
         }
+    }
+
+    private fun latchInterrupts() {
+        if (ppu.pollNmi()) cpu.requestNmi()
+        cpu.setIrqLine(cartridgeSocket.irqPending() || apu.irqPending())
     }
 }

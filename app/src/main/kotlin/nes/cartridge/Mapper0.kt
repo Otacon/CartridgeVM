@@ -7,10 +7,11 @@ class Mapper0(
     private val chr: ByteArray,
     private val isChrRam: Boolean,
 ) : Mapper {
+    private val prgMask = if (prgRom.size == 0x4000) 0x3FFF else 0x7FFF
+
     override fun cpuRead(address: Int): Int {
         if (address < 0x8000) return 0
-        val index = if (prgRom.size == 0x4000) address and 0x3FFF else address and 0x7FFF
-        return prgRom[index].toUnsignedInt()
+        return prgRom[address and prgMask].toUnsignedInt()
     }
 
     override fun cpuWrite(address: Int, value: Int) = Unit
@@ -21,9 +22,4 @@ class Mapper0(
         if (isChrRam) chr[address and 0x1FFF] = value.toByte()
     }
 
-    override fun clockScanline() = Unit
-
-    override fun irqPending(): Boolean = false
-
-    override fun mirroring(): Mirroring? = null
 }

@@ -13,6 +13,8 @@ class Mapper4(
     private val chrBankCount = chr.size / CHR_BANK_SIZE
     private val prgRam = ByteArray(8 * 1024)
     private val registers = IntArray(8)
+    private val prgBankOffsets = IntArray(4)
+    private val chrBankOffsets = IntArray(8)
 
     private var selectedRegister = 0
     private var prgMode = false
@@ -24,17 +26,16 @@ class Mapper4(
     private var irqRequested = false
     private var mirroring: Mirroring? = null
 
+    init {
+        rebuildBankOffsets()
+    }
+
     override fun cpuRead(address: Int): Int {
         val a = address.low16Bits()
         if (a in 0x6000..0x7FFF) return prgRam[a and 0x1FFF].toUnsignedInt()
         if (a < 0x8000) return 0
-        val bank = when (a) {
-            in 0x8000..0x9FFF -> if (prgMode) prgBankCount - 2 else registers[6]
-            in 0xA000..0xBFFF -> registers[7]
-            in 0xC000..0xDFFF -> if (prgMode) registers[6] else prgBankCount - 2
-            else -> prgBankCount - 1
-        }.floorMod(prgBankCount)
-        val index = bank * PRG_BANK_SIZE + (a and 0x1FFF)
+        val page = (a - 0x8000) shr 13
+        val index = prgBankOffsets[page] + (a and 0x1FFF)
         return prgRom[index].toUnsignedInt()
     }
 
@@ -47,8 +48,10 @@ class Mapper4(
                 selectedRegister = v and 7
                 prgMode = (v and 0x40) != 0
                 chrMode = (v and 0x80) != 0
+                rebuildBankOffsets()
             } else {
                 registers[selectedRegister] = v
+                rebuildBankOffsets()
             }
             in 0xA000..0xBFFF -> if ((a and 1) == 0) {
                 mirroring = if ((v and 1) == 0) Mirroring.VERTICAL else Mirroring.HORIZONTAL
@@ -77,6 +80,20 @@ class Mapper4(
         }
     }
 
+    override fun reset() {
+        registers.fill(0)
+        selectedRegister = 0
+        prgMode = false
+        chrMode = false
+        irqLatch = 0
+        irqCounter = 0
+        irqReload = false
+        irqEnabled = false
+        irqRequested = false
+        mirroring = null
+        rebuildBankOffsets()
+    }
+
     override fun clockScanline() {
         if (irqCounter == 0 || irqReload) {
             irqCounter = irqLatch
@@ -99,29 +116,50 @@ class Mapper4(
 
     private fun mapChrAddress(address: Int): Int {
         val a = address and 0x1FFF
-        val bank = when {
-            !chrMode && a < 0x0800 -> evenChrBank(registers[0]) + ((a and 0x0400) shr 10)
-            !chrMode && a < 0x1000 -> evenChrBank(registers[1]) + ((a and 0x0400) shr 10)
-            !chrMode && a < 0x1400 -> registers[2]
-            !chrMode && a < 0x1800 -> registers[3]
-            !chrMode && a < 0x1C00 -> registers[4]
-            !chrMode -> registers[5]
-            chrMode && a < 0x0400 -> registers[2]
-            chrMode && a < 0x0800 -> registers[3]
-            chrMode && a < 0x0C00 -> registers[4]
-            chrMode && a < 0x1000 -> registers[5]
-            chrMode && a < 0x1800 -> evenChrBank(registers[0]) + ((a and 0x0400) shr 10)
-            else -> evenChrBank(registers[1]) + ((a and 0x0400) shr 10)
-        }.floorMod(chrBankCount)
-        return bank * CHR_BANK_SIZE + (a and 0x03FF)
+        return chrBankOffsets[a shr 10] + (a and 0x03FF)
     }
 
-    private fun evenChrBank(value: Int): Int {
-        return value and 0xFE
+    private fun rebuildBankOffsets() {
+        val secondLastPrg = prgBankCount - 2
+        if (prgMode) {
+            setPrgBank(0, secondLastPrg)
+            setPrgBank(2, registers[6])
+        } else {
+            setPrgBank(0, registers[6])
+            setPrgBank(2, secondLastPrg)
+        }
+        setPrgBank(1, registers[7])
+        setPrgBank(3, prgBankCount - 1)
+
+        val firstPair = registers[0] and 0xFE
+        val secondPair = registers[1] and 0xFE
+        if (chrMode) {
+            setChrBank(0, registers[2])
+            setChrBank(1, registers[3])
+            setChrBank(2, registers[4])
+            setChrBank(3, registers[5])
+            setChrBank(4, firstPair)
+            setChrBank(5, firstPair + 1)
+            setChrBank(6, secondPair)
+            setChrBank(7, secondPair + 1)
+        } else {
+            setChrBank(0, firstPair)
+            setChrBank(1, firstPair + 1)
+            setChrBank(2, secondPair)
+            setChrBank(3, secondPair + 1)
+            setChrBank(4, registers[2])
+            setChrBank(5, registers[3])
+            setChrBank(6, registers[4])
+            setChrBank(7, registers[5])
+        }
     }
 
-    private fun Int.floorMod(divisor: Int): Int {
-        return ((this % divisor) + divisor) % divisor
+    private fun setPrgBank(page: Int, bank: Int) {
+        prgBankOffsets[page] = (bank % prgBankCount) * PRG_BANK_SIZE
+    }
+
+    private fun setChrBank(page: Int, bank: Int) {
+        chrBankOffsets[page] = (bank % chrBankCount) * CHR_BANK_SIZE
     }
 
     companion object {

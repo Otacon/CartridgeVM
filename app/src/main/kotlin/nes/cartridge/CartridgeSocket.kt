@@ -6,40 +6,56 @@ import me.tatarka.inject.annotations.Inject
 @Inject
 @AppScope
 class CartridgeSocket {
-    private var cartridge: Cartridge? = null
+    private var mapper: Mapper? = null
+    private var cartridgeMirroring: Mirroring? = null
+    private var effectiveMirroring: Mirroring? = null
 
     val mirroring: Mirroring?
-        get() = cartridge?.mapper?.mirroring() ?: cartridge?.mirroring
+        get() = effectiveMirroring
 
     fun insert(cartridge: Cartridge) {
-        this.cartridge = cartridge
+        mapper = cartridge.mapper
+        cartridgeMirroring = cartridge.mirroring
+        updateMirroring()
     }
 
     fun remove() {
-        cartridge = null
+        mapper = null
+        cartridgeMirroring = null
+        effectiveMirroring = null
+    }
+
+    fun reset() {
+        mapper?.reset()
+        updateMirroring()
     }
 
     fun cpuRead(address: Int): Int {
-        return cartridge?.mapper?.cpuRead(address) ?: 0
+        return mapper?.cpuRead(address) ?: 0
     }
 
     fun cpuWrite(address: Int, value: Int) {
-        cartridge?.mapper?.cpuWrite(address, value)
+        mapper?.cpuWrite(address, value)
+        updateMirroring()
     }
 
     fun ppuRead(address: Int): Int {
-        return cartridge?.mapper?.ppuRead(address) ?: 0
+        return mapper?.ppuRead(address) ?: 0
     }
 
     fun ppuWrite(address: Int, value: Int) {
-        cartridge?.mapper?.ppuWrite(address, value)
+        mapper?.ppuWrite(address, value)
     }
 
     fun clockScanline() {
-        cartridge?.mapper?.clockScanline()
+        mapper?.clockScanline()
     }
 
     fun irqPending(): Boolean {
-        return cartridge?.mapper?.irqPending() ?: false
+        return mapper?.irqPending() ?: false
+    }
+
+    private fun updateMirroring() {
+        effectiveMirroring = mapper?.mirroring() ?: cartridgeMirroring
     }
 }

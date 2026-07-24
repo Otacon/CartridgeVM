@@ -38,14 +38,14 @@ class PpuBus(
 
     private fun mirrorNametable(address: Int): Int {
         val index = (address - 0x2000) and 0x0FFF
-        val table = index / 0x400
+        val table = index shr 10
         val offset = index and 0x3FF
         val physical = when (cartridgeSocket.mirroring) {
             Mirroring.VERTICAL -> table and 1
             Mirroring.HORIZONTAL -> table shr 1
             else -> table shr 1
         }
-        return physical * 0x400 + offset
+        return (physical shl 10) + offset
     }
 
     private fun mirrorPalette(address: Int): Int {

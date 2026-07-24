@@ -6,6 +6,8 @@ import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.cpu.CpuBus
+import nes.cpu.Cpu6502
+import nes.cpu.CpuStall
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
@@ -89,7 +91,8 @@ class BusTest {
         val socket = CartridgeSocket()
         socket.insert(cartridge())
         val ppu = Ppu(PpuBus(socket))
-        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket)))
+        val cpuStall = CpuStall()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
 
         bus.write(0x0000, 0x77)
         bus.write(0x4014, 0)
@@ -106,5 +109,27 @@ class BusTest {
         bus.write(0x4003, 0x08)
 
         assertTrue((bus.read(0x4015) and 0x01) != 0)
+    }
+
+    @Test
+    fun `pending DMA stall delays the next CPU opcode`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val cpuStall = CpuStall()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_NOP)
+        cpuStall.request(4)
+
+        val stallCycles = cpu.step()
+
+        assertEquals(4, stallCycles)
+        assertEquals(0, cpu.pc)
+
+        cpu.step()
+
+        assertEquals(1, cpu.pc)
     }
 }

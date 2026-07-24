@@ -1,7 +1,7 @@
 package nes
 
 object Timing {
-    const val CPU_HZ = 1_789_773.0
+    const val CPU_HZ = 1_789_773
     const val PPU_PER_CPU = 3
     const val PPU_CYCLES_PER_SCANLINE = 341
     const val SCANLINES_PER_FRAME = 262

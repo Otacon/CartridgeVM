@@ -16,11 +16,11 @@ class CpuBus(
     private val cartridgeSocket: CartridgeSocket,
     private val ppu: Ppu,
     private val controller: NesController,
-    private val apu: NesApu
+    private val apu: NesApu,
+    private val cpuStall: CpuStall,
 ) {
     val ram = ByteArray(2048)
-    var dmaCycles = 0
-        private set
+    private val oamDmaBuffer = ByteArray(256)
 
     fun read(address: Int): Int {
         return when (val a = address.low16Bits()) {
@@ -52,20 +52,21 @@ class CpuBus(
     }
 
     fun consumeDmaCycles(): Int {
-        val value = dmaCycles
-        dmaCycles = 0
-        return value
+        return cpuStall.drain()
+    }
+
+    fun reset() {
+        cpuStall.reset()
     }
 
     private fun doOamDma(page: Int) {
-        val bytes = ByteArray(256)
         val base = page shl 8
         var i = 0
         while (i < 256) {
-            bytes[i] = read(base + i).toByte()
+            oamDmaBuffer[i] = read(base + i).toByte()
             i++
         }
-        ppu.writeOamDma(bytes)
-        dmaCycles += 513
+        ppu.writeOamDma(oamDmaBuffer)
+        cpuStall.request(513)
     }
 }

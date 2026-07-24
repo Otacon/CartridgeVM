@@ -8,19 +8,20 @@ class Mapper2(
     private val chrRam: ByteArray,
 ) : Mapper {
     private val bankCount = prgRom.size / PRG_BANK_SIZE
-    private var selectedBank = 0
+    private var selectedBankBase = 0
+    private val fixedBankBase = (bankCount - 1) * PRG_BANK_SIZE
 
     override fun cpuRead(address: Int): Int {
         val a = address.low16Bits()
         if (a < 0x8000) return 0
-        val bank = if (a < 0xC000) selectedBank else bankCount - 1
-        val index = bank * PRG_BANK_SIZE + (a and 0x3FFF)
+        val bankBase = if (a < 0xC000) selectedBankBase else fixedBankBase
+        val index = bankBase + (a and 0x3FFF)
         return prgRom[index].toUnsignedInt()
     }
 
     override fun cpuWrite(address: Int, value: Int) {
         if (address.low16Bits() >= 0x8000) {
-            selectedBank = (value and 0x0F) % bankCount
+            selectedBankBase = ((value and 0x0F) % bankCount) * PRG_BANK_SIZE
         }
     }
 
@@ -32,11 +33,9 @@ class Mapper2(
         chrRam[address and 0x1FFF] = value.toByte()
     }
 
-    override fun clockScanline() = Unit
-
-    override fun irqPending(): Boolean = false
-
-    override fun mirroring(): Mirroring? = null
+    override fun reset() {
+        selectedBankBase = 0
+    }
 
     companion object {
         private const val PRG_BANK_SIZE = 16 * 1024

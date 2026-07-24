@@ -191,13 +191,14 @@ class Cpu6502(
         private set
 
     private var nmiPending = false
-    private var irqPending = false
+    private var irqLine = false
 
     /**
      * Resets the CPU registers, status flags, pending interrupts, cycle count, and program counter.
      * The reset vector at `$FFFC/$FFFD` supplies the initial program counter.
      */
     fun reset() {
+        bus.reset()
         a = 0
         x = 0
         y = 0
@@ -206,7 +207,7 @@ class Cpu6502(
         pc = read16(0xFFFC)
         totalCycles = 7
         nmiPending = false
-        irqPending = false
+        irqLine = false
     }
 
     /**
@@ -217,10 +218,10 @@ class Cpu6502(
     }
 
     /**
-     * Queues a maskable interrupt to be serviced before the next opcode when interrupts are enabled.
+     * Updates the level-sensitive IRQ input sampled before the next opcode.
      */
-    fun requestIrq() {
-        irqPending = true
+    fun setIrqLine(asserted: Boolean) {
+        irqLine = asserted
     }
 
     /**
@@ -229,17 +230,20 @@ class Cpu6502(
      * @return the number of CPU cycles consumed, including any pending DMA stall cycles.
      */
     fun step(): Int {
-        if (nmiPending) {
-            nmiPending = false
-            return interrupt(0xFFFA, false)
+        val pendingStallCycles = bus.consumeDmaCycles()
+        if (pendingStallCycles > 0) {
+            totalCycles += pendingStallCycles.toLong()
+            return pendingStallCycles
         }
-        if (irqPending && !flag(I)) {
-            irqPending = false
-            return interrupt(0xFFFE, false)
+        val instructionCycles = when {
+            nmiPending -> {
+                nmiPending = false
+                interrupt(0xFFFA, false)
+            }
+            irqLine && !flag(I) -> interrupt(0xFFFE, false)
+            else -> execute(fetchByte())
         }
-        val op = read(pc)
-        pc = (pc + 1).low16Bits()
-        val cycles = execute(op) + bus.consumeDmaCycles()
+        val cycles = instructionCycles + bus.consumeDmaCycles()
         totalCycles += cycles.toLong()
         return cycles
     }
@@ -253,7 +257,7 @@ class Cpu6502(
     private fun execute(op: Int): Int {
         return when (op) {
             OP_LDA_IMM -> {
-                a = imm()
+                a = fetchByte()
                 zn(a)
                 2
             }
@@ -304,7 +308,7 @@ class Cpu6502(
             }
 
             OP_LDX_IMM -> {
-                x = imm()
+                x = fetchByte()
                 zn(x)
                 2
             }
@@ -335,7 +339,7 @@ class Cpu6502(
             }
 
             OP_LDY_IMM -> {
-                y = imm()
+                y = fetchByte()
                 zn(y)
                 2
             }
@@ -487,7 +491,7 @@ class Cpu6502(
             }
 
             OP_ADC_IMM -> {
-                adc(imm())
+                adc(fetchByte())
                 2
             }
 
@@ -530,7 +534,7 @@ class Cpu6502(
             }
 
             OP_SBC_IMM, OP_SBC_IMM_UNOFFICIAL -> {
-                sbc(imm())
+                sbc(fetchByte())
                 2
             }
 
@@ -573,7 +577,7 @@ class Cpu6502(
             }
 
             OP_AND_IMM -> {
-                a = a and imm()
+                a = a and fetchByte()
                 zn(a)
                 2
             }
@@ -624,7 +628,7 @@ class Cpu6502(
             }
 
             OP_ORA_IMM -> {
-                a = a or imm()
+                a = a or fetchByte()
                 zn(a)
                 2
             }
@@ -675,7 +679,7 @@ class Cpu6502(
             }
 
             OP_EOR_IMM -> {
-                a = a xor imm()
+                a = a xor fetchByte()
                 zn(a)
                 2
             }
@@ -726,7 +730,7 @@ class Cpu6502(
             }
 
             OP_CMP_IMM -> {
-                cmp(a, imm())
+                cmp(a, fetchByte())
                 2
             }
 
@@ -769,7 +773,7 @@ class Cpu6502(
             }
 
             OP_CPX_IMM -> {
-                cmp(x, imm())
+                cmp(x, fetchByte())
                 2
             }
 
@@ -784,7 +788,7 @@ class Cpu6502(
             }
 
             OP_CPY_IMM -> {
-                cmp(y, imm())
+                cmp(y, fetchByte())
                 2
             }
 
@@ -1080,7 +1084,11 @@ class Cpu6502(
         }
     }
 
-    private data class Addr(val addr: Int, val page: Int)
+    @JvmInline
+    private value class Addr(private val packed: Int) {
+        val addr: Int get() = packed and 0xFFFF
+        val page: Int get() = packed ushr 16
+    }
 
     /**
      * Reads one byte from the CPU bus at the supplied 16-bit address.
@@ -1099,7 +1107,7 @@ class Cpu6502(
     /**
      * Reads the next instruction byte and advances the program counter.
      */
-    private fun imm(): Int {
+    private fun fetchByte(): Int {
         val v = read(pc)
         pc = (pc + 1).low16Bits()
         return v
@@ -1109,66 +1117,70 @@ class Cpu6502(
      * Resolves zero-page addressing from the next instruction byte.
      */
     private fun zp(): Int {
-        return imm()
+        return fetchByte()
     }
 
     /**
      * Resolves zero-page,X addressing with 8-bit zero-page wraparound.
      */
     private fun zpx(): Int {
-        return (imm() + x).low8Bits()
+        return (fetchByte() + x).low8Bits()
     }
 
     /**
      * Resolves zero-page,Y addressing with 8-bit zero-page wraparound.
      */
     private fun zpy(): Int {
-        return (imm() + y).low8Bits()
+        return (fetchByte() + y).low8Bits()
     }
 
     /**
      * Resolves absolute addressing from the next two instruction bytes in little-endian order.
      */
     private fun abs(): Int {
-        val lo = imm()
-        val hi = imm()
+        val lo = fetchByte()
+        val hi = fetchByte()
         return lo or (hi shl 8)
     }
 
     /**
      * Resolves absolute,X addressing and optionally reports a page-crossing cycle penalty.
      */
-    private fun absx(page: Boolean): Addr {
+    private fun absx(includePageCrossPenalty: Boolean): Addr {
         val b = abs()
         val a = (b + x).low16Bits()
-        return Addr(a, if (page && b.pageBase() != a.pageBase()) 1 else 0)
+        return addressResult(a, includePageCrossPenalty && b.pageBase() != a.pageBase())
     }
 
     /**
      * Resolves absolute,Y addressing and optionally reports a page-crossing cycle penalty.
      */
-    private fun absy(page: Boolean): Addr {
+    private fun absy(includePageCrossPenalty: Boolean): Addr {
         val b = abs()
         val a = (b + y).low16Bits()
-        return Addr(a, if (page && b.pageBase() != a.pageBase()) 1 else 0)
+        return addressResult(a, includePageCrossPenalty && b.pageBase() != a.pageBase())
     }
 
     /**
      * Resolves indexed-indirect `(operand,X)` addressing through zero-page pointer wraparound.
      */
     private fun indx(): Int {
-        val p = (imm() + x).low8Bits()
+        val p = (fetchByte() + x).low8Bits()
         return read(p) or (read((p + 1).low8Bits()) shl 8)
     }
 
     /**
      * Resolves indirect-indexed `(operand),Y` addressing and optionally reports page crossing.
      */
-    private fun indy(page: Boolean): Addr {
-        val p = imm()
+    private fun indy(includePageCrossPenalty: Boolean): Addr {
+        val p = fetchByte()
         val b = read(p) or (read((p + 1).low8Bits()) shl 8)
         val a = (b + y).low16Bits()
-        return Addr(a, if (page && b.pageBase() != a.pageBase()) 1 else 0)
+        return addressResult(a, includePageCrossPenalty && b.pageBase() != a.pageBase())
+    }
+
+    private fun addressResult(address: Int, pageCrossed: Boolean): Addr {
+        return Addr(address or ((if (pageCrossed) 1 else 0) shl 16))
     }
 
     /**
@@ -1202,15 +1214,16 @@ class Cpu6502(
         } else {
             status and f.inv()
         }
-        status = status or U
     }
 
     /**
      * Updates the zero and negative flags from an 8-bit result value.
      */
     private fun zn(v: Int) {
-        set(Z, (v.low8Bits()) == 0)
-        set(N, (v and 0x80) != 0)
+        val value = v.low8Bits()
+        status = status and (Z or N).inv()
+        if (value == 0) status = status or Z
+        status = status or (value and N)
     }
 
     /**
@@ -1262,10 +1275,13 @@ class Cpu6502(
      */
     private fun adc(v: Int) {
         val sum = a + v + if (flag(C)) 1 else 0
-        set(C, sum > 0xFF)
-        set(V, ((a xor sum) and (v xor sum) and 0x80) != 0)
-        a = sum.low8Bits()
-        zn(a)
+        val result = sum.low8Bits()
+        var flags = result and N
+        if (sum > 0xFF) flags = flags or C
+        if (((a xor sum) and (v xor sum) and 0x80) != 0) flags = flags or V
+        if (result == 0) flags = flags or Z
+        status = (status and (C or Z or V or N).inv()) or flags
+        a = result
     }
 
     /**
@@ -1279,18 +1295,20 @@ class Cpu6502(
      * Compares a register value with a byte and updates carry, zero, and negative flags.
      */
     private fun cmp(r: Int, v: Int) {
-        val d = (r - v) and 0x1FF
-        set(C, r >= v)
-        zn(d.low8Bits())
+        val result = (r - v).low8Bits()
+        var flags = result and N
+        if (r >= v) flags = flags or C
+        if (result == 0) flags = flags or Z
+        status = (status and (C or Z or N).inv()) or flags
     }
 
     /**
      * Performs the BIT test against the accumulator and copies bits 6 and 7 into overflow and negative flags.
      */
     private fun bit(v: Int) {
-        set(Z, (a and v) == 0)
-        set(V, (v and 0x40) != 0)
-        set(N, (v and 0x80) != 0)
+        var flags = v and (V or N)
+        if ((a and v) == 0) flags = flags or Z
+        status = (status and (Z or V or N).inv()) or flags
     }
 
     /**
@@ -1389,7 +1407,7 @@ class Cpu6502(
      * Applies a signed relative branch when the condition is true and returns the instruction cycle count.
      */
     private fun branch(cond: Boolean): Int {
-        val off = imm()
+        val off = fetchByte()
         if (!cond) {
             return 2
         }

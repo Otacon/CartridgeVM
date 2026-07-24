@@ -73,7 +73,7 @@ ROM/cartridge:
 * NROM-128 and NROM-256.
 * UxROM/UNROM with switchable 16 KiB lower PRG bank and fixed last 16 KiB upper PRG bank.
 * CNROM with fixed PRG ROM and switchable 8 KiB CHR ROM banks.
-* MMC3 with 8 KiB PRG banking, 1/2 KiB CHR banking, PRG RAM, runtime mirroring control, and approximate scanline IRQs.
+* MMC3 with precomputed 8 KiB PRG/1 KiB CHR page offsets, PRG RAM, runtime mirroring control, and approximate scanline IRQs.
 * CHR ROM and CHR RAM.
 * Horizontal and vertical mirroring.
 * `Cartridge` stores ROM metadata/data plus a generic `Mapper` instance.
@@ -99,8 +99,10 @@ PPU:
 * Buffered PPUDATA reads and palette read behavior.
 * VBlank flag, status read side effects, NMI generation.
 * Background rendering with attributes, scrolling, and nametable-bit handling.
-* Sprite rendering with 8x8 and 8x16 sprites, flips, priority, and approximate sprite-zero hit.
+* Sprite rendering with 8x8 and 8x16 sprites, flips, priority, approximate sprite-zero hit, and basic overflow detection.
 * Loopy scroll state: `v`, `t`, fine X, write latch, coarse X/Y increments, horizontal/vertical transfers.
+* The scanline renderer caches palette and tile fetch data; preserve primitive arrays and avoid per-pixel allocations.
+* Rendered odd frames skip one pre-render PPU dot.
 
 APU/audio:
 
@@ -108,7 +110,7 @@ APU/audio:
 * Pulse 1, pulse 2, triangle, and noise channels.
 * Length counters, envelopes, approximate sweep, triangle linear counter, frame counter clocks.
 * OpenAL frontend playback.
-* Approximate DMC sample playback with CPU-memory sample reads.
+* Approximate DMC sample playback with CPU-memory sample reads, IRQ state, and four-cycle CPU stalls.
 
 Input/frontend:
 
@@ -137,6 +139,9 @@ Architecture notes:
 * `NesMachine` starts without a constructor cartridge argument; call `insert(cartridge)` before reset/run for normal use.
 * `InesParser` validates iNES mapper numbers and creates the concrete mapper instance for parsed cartridges.
 * CPU, PPU, APU, and bus packages should not depend on concrete mapper classes.
+* NMI is edge-latched; IRQ is a level sampled at CPU instruction boundaries from mapper and APU sources.
+* `CpuStall` owns pending OAM/DMC CPU stalls. `CpuBus` drains stalls as part of a CPU step; DMA components request them.
+* Machine reset resets CPU, PPU, APU, controller protocol, pending stalls, and active mapper runtime state while preserving RAM.
 * Use shared bit/byte helpers from `nes.util.BitExtensions` instead of repeating raw truncation masks:
   `Byte.toUnsignedInt()` for byte-array reads, `Int.low8Bits()` for byte/register truncation, `Int.low16Bits()` for CPU
   address truncation, and `Int.pageBase()` for 6502 page-crossing checks. These helpers intentionally return `Int` and
@@ -151,13 +156,13 @@ Architecture notes:
 * NTSC only.
 * PPU is approximate, not cycle-perfect.
 * Sprite-zero hit is approximate.
-* Sprite overflow is not accurate.
+* Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
 * APU is approximate and SMB-focused.
 * DMC sample playback is approximate.
 * No save states, rewind, cheats, debugger UI, gamepad support, two-player input, ZIP loading, networking, shaders, ROM
   downloading, or ROM patching.
-* Hot path still has avoidable allocations in some places, including CPU address helper objects, OAM DMA buffer
-  allocation, and frontend framebuffer-size queries.
+* PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are approximate.
+* OAM DMA uses a fixed 513-cycle stall; exact 513/514 parity requires intra-instruction CPU bus-cycle timing.
 
 ## Development Guidance
 

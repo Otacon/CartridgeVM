@@ -10,9 +10,10 @@ import nes.util.toUnsignedInt
 class Ppu(
     private val bus: PpuBus,
 ) {
-    val framebuffer = IntArray(256 * 240)
+    val framebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
     val oam = ByteArray(256)
     private val scanlineSprites = IntArray(8)
+    private val paletteColors = IntArray(32)
 
     var ctrl = 0; private set
     var mask = 0; private set
@@ -29,6 +30,7 @@ class Ppu(
 
     private var readBuffer = 0
     private var pendingSpriteZeroHitCycle = -1
+    private var oddFrame = false
     private val bgOpaque = BooleanArray(256)
     private val spriteClaimed = BooleanArray(256)
 
@@ -36,6 +38,7 @@ class Ppu(
         ctrl = 0; mask = 0; status = 0; oamAddress = 0; v = 0; t = 0; fineX = 0
         writeLatch = false; scanline = 0; cycle = 0; frameComplete = false; nmiRequested = false; readBuffer = 0
         pendingSpriteZeroHitCycle = -1
+        oddFrame = false
     }
 
     fun pollNmi(): Boolean {
@@ -50,28 +53,30 @@ class Ppu(
 
     fun step() {
         val rendering = renderingEnabled()
-        if (scanline in 0..239 && cycle == 1) renderScanline(scanline)
-        if (scanline in 0..239 && cycle == pendingSpriteZeroHitCycle) status = status or 0x40
-        if (scanline == 241 && cycle == 1) {
-            status = status or 0x80
+        val visibleScanline = scanline in 0 until SCREEN_HEIGHT
+        if (visibleScanline && cycle == FIRST_VISIBLE_DOT) renderScanline(scanline)
+        if (visibleScanline && cycle == pendingSpriteZeroHitCycle) status = status or STATUS_SPRITE_ZERO_HIT
+        if (scanline == VBLANK_SCANLINE && cycle == FIRST_VISIBLE_DOT) {
+            status = status or STATUS_VBLANK
             if ((ctrl and 0x80) != 0) nmiRequested = true
         }
-        if (scanline == 261 && cycle == 1) status = status and 0x1F
-        if (rendering && (scanline in 0..239 || scanline == 261)) {
-            if (cycle in 1..256 && (cycle and 7) == 0) incrementCoarseX()
-            if (cycle == 256) incrementY()
-            if (cycle == 257) transferHorizontalAddress()
-            if (cycle == 260 && scanline in 0..239) bus.clockScanline()
-            if (scanline == 261 && cycle in 280..304) transferVerticalAddress()
+        if (scanline == PRE_RENDER_SCANLINE && cycle == FIRST_VISIBLE_DOT) status = status and 0x1F
+        if (rendering && (visibleScanline || scanline == PRE_RENDER_SCANLINE)) {
+            if (cycle in FIRST_VISIBLE_DOT..LAST_VISIBLE_DOT && (cycle and 7) == 0) incrementCoarseX()
+            if (cycle == LAST_VISIBLE_DOT) incrementY()
+            if (cycle == HORIZONTAL_TRANSFER_DOT) transferHorizontalAddress()
+            if (cycle == MAPPER_SCANLINE_DOT && visibleScanline) bus.clockScanline()
+            if (scanline == PRE_RENDER_SCANLINE && cycle in 280..304) transferVerticalAddress()
+        }
+        if (rendering && oddFrame && scanline == PRE_RENDER_SCANLINE && cycle == ODD_FRAME_LAST_DOT) {
+            finishFrame()
+            return
         }
         cycle++
-        if (cycle >= 341) {
+        if (cycle >= DOTS_PER_SCANLINE) {
             cycle = 0
             scanline++
-            if (scanline >= 262) {
-                scanline = 0
-                frameComplete = true
-            }
+            if (scanline >= SCANLINES_PER_FRAME) finishFrame()
         }
     }
 
@@ -128,11 +133,9 @@ class Ppu(
     }
 
     fun writeOamDma(page: ByteArray) {
-        var i = 0
-        while (i < 256) {
-            oam[(oamAddress + i).low8Bits()] = page[i]
-            i++
-        }
+        val firstCopyLength = oam.size - oamAddress
+        page.copyInto(oam, oamAddress, 0, firstCopyLength)
+        if (firstCopyLength < page.size) page.copyInto(oam, 0, firstCopyLength, page.size)
     }
 
     fun ppuRead(address: Int): Int = bus.read(address)
@@ -202,71 +205,100 @@ class Ppu(
         val bgEnabled = (mask and 0x08) != 0
         val spritesEnabled = (mask and 0x10) != 0
         pendingSpriteZeroHitCycle = -1
-        var x = 0
-        while (x < 256) {
-            bgOpaque[x] = false
-            spriteClaimed[x] = false
-            framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00) and 0x3F]
-            x++
+        var paletteIndex = 0
+        while (paletteIndex < paletteColors.size) {
+            paletteColors[paletteIndex] = Palette.COLORS[ppuRead(0x3F00 + paletteIndex) and 0x3F]
+            paletteIndex++
         }
-        if (bgEnabled) renderBackground(y)
-        if (spritesEnabled) renderSprites(y)
+        val rowStart = y * SCREEN_WIDTH
+        framebuffer.fill(paletteColors[0], rowStart, rowStart + SCREEN_WIDTH)
+        bgOpaque.fill(false)
+        spriteClaimed.fill(false)
+        if (bgEnabled) renderBackground(rowStart)
+        if (bgEnabled || spritesEnabled) {
+            val spriteHeight = if ((ctrl and 0x20) != 0) 16 else 8
+            val selectedSprites = evaluateSprites(y, spriteHeight)
+            if (spritesEnabled) renderSprites(y, rowStart, spriteHeight, selectedSprites)
+        }
     }
 
-    private fun renderBackground(y: Int) {
+    private fun renderBackground(rowStart: Int) {
         val showLeftBackground = (mask and 0x02) != 0
         val scrollX = (((v and 0x001F) shl 3) + fineX + if ((v and 0x0400) != 0) 256 else 0) and 0x1FF
         val scrollY =
             ((((v shr 5) and 0x1F) shl 3) + ((v shr 12) and 7) + if ((v and 0x0800) != 0) 256 else 0) and 0x1FF
         val patternBase = if ((ctrl and 0x10) != 0) 0x1000 else 0
+        val ty = (scrollY shr 3) and 31
+        val fineY = scrollY and 7
+        val verticalNametable = ((scrollY shr 8) and 1) shl 1
+        var cachedTileKey = -1
+        var palette = 0
+        var lo = 0
+        var hi = 0
         var x = 0
-        while (x < 256) {
+        while (x < SCREEN_WIDTH) {
             val sx = (x + scrollX) and 0x1FF
-            val sy = scrollY
-            val nt = ((sx shr 8) and 1) or (((sy shr 8) and 1) shl 1)
+            val nt = ((sx shr 8) and 1) or verticalNametable
             val tx = (sx shr 3) and 31
-            val ty = (sy shr 3) and 31
-            val fineY = sy and 7
-            val ntBase = 0x2000 + nt * 0x400
-            val tile = ppuRead(ntBase + ty * 32 + tx)
-            val attr = ppuRead(ntBase + 0x3C0 + (ty shr 2) * 8 + (tx shr 2))
-            val shift = ((ty and 2) shl 1) or (tx and 2)
-            val palette = (attr shr shift) and 3
-            val lo = ppuRead(patternBase + tile * 16 + fineY)
-            val hi = ppuRead(patternBase + tile * 16 + fineY + 8)
+            val tileKey = (nt shl 5) or tx
+            if (tileKey != cachedTileKey) {
+                cachedTileKey = tileKey
+                val ntBase = 0x2000 + nt * 0x400
+                val tile = ppuRead(ntBase + ty * 32 + tx)
+                val attr = ppuRead(ntBase + 0x3C0 + (ty shr 2) * 8 + (tx shr 2))
+                val shift = ((ty and 2) shl 1) or (tx and 2)
+                palette = (attr shr shift) and 3
+                lo = ppuRead(patternBase + tile * 16 + fineY)
+                hi = ppuRead(patternBase + tile * 16 + fineY + 8)
+            }
             val bit = 7 - (sx and 7)
             val color = (((hi shr bit) and 1) shl 1) or ((lo shr bit) and 1)
             if (color != 0 && (x >= 8 || showLeftBackground)) {
                 bgOpaque[x] = true
-                framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00 + palette * 4 + color) and 0x3F]
+                framebuffer[rowStart + x] = paletteColors[palette * 4 + color]
             }
             x++
         }
     }
 
-    private fun renderSprites(y: Int) {
-        val spriteHeight = if ((ctrl and 0x20) != 0) 16 else 8
-        val spritePatternBase = if ((ctrl and 0x08) != 0) 0x1000 else 0
-        val showLeftSprites = (mask and 0x04) != 0
+    private fun evaluateSprites(y: Int, spriteHeight: Int): Int {
         var selected = 0
         var i = 0
-        while (i < 64 && selected < 8) {
+        while (i < 64) {
             val base = i * 4
             val sy = oam[base].toUnsignedInt() + 1
             if (y >= sy && y < sy + spriteHeight) {
-                scanlineSprites[selected] = i
-                selected++
+                if (selected < scanlineSprites.size) {
+                    scanlineSprites[selected] = i
+                    selected++
+                } else {
+                    status = status or STATUS_SPRITE_OVERFLOW
+                    break
+                }
             }
             i++
         }
+        return selected
+    }
+
+    private fun renderSprites(y: Int, rowStart: Int, spriteHeight: Int, selectedSprites: Int) {
+        val spritePatternBase = if ((ctrl and 0x08) != 0) 0x1000 else 0
+        val showLeftSprites = (mask and 0x04) != 0
         var s = 0
-        while (s < selected) {
-            renderSprite(scanlineSprites[s], y, spriteHeight, spritePatternBase, showLeftSprites)
+        while (s < selectedSprites) {
+            renderSprite(scanlineSprites[s], y, rowStart, spriteHeight, spritePatternBase, showLeftSprites)
             s++
         }
     }
 
-    private fun renderSprite(i: Int, y: Int, spriteHeight: Int, spritePatternBase: Int, showLeftSprites: Boolean) {
+    private fun renderSprite(
+        i: Int,
+        y: Int,
+        rowStart: Int,
+        spriteHeight: Int,
+        spritePatternBase: Int,
+        showLeftSprites: Boolean,
+    ) {
         val base = i * 4
         val sy = oam[base].toUnsignedInt() + 1
         val tile = oam[base + 1].toUnsignedInt()
@@ -295,10 +327,34 @@ class Ppu(
                 }
                 if ((attr and 0x20) == 0 || !bgOpaque[x]) {
                     val pal = attr and 3
-                    framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F10 + pal * 4 + color) and 0x3F]
+                    framebuffer[rowStart + x] = paletteColors[0x10 + pal * 4 + color]
                 }
             }
             px++
         }
+    }
+
+    private fun finishFrame() {
+        cycle = 0
+        scanline = 0
+        frameComplete = true
+        oddFrame = !oddFrame
+    }
+
+    companion object {
+        private const val SCREEN_WIDTH = 256
+        private const val SCREEN_HEIGHT = 240
+        private const val DOTS_PER_SCANLINE = 341
+        private const val SCANLINES_PER_FRAME = 262
+        private const val VBLANK_SCANLINE = 241
+        private const val PRE_RENDER_SCANLINE = 261
+        private const val FIRST_VISIBLE_DOT = 1
+        private const val LAST_VISIBLE_DOT = 256
+        private const val HORIZONTAL_TRANSFER_DOT = 257
+        private const val MAPPER_SCANLINE_DOT = 260
+        private const val ODD_FRAME_LAST_DOT = 339
+        private const val STATUS_SPRITE_OVERFLOW = 0x20
+        private const val STATUS_SPRITE_ZERO_HIT = 0x40
+        private const val STATUS_VBLANK = 0x80
     }
 }

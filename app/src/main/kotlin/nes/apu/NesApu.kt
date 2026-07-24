@@ -5,7 +5,6 @@ import me.tatarka.inject.annotations.Inject
 import nes.util.low16Bits
 import nes.util.low8Bits
 import nes.Timing
-import kotlin.math.max
 
 @Inject
 @AppScope
@@ -34,8 +33,37 @@ class NesApu(
             intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068)
         private val DMC_PERIODS =
             intArrayOf(428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 85, 72, 54)
+        private val FOUR_STEP_EVENTS = intArrayOf(7457, 14913, 22371, 29829)
+        private val FOUR_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME)
+        private val FIVE_STEP_EVENTS = intArrayOf(7457, 14913, 22371, 37281, 37282)
+        private val FIVE_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, 0)
+        private val PULSE_MIX = DoubleArray(31) { sum ->
+            if (sum == 0) 0.0 else 95.88 / ((8128.0 / sum) + 100.0)
+        }
+        private val TND_MIX = DoubleArray(16 * 16 * 128).also { table ->
+            var triangle = 0
+            while (triangle < 16) {
+                var noise = 0
+                while (noise < 16) {
+                    var dmc = 0
+                    while (dmc < 128) {
+                        val input = triangle / 8227.0 + noise / 12241.0 + dmc / 22638.0
+                        table[tndIndex(triangle, noise, dmc)] = if (input == 0.0) 0.0 else 159.79 / (1.0 / input + 100.0)
+                        dmc++
+                    }
+                    noise++
+                }
+                triangle++
+            }
+        }
         const val DEFAULT_SAMPLE_RATE = 44_100
         const val MAX_FRAME_SAMPLES = 2048
+        private const val QUARTER_FRAME = 1
+        private const val HALF_FRAME = 2
+
+        private fun tndIndex(triangle: Int, noise: Int, dmc: Int): Int {
+            return ((triangle shl 4) or noise) * 128 + dmc
+        }
     }
 
     val samples = ShortArray(MAX_FRAME_SAMPLES)
@@ -48,10 +76,10 @@ class NesApu(
     private val noise = NoiseChannel()
     private val dmc = DmcChannel(dmcDma)
     private var frameCycle = 0
+    private var frameEventIndex = 0
     private var frameMode = 0
     private var apuCycle = false
-    private var sampleAccumulator = 0.0
-    private val cyclesPerSample = Timing.CPU_HZ / SAMPLE_RATE
+    private var samplePhase = 0
 
     fun reset() {
         pulse1.reset()
@@ -60,9 +88,10 @@ class NesApu(
         noise.reset()
         dmc.reset()
         frameCycle = 0
+        frameEventIndex = 0
         frameMode = 0
         apuCycle = false
-        sampleAccumulator = 0.0
+        samplePhase = 0
         sampleCount = 0
     }
 
@@ -75,7 +104,8 @@ class NesApu(
                 (if (pulse2.lengthCounter > 0) 0x02 else 0) or
                 (if (triangle.lengthCounter > 0) 0x04 else 0) or
                 (if (noise.lengthCounter > 0) 0x08 else 0) or
-                (if (dmc.active()) 0x10 else 0)
+                (if (dmc.active()) 0x10 else 0) or
+                (if (dmc.irqPending()) 0x80 else 0)
     } else 0
 
     fun cpuWrite(address: Int, value: Int) {
@@ -92,6 +122,7 @@ class NesApu(
                 triangle.enabled = (v and 0x04) != 0
                 noise.enabled = (v and 0x08) != 0
                 dmc.setEnabled((v and 0x10) != 0)
+                dmc.clearIrq()
                 if (!pulse1.enabled) pulse1.lengthCounter = 0
                 if (!pulse2.enabled) pulse2.lengthCounter = 0
                 if (!triangle.enabled) triangle.lengthCounter = 0
@@ -101,6 +132,7 @@ class NesApu(
             0x4017 -> {
                 frameMode = (v shr 7) and 1
                 frameCycle = 0
+                frameEventIndex = 0
                 if (frameMode == 1) {
                     quarterFrame()
                     halfFrame()
@@ -119,9 +151,9 @@ class NesApu(
                 pulse1.stepTimer(); pulse2.stepTimer(); noise.stepTimer()
             }
             stepFrameCounter()
-            sampleAccumulator += 1.0
-            if (sampleAccumulator >= cyclesPerSample) {
-                sampleAccumulator -= cyclesPerSample
+            samplePhase += SAMPLE_RATE
+            if (samplePhase >= Timing.CPU_HZ) {
+                samplePhase -= Timing.CPU_HZ
                 appendSample(mix())
             }
             i++
@@ -130,26 +162,16 @@ class NesApu(
 
     private fun stepFrameCounter() {
         frameCycle++
-        if (frameMode == 0) {
-            when (frameCycle) {
-                7457, 22371 -> quarterFrame()
-                14913 -> {
-                    quarterFrame(); halfFrame()
-                }
-
-                29829 -> {
-                    quarterFrame(); halfFrame(); frameCycle = 0
-                }
-            }
-        } else {
-            when (frameCycle) {
-                7457, 22371 -> quarterFrame()
-                14913, 37281 -> {
-                    quarterFrame(); halfFrame()
-                }
-
-                37282 -> frameCycle = 0
-            }
+        val events = if (frameMode == 0) FOUR_STEP_EVENTS else FIVE_STEP_EVENTS
+        if (frameCycle != events[frameEventIndex]) return
+        val actions = if (frameMode == 0) FOUR_STEP_ACTIONS else FIVE_STEP_ACTIONS
+        val action = actions[frameEventIndex]
+        if ((action and QUARTER_FRAME) != 0) quarterFrame()
+        if ((action and HALF_FRAME) != 0) halfFrame()
+        frameEventIndex++
+        if (frameEventIndex == events.size) {
+            frameCycle = 0
+            frameEventIndex = 0
         }
     }
 
@@ -168,11 +190,10 @@ class NesApu(
         val t = triangle.output()
         val n = noise.output()
         val d = dmc.output()
-        val pulseOut = if (p1 + p2 == 0) 0.0 else 95.88 / ((8128.0 / (p1 + p2)) + 100.0)
-        val tndInput = t / 8227.0 + n / 12241.0 + d / 22638.0
-        val tndOut = if (t + n + d == 0) 0.0 else 159.79 / (1.0 / tndInput + 100.0)
-        return (pulseOut + tndOut) * 1.4 - 0.45
+        return (PULSE_MIX[p1 + p2] + TND_MIX[tndIndex(t, n, d)]) * 1.4 - 0.45
     }
+
+    fun irqPending(): Boolean = dmc.irqPending()
 
     private fun appendSample(value: Double) {
         if (sampleCount >= samples.size) return
@@ -380,10 +401,9 @@ class NesApu(
             if (!envelopeLoop && lengthCounter > 0) lengthCounter--
         }
 
-        fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) max(
-            0,
+        fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) {
             if (constantVolume) volume else envelopeDecay
-        ) else 0
+        } else 0
     }
 
     private class DmcChannel(
@@ -391,6 +411,7 @@ class NesApu(
     ) {
         private var enabled = false
         private var irqEnabled = false
+        private var irqRequested = false
         private var loop = false
         private var period = DMC_PERIODS[0]
         private var timerCounter = 0
@@ -408,6 +429,7 @@ class NesApu(
         fun reset() {
             enabled = false
             irqEnabled = false
+            irqRequested = false
             loop = false
             period = DMC_PERIODS[0]
             timerCounter = 0
@@ -427,6 +449,7 @@ class NesApu(
             when (register) {
                 0 -> {
                     irqEnabled = (value and 0x80) != 0
+                    if (!irqEnabled) irqRequested = false
                     loop = (value and 0x40) != 0
                     period = DMC_PERIODS[value and 0x0F]
                 }
@@ -443,6 +466,7 @@ class NesApu(
                 bytesRemaining = 0
             } else if (bytesRemaining == 0) {
                 restartSample()
+                fetchSampleIfNeeded()
             }
         }
 
@@ -450,9 +474,14 @@ class NesApu(
             return bytesRemaining > 0 || sampleBufferFull
         }
 
+        fun irqPending(): Boolean = irqRequested
+
+        fun clearIrq() {
+            irqRequested = false
+        }
+
         fun stepTimer() {
             if (!enabled) return
-            fetchSampleIfNeeded()
             if (timerCounter <= 0) {
                 timerCounter = period
                 clockOutputUnit()
@@ -472,7 +501,9 @@ class NesApu(
             currentAddress++
             if (currentAddress > 0xFFFF) currentAddress = 0x8000
             bytesRemaining--
-            if (bytesRemaining == 0 && loop) restartSample()
+            if (bytesRemaining == 0) {
+                if (loop) restartSample() else if (irqEnabled) irqRequested = true
+            }
         }
 
         private fun clockOutputUnit() {
