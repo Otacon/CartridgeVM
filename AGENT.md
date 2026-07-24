@@ -137,6 +137,11 @@ Architecture notes:
 * `NesMachine` starts without a constructor cartridge argument; call `insert(cartridge)` before reset/run for normal use.
 * `InesParser` validates iNES mapper numbers and creates the concrete mapper instance for parsed cartridges.
 * CPU, PPU, APU, and bus packages should not depend on concrete mapper classes.
+* Use shared bit/byte helpers from `nes.util.BitExtensions` instead of repeating raw truncation masks:
+  `Byte.toUnsignedInt()` for byte-array reads, `Int.low8Bits()` for byte/register truncation, `Int.low16Bits()` for CPU
+  address truncation, and `Int.pageBase()` for 6502 page-crossing checks. These helpers intentionally return `Int` and
+  use direct masks internally for hot emulator paths. Keep explicit `and` masks for local flag or bitfield checks when
+  the mask itself is meaningful.
 
 ## Known Limitations
 

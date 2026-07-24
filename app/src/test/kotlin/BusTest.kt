@@ -9,6 +9,7 @@ import nes.cpu.CpuBus
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
+import nes.util.toUnsignedInt
 
 class BusTest {
     private fun cartridge(
@@ -93,7 +94,7 @@ class BusTest {
         bus.write(0x0000, 0x77)
         bus.write(0x4014, 0)
 
-        assertEquals(0x77, ppu.oam[0].toInt() and 0xFF)
+        assertEquals(0x77, ppu.oam[0].toUnsignedInt())
         assertTrue(bus.consumeDmaCycles() >= 513)
     }
 

@@ -2,6 +2,8 @@ package nes.ppu
 
 import di.AppScope
 import me.tatarka.inject.annotations.Inject
+import nes.util.low8Bits
+import nes.util.toUnsignedInt
 
 @Inject
 @AppScope
@@ -81,13 +83,13 @@ class Ppu(
             result
         }
 
-        4 -> oam[oamAddress].toInt() and 0xFF
+        4 -> oam[oamAddress].toUnsignedInt()
         7 -> readData()
         else -> 0
     }
 
     fun cpuWrite(register: Int, value: Int) {
-        val data = value and 0xFF
+        val data = value.low8Bits()
         when (register and 7) {
             0 -> {
                 val old = ctrl
@@ -99,7 +101,7 @@ class Ppu(
             1 -> mask = data
             3 -> oamAddress = data
             4 -> {
-                oam[oamAddress] = data.toByte(); oamAddress = (oamAddress + 1) and 0xFF
+                oam[oamAddress] = data.toByte(); oamAddress = (oamAddress + 1).low8Bits()
             }
 
             5 -> if (!writeLatch) {
@@ -128,7 +130,7 @@ class Ppu(
     fun writeOamDma(page: ByteArray) {
         var i = 0
         while (i < 256) {
-            oam[(oamAddress + i) and 0xFF] = page[i]
+            oam[(oamAddress + i).low8Bits()] = page[i]
             i++
         }
     }
@@ -250,7 +252,7 @@ class Ppu(
         var i = 0
         while (i < 64 && selected < 8) {
             val base = i * 4
-            val sy = (oam[base].toInt() and 0xFF) + 1
+            val sy = oam[base].toUnsignedInt() + 1
             if (y >= sy && y < sy + spriteHeight) {
                 scanlineSprites[selected] = i
                 selected++
@@ -266,10 +268,10 @@ class Ppu(
 
     private fun renderSprite(i: Int, y: Int, spriteHeight: Int, spritePatternBase: Int, showLeftSprites: Boolean) {
         val base = i * 4
-        val sy = (oam[base].toInt() and 0xFF) + 1
-        val tile = oam[base + 1].toInt() and 0xFF
-        val attr = oam[base + 2].toInt() and 0xFF
-        val sx = oam[base + 3].toInt() and 0xFF
+        val sy = oam[base].toUnsignedInt() + 1
+        val tile = oam[base + 1].toUnsignedInt()
+        val attr = oam[base + 2].toUnsignedInt()
+        val sx = oam[base + 3].toUnsignedInt()
         var row = y - sy
         if ((attr and 0x80) != 0) row = spriteHeight - 1 - row
         val patternAddress = if (spriteHeight == 16) {

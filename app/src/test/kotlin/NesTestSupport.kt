@@ -9,6 +9,7 @@ import nes.cpu.CpuBus
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
+import nes.util.low8Bits
 
 fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean = false, prgFill: Int = 0): ByteArray {
     val header = ByteArray(16)
@@ -29,7 +30,7 @@ fun cpuWithProgram(program: ByteArray, start: Int = 0x8000): Triple<Cpu6502, Cpu
     val prg = ByteArray(16 * 1024)
     System.arraycopy(program, 0, prg, start - 0x8000, program.size)
     val vector = 0x3FFC
-    prg[vector] = (start and 0xFF).toByte()
+    prg[vector] = start.low8Bits().toByte()
     prg[vector + 1] = (start shr 8).toByte()
     prg[0x3FFA] = 0x00
     prg[0x3FFB] = 0x90.toByte()

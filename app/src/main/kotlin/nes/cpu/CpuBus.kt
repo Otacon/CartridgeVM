@@ -6,6 +6,9 @@ import nes.apu.NesApu
 import nes.cartridge.CartridgeSocket
 import nes.input.NesController
 import nes.ppu.Ppu
+import nes.util.low16Bits
+import nes.util.low8Bits
+import nes.util.toUnsignedInt
 
 @Inject
 @AppScope
@@ -20,8 +23,8 @@ class CpuBus(
         private set
 
     fun read(address: Int): Int {
-        return when (val a = address and 0xFFFF) {
-            in 0x0000..0x1FFF -> ram[a and 0x07FF].toInt() and 0xFF
+        return when (val a = address.low16Bits()) {
+            in 0x0000..0x1FFF -> ram[a and 0x07FF].toUnsignedInt()
             in 0x2000..0x3FFF -> ppu.cpuRead(0x2000 + (a and 7))
             in 0x4000..0x4013 -> apu.cpuRead(a)
             0x4014 -> 0
@@ -34,8 +37,8 @@ class CpuBus(
     }
 
     fun write(address: Int, value: Int) {
-        val a = address and 0xFFFF
-        val v = value and 0xFF
+        val a = address.low16Bits()
+        val v = value.low8Bits()
         when (a) {
             in 0x0000..0x1FFF -> ram[a and 0x07FF] = v.toByte()
             in 0x2000..0x3FFF -> ppu.cpuWrite(0x2000 + (a and 7), v)

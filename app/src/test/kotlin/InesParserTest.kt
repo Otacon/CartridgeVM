@@ -5,6 +5,7 @@ import nes.cartridge.Mapper3
 import nes.cartridge.Mapper4
 import nes.cartridge.Mirroring
 import nes.cartridge.RomFormatException
+import nes.util.toUnsignedInt
 
 class InesParserTest {
     private val parser = InesParser()
@@ -69,7 +70,7 @@ class InesParserTest {
         val cartridge = parser.parse(ines(1, 1, trainer = true, prgFill = 0x42))
 
         assertTrue(cartridge.trainerPresent)
-        assertEquals(0x42, cartridge.prgRom[0].toInt() and 0xFF)
+        assertEquals(0x42, cartridge.prgRom[0].toUnsignedInt())
     }
 
     @Test

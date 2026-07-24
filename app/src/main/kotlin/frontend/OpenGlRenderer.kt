@@ -2,6 +2,7 @@ package frontend
 
 import di.AppScope
 import me.tatarka.inject.annotations.Inject
+import nes.util.low8Bits
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11.*
 import java.nio.ByteBuffer
@@ -26,9 +27,9 @@ class OpenGlRenderer : AutoCloseable {
         var i = 0
         while (i < framebuffer.size) {
             val c = framebuffer[i]
-            upload.put(((c shr 16) and 0xFF).toByte())
-            upload.put(((c shr 8) and 0xFF).toByte())
-            upload.put((c and 0xFF).toByte())
+            upload.put((c shr 16).low8Bits().toByte())
+            upload.put((c shr 8).low8Bits().toByte())
+            upload.put(c.low8Bits().toByte())
             upload.put(0xFF.toByte())
             i++
         }

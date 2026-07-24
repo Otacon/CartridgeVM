@@ -2,6 +2,8 @@ package nes.apu
 
 import di.AppScope
 import me.tatarka.inject.annotations.Inject
+import nes.util.low16Bits
+import nes.util.low8Bits
 import nes.Timing
 import kotlin.math.max
 
@@ -68,7 +70,7 @@ class NesApu(
         sampleCount = 0
     }
 
-    fun cpuRead(address: Int): Int = if ((address and 0xFFFF) == 0x4015) {
+    fun cpuRead(address: Int): Int = if (address.low16Bits() == 0x4015) {
         (if (pulse1.lengthCounter > 0) 0x01 else 0) or
                 (if (pulse2.lengthCounter > 0) 0x02 else 0) or
                 (if (triangle.lengthCounter > 0) 0x04 else 0) or
@@ -77,8 +79,8 @@ class NesApu(
     } else 0
 
     fun cpuWrite(address: Int, value: Int) {
-        val v = value and 0xFF
-        when (address and 0xFFFF) {
+        val v = value.low8Bits()
+        when (address.low16Bits()) {
             in 0x4000..0x4003 -> pulse1.write((address and 3), v)
             in 0x4004..0x4007 -> pulse2.write((address and 3), v)
             in 0x4008..0x400B -> triangle.write((address and 3), v)
@@ -465,7 +467,7 @@ class NesApu(
 
         private fun fetchSampleIfNeeded() {
             if (sampleBufferFull || bytesRemaining == 0) return
-            sampleBuffer = dmcDma.read(currentAddress) and 0xFF
+            sampleBuffer = dmcDma.read(currentAddress).low8Bits()
             sampleBufferFull = true
             currentAddress++
             if (currentAddress > 0xFFFF) currentAddress = 0x8000

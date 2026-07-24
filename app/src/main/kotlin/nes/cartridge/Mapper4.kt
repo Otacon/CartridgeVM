@@ -1,5 +1,9 @@
 package nes.cartridge
 
+import nes.util.low16Bits
+import nes.util.low8Bits
+import nes.util.toUnsignedInt
+
 class Mapper4(
     private val prgRom: ByteArray,
     private val chr: ByteArray,
@@ -21,8 +25,8 @@ class Mapper4(
     private var mirroring: Mirroring? = null
 
     override fun cpuRead(address: Int): Int {
-        val a = address and 0xFFFF
-        if (a in 0x6000..0x7FFF) return prgRam[a and 0x1FFF].toInt() and 0xFF
+        val a = address.low16Bits()
+        if (a in 0x6000..0x7FFF) return prgRam[a and 0x1FFF].toUnsignedInt()
         if (a < 0x8000) return 0
         val bank = when (a) {
             in 0x8000..0x9FFF -> if (prgMode) prgBankCount - 2 else registers[6]
@@ -31,12 +35,12 @@ class Mapper4(
             else -> prgBankCount - 1
         }.floorMod(prgBankCount)
         val index = bank * PRG_BANK_SIZE + (a and 0x1FFF)
-        return prgRom[index].toInt() and 0xFF
+        return prgRom[index].toUnsignedInt()
     }
 
     override fun cpuWrite(address: Int, value: Int) {
-        val a = address and 0xFFFF
-        val v = value and 0xFF
+        val a = address.low16Bits()
+        val v = value.low8Bits()
         when (a) {
             in 0x6000..0x7FFF -> prgRam[a and 0x1FFF] = v.toByte()
             in 0x8000..0x9FFF -> if ((a and 1) == 0) {
@@ -64,7 +68,7 @@ class Mapper4(
     }
 
     override fun ppuRead(address: Int): Int {
-        return chr[mapChrAddress(address)].toInt() and 0xFF
+        return chr[mapChrAddress(address)].toUnsignedInt()
     }
 
     override fun ppuWrite(address: Int, value: Int) {

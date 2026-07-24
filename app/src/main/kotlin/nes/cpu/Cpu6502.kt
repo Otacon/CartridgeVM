@@ -2,6 +2,9 @@ package nes.cpu
 
 import di.AppScope
 import me.tatarka.inject.annotations.Inject
+import nes.util.low16Bits
+import nes.util.low8Bits
+import nes.util.pageBase
 
 @Inject
 @AppScope
@@ -1138,7 +1141,7 @@ class Cpu6502(
     private fun absx(page: Boolean): Addr {
         val b = abs()
         val a = (b + x).low16Bits()
-        return Addr(a, if (page && (b.low8BitsMask()) != (a.low8BitsMask())) 1 else 0)
+        return Addr(a, if (page && b.pageBase() != a.pageBase()) 1 else 0)
     }
 
     /**
@@ -1147,7 +1150,7 @@ class Cpu6502(
     private fun absy(page: Boolean): Addr {
         val b = abs()
         val a = (b + y).low16Bits()
-        return Addr(a, if (page && (b.low8BitsMask()) != (a.low8BitsMask())) 1 else 0)
+        return Addr(a, if (page && b.pageBase() != a.pageBase()) 1 else 0)
     }
 
     /**
@@ -1165,7 +1168,7 @@ class Cpu6502(
         val p = imm()
         val b = read(p) or (read((p + 1).low8Bits()) shl 8)
         val a = (b + y).low16Bits()
-        return Addr(a, if (page && (b.low8BitsMask()) != (a.low8BitsMask())) 1 else 0)
+        return Addr(a, if (page && b.pageBase() != a.pageBase()) 1 else 0)
     }
 
     /**
@@ -1180,7 +1183,7 @@ class Cpu6502(
      */
     private fun jmpIndirect(): Int {
         val p = abs()
-        return read(p) or (read((p.low8BitsMask()) or ((p + 1).low8Bits())) shl 8)
+        return read(p) or (read(p.pageBase() or ((p + 1).low8Bits())) shl 8)
     }
 
     /**
@@ -1393,25 +1396,11 @@ class Cpu6502(
         val old = pc
         val signed = if (off < 0x80) off else off - 0x100
         pc = (pc + signed).low16Bits()
-        return if ((old.low8BitsMask()) != (pc.low8BitsMask())) {
+        return if (old.pageBase() != pc.pageBase()) {
             4
         } else {
             3
         }
     }
 
-    /**
-     * Truncates an integer to the low 8 bits used by 6502 byte operations.
-     */
-    private fun Int.low8Bits() = this and 0xFF
-
-    /**
-     * Truncates an integer to the low 16 bits used by 6502 addresses.
-     */
-    private fun Int.low16Bits() = this and 0xFFFF
-
-    /**
-     * Returns the high-byte mask used to detect 6502 page crossings.
-     */
-    private fun Int.low8BitsMask() = this and 0xFF00
 }

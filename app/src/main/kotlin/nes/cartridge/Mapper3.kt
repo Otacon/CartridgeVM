@@ -1,5 +1,8 @@
 package nes.cartridge
 
+import nes.util.low16Bits
+import nes.util.toUnsignedInt
+
 class Mapper3(
     private val prgRom: ByteArray,
     private val chrRom: ByteArray,
@@ -8,21 +11,21 @@ class Mapper3(
     private var selectedChrBank = 0
 
     override fun cpuRead(address: Int): Int {
-        val a = address and 0xFFFF
+        val a = address.low16Bits()
         if (a < 0x8000) return 0
         val index = if (prgRom.size == PRG_BANK_SIZE) a and 0x3FFF else a and 0x7FFF
-        return prgRom[index].toInt() and 0xFF
+        return prgRom[index].toUnsignedInt()
     }
 
     override fun cpuWrite(address: Int, value: Int) {
-        if ((address and 0xFFFF) >= 0x8000) {
+        if (address.low16Bits() >= 0x8000) {
             selectedChrBank = (value and 0x03) % chrBankCount
         }
     }
 
     override fun ppuRead(address: Int): Int {
         val index = selectedChrBank * CHR_BANK_SIZE + (address and 0x1FFF)
-        return chrRom[index].toInt() and 0xFF
+        return chrRom[index].toUnsignedInt()
     }
 
     override fun ppuWrite(address: Int, value: Int) = Unit

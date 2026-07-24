@@ -4,6 +4,7 @@ import di.AppScope
 import me.tatarka.inject.annotations.Inject
 import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mirroring
+import nes.util.toUnsignedInt
 
 @Inject
 @AppScope
@@ -17,7 +18,7 @@ class PpuBus(
         val a = address and 0x3FFF
         return when {
             a < 0x2000 -> cartridgeSocket.ppuRead(a)
-            a < 0x3F00 -> nametables[mirrorNametable(a)].toInt() and 0xFF
+            a < 0x3F00 -> nametables[mirrorNametable(a)].toUnsignedInt()
             else -> paletteRam[mirrorPalette(a)].toInt() and 0x3F
         }
     }

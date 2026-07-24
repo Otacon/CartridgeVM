@@ -1,6 +1,7 @@
 package nes.cartridge
 
 import me.tatarka.inject.annotations.Inject
+import nes.util.toUnsignedInt
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.io.path.readBytes
@@ -24,10 +25,10 @@ class InesParser {
             log.error("Invalid iNES header: expected NES<EOF> magic bytes")
             throw RomFormatException("Invalid iNES header: expected NES<EOF> magic bytes")
         }
-        val prgBanks = bytes[4].toInt() and 0xFF
-        val chrBanks = bytes[5].toInt() and 0xFF
-        val flags6 = bytes[6].toInt() and 0xFF
-        val flags7 = bytes[7].toInt() and 0xFF
+        val prgBanks = bytes[4].toUnsignedInt()
+        val chrBanks = bytes[5].toUnsignedInt()
+        val flags6 = bytes[6].toUnsignedInt()
+        val flags7 = bytes[7].toUnsignedInt()
         if ((flags7 and 0x0C) == 0x08) {
             log.error("Unsupported NES 2.0 ROM")
             throw RomFormatException("Unsupported NES 2.0 ROM")
