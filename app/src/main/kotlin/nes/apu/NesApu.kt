@@ -1,10 +1,15 @@
 package nes.apu
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
 import nes.Timing
 import kotlin.math.max
 
-class NesApu(private val sampleRate: Int = 44_100) {
+@Inject
+@AppScope
+class NesApu {
     companion object {
+        private const val SAMPLE_RATE = 44_100
         private val LENGTH_TABLE = intArrayOf(
             10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
             12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30,
@@ -33,7 +38,7 @@ class NesApu(private val sampleRate: Int = 44_100) {
     private var frameMode = 0
     private var apuCycle = false
     private var sampleAccumulator = 0.0
-    private val cyclesPerSample = Timing.CPU_HZ / sampleRate
+    private val cyclesPerSample = Timing.CPU_HZ / SAMPLE_RATE
 
     fun reset() {
         pulse1.reset(); pulse2.reset(); triangle.reset(); noise.reset()

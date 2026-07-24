@@ -1,8 +1,12 @@
 package nes.ppu
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
 import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mirroring
 
+@Inject
+@AppScope
 class PpuBus(
     private val cartridgeSocket: CartridgeSocket,
 ) {

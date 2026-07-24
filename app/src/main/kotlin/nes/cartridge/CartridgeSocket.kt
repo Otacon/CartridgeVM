@@ -1,5 +1,10 @@
 package nes.cartridge
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
+
+@Inject
+@AppScope
 class CartridgeSocket {
     private var cartridge: Cartridge? = null
 

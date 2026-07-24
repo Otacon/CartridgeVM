@@ -1,6 +1,13 @@
 package nes.cpu
 
-class Cpu6502(private val bus: CpuBus) {
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
+
+@Inject
+@AppScope
+class Cpu6502(
+    private val bus: CpuBus
+) {
     companion object {
         const val C = 0x01
         const val Z = 0x02

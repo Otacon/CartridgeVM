@@ -1,11 +1,10 @@
 package app
 
-import AppComponent
 import com.github.ajalt.clikt.core.main
-import create
+import di.AppComponent
+import di.create
 import frontend.FramePacer
 import frontend.KeyboardInput
-import nes.NesMachine
 import nes.Timing
 import nes.cartridge.RomFormatException
 import org.slf4j.LoggerFactory
@@ -24,7 +23,7 @@ fun main(args: Array<String>) {
     val audio = appComponent.openAlAudio
     try {
         val cartridge = inesParser.parse(cliArgs.rom)
-        val machine = NesMachine().also {
+        val machine = appComponent.nesMachine.also {
             it.insert(cartridge)
             it.reset()
         }

@@ -1,22 +1,23 @@
 package nes
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
 import nes.apu.NesApu
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
 import nes.cpu.Cpu6502
-import nes.cpu.CpuBus
 import nes.input.NesController
 import nes.ppu.Ppu
-import nes.ppu.PpuBus
 
-class NesMachine {
-    val controller = NesController()
-    val cartridgeSocket = CartridgeSocket()
-    val ppuBus = PpuBus(cartridgeSocket)
-    val ppu = Ppu(ppuBus)
-    val apu = NesApu()
-    val bus = CpuBus(cartridgeSocket, ppu, controller, apu)
-    val cpu = Cpu6502(bus)
+@Inject
+@AppScope
+class NesMachine(
+    val controller: NesController,
+    val cartridgeSocket: CartridgeSocket,
+    val ppu: Ppu,
+    val apu: NesApu,
+    val cpu: Cpu6502,
+) {
 
     init {
         reset()

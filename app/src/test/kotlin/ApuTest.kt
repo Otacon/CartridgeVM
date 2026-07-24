@@ -29,13 +29,15 @@ class ApuTest {
 
     @Test
     fun `pulse still produces samples with NES timer divider`() {
-        val apu = NesApu(1_789_773)
+        val apu = NesApu()
         apu.cpuWrite(0x4015, 0x01)
         apu.cpuWrite(0x4000, 0x9F)
         apu.cpuWrite(0x4002, 0x00)
         apu.cpuWrite(0x4003, 0x08)
-        apu.step(16)
-        assertEquals(16, apu.sampleCount)
+
+        apu.step(4000)
+
+        assertTrue(apu.sampleCount > 0)
         assertTrue(apu.samples.take(apu.sampleCount).any { it.toInt() != 0 })
     }
 }

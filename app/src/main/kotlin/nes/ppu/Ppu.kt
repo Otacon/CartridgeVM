@@ -1,5 +1,10 @@
 package nes.ppu
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
+
+@Inject
+@AppScope
 class Ppu(
     private val bus: PpuBus,
 ) {

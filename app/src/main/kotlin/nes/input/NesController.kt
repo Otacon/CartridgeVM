@@ -1,5 +1,10 @@
 package nes.input
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
+
+@Inject
+@AppScope
 class NesController {
     companion object {
         const val A = 0

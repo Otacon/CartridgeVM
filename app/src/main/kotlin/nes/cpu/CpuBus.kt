@@ -1,10 +1,14 @@
 package nes.cpu
 
+import di.AppScope
+import me.tatarka.inject.annotations.Inject
 import nes.apu.NesApu
 import nes.cartridge.CartridgeSocket
 import nes.input.NesController
 import nes.ppu.Ppu
 
+@Inject
+@AppScope
 class CpuBus(
     private val cartridgeSocket: CartridgeSocket,
     private val ppu: Ppu,
