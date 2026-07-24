@@ -1,7 +1,7 @@
 # Agent Handoff
 
 CartridgeVM is a Kotlin/JVM NES emulator MVP. The near-term objective is practical compatibility with the original NTSC
-Super Mario Bros. from a user-supplied Mapper 0 `.nes` ROM.
+Super Mario Bros. from a user-supplied Mapper 0 `.nes` ROM. Mapper 2 / UxROM is also supported.
 
 Do not add ROMs, BIOS files, Nintendo assets, screenshots, extracted data, disassemblies, or ROM patches.
 
@@ -52,7 +52,7 @@ app/src/main/kotlin/app/          CLI entry point and argument parsing
 app/src/main/kotlin/frontend/     GLFW, OpenGL presentation, OpenAL audio, keyboard input, pacing
 app/src/main/kotlin/nes/          Machine orchestration and timing
 app/src/main/kotlin/nes/apu/      APU audio generation
-app/src/main/kotlin/nes/cartridge/iNES parser, cartridge socket, and Mapper 0
+app/src/main/kotlin/nes/cartridge/iNES parser, cartridge socket, Mapper 0, and Mapper 2
 app/src/main/kotlin/nes/cpu/      6502 CPU and CPU bus
 app/src/main/kotlin/nes/input/    NES controller protocol
 app/src/main/kotlin/nes/ppu/      PPU registers, memory, timing, and software rendering
@@ -69,14 +69,15 @@ app/src/test/kotlin/
 ROM/cartridge:
 
 * iNES 1.0 parsing.
-* Mapper 0 / NROM only.
+* Mapper 0 / NROM and Mapper 2 / UxROM.
 * NROM-128 and NROM-256.
+* UxROM/UNROM with switchable 16 KiB lower PRG bank and fixed last 16 KiB upper PRG bank.
 * CHR ROM and CHR RAM.
 * Horizontal and vertical mirroring.
 * `Cartridge` stores ROM metadata/data plus a generic `Mapper` instance.
 * `CartridgeSocket` simulates cartridge insertion/removal and is the only cartridge access point for CPU/PPU buses.
 * Clear rejection for invalid headers, truncated ROMs, NES 2.0, unsupported mappers, four-screen mirroring, and invalid
-  Mapper 0 sizes.
+  mapper sizes.
 
 CPU/bus:
 
@@ -132,13 +133,13 @@ Diagnostics:
 Architecture notes:
 
 * `NesMachine` starts without a constructor cartridge argument; call `insert(cartridge)` before reset/run for normal use.
-* `InesParser` validates iNES mapper numbers and creates the concrete Mapper 0 instance for parsed cartridges.
+* `InesParser` validates iNES mapper numbers and creates the concrete mapper instance for parsed cartridges.
 * CPU, PPU, APU, and bus packages should not depend on concrete mapper classes.
 
 ## Known Limitations
 
 * Compatibility target is Super Mario Bros. / Mapper 0, not broad NES compatibility.
-* No mappers beyond Mapper 0.
+* No mappers beyond Mapper 0 and Mapper 2.
 * NTSC only.
 * PPU is approximate, not cycle-perfect.
 * Sprite-zero hit is approximate.

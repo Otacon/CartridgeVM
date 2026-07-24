@@ -38,18 +38,7 @@ class InesParser {
         }
         val mapper = (flags6 shr 4) or (flags7 and 0xF0)
         log.debug("Mapper: {}", mapper)
-        if (mapper != 0) {
-            log.error("Unsupported mapper $mapper; only Mapper 0 / NROM is supported")
-            throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM is supported")
-        }
-        if (prgBanks != 1 && prgBanks != 2) {
-            log.error("Invalid PRG ROM size for Mapper 0: ${prgBanks * 16} KiB")
-            throw RomFormatException("Invalid PRG ROM size for Mapper 0: ${prgBanks * 16} KiB")
-        }
-        if (chrBanks > 1) {
-            log.error("Invalid CHR ROM size for Mapper 0: ${chrBanks * 8} KiB")
-            throw RomFormatException("Invalid CHR ROM size for Mapper 0: ${chrBanks * 8} KiB")
-        }
+        validateMapperSizes(mapper, prgBanks, chrBanks)
 
         val trainer = (flags6 and 0x04) != 0
         var offset = HEADER_SIZE + if (trainer) {
@@ -88,8 +77,45 @@ class InesParser {
             chr = chr,
             isChrRam = isChrRam,
             trainerPresent = trainer,
-            mapper = Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
+            mapper = createMapper(mapper, prg, chr, isChrRam)
         )
+    }
+
+    private fun validateMapperSizes(mapper: Int, prgBanks: Int, chrBanks: Int) {
+        when (mapper) {
+            0 -> {
+                if (prgBanks != 1 && prgBanks != 2) {
+                    log.error("Invalid PRG ROM size for Mapper 0: ${prgBanks * 16} KiB")
+                    throw RomFormatException("Invalid PRG ROM size for Mapper 0: ${prgBanks * 16} KiB")
+                }
+                if (chrBanks > 1) {
+                    log.error("Invalid CHR ROM size for Mapper 0: ${chrBanks * 8} KiB")
+                    throw RomFormatException("Invalid CHR ROM size for Mapper 0: ${chrBanks * 8} KiB")
+                }
+            }
+            2 -> {
+                if (prgBanks < 2 || prgBanks > 16) {
+                    log.error("Invalid PRG ROM size for Mapper 2: ${prgBanks * 16} KiB")
+                    throw RomFormatException("Invalid PRG ROM size for Mapper 2: ${prgBanks * 16} KiB")
+                }
+                if (chrBanks != 0) {
+                    log.error("Invalid CHR ROM size for Mapper 2: ${chrBanks * 8} KiB; UxROM uses CHR RAM")
+                    throw RomFormatException("Invalid CHR ROM size for Mapper 2: ${chrBanks * 8} KiB; UxROM uses CHR RAM")
+                }
+            }
+            else -> {
+                log.error("Unsupported mapper $mapper; only Mapper 0 / NROM and Mapper 2 / UxROM are supported")
+                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM and Mapper 2 / UxROM are supported")
+            }
+        }
+    }
+
+    private fun createMapper(mapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean): Mapper {
+        return when (mapper) {
+            0 -> Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
+            2 -> Mapper2(prgRom = prg, chrRam = chr)
+            else -> error("Unsupported mapper $mapper")
+        }
     }
 
     companion object {

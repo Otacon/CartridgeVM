@@ -1,5 +1,6 @@
 import kotlin.test.*
 import nes.cartridge.InesParser
+import nes.cartridge.Mapper2
 import nes.cartridge.Mirroring
 import nes.cartridge.RomFormatException
 
@@ -19,6 +20,16 @@ class InesParserTest {
         val cartridge = parser.parse(ines(2, 1))
 
         assertEquals(32 * 1024, cartridge.prgRom.size)
+    }
+
+    @Test
+    fun `valid UxROM parses PRG ROM and CHR RAM`() {
+        val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
+
+        assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertEquals(8192, cartridge.chr.size)
+        assertTrue(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper2)
     }
 
     @Test
@@ -65,6 +76,20 @@ class InesParserTest {
     fun `unsupported mapper throws ROM format exception`() {
         assertFailsWith<RomFormatException> {
             parser.parse(ines(flags6 = 0x10))
+        }
+    }
+
+    @Test
+    fun `UxROM with CHR ROM throws ROM format exception`() {
+        assertFailsWith<RomFormatException> {
+            parser.parse(ines(prgBanks = 4, chrBanks = 1, flags6 = 0x20))
+        }
+    }
+
+    @Test
+    fun `UxROM with one PRG bank throws ROM format exception`() {
+        assertFailsWith<RomFormatException> {
+            parser.parse(ines(prgBanks = 1, chrBanks = 0, flags6 = 0x20))
         }
     }
 }
