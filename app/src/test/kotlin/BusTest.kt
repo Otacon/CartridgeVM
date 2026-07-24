@@ -1,4 +1,5 @@
 import kotlin.test.*
+import nes.apu.DmcDma
 import nes.apu.NesApu
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
@@ -87,7 +88,7 @@ class BusTest {
         val socket = CartridgeSocket()
         socket.insert(cartridge())
         val ppu = Ppu(PpuBus(socket))
-        val bus = CpuBus(socket, ppu, NesController(), NesApu())
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket)))
 
         bus.write(0x0000, 0x77)
         bus.write(0x4014, 0)

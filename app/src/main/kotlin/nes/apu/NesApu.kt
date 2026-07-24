@@ -7,7 +7,9 @@ import kotlin.math.max
 
 @Inject
 @AppScope
-class NesApu {
+class NesApu(
+    val dmcDma: DmcDma,
+) {
     companion object {
         private const val SAMPLE_RATE = 44_100
         private val LENGTH_TABLE = intArrayOf(
@@ -20,8 +22,16 @@ class NesApu {
             intArrayOf(0, 1, 1, 1, 1, 0, 0, 0),
             intArrayOf(1, 0, 0, 1, 1, 1, 1, 1),
         )
-        private val TRIANGLE_TABLE = intArrayOf(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
-        private val NOISE_PERIODS = intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068)
+        private val TRIANGLE_TABLE = intArrayOf(
+            15, 14, 13, 12, 11, 10, 9, 8,
+            7, 6, 5, 4, 3, 2, 1, 0,
+            0, 1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15
+        )
+        private val NOISE_PERIODS =
+            intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068)
+        private val DMC_PERIODS =
+            intArrayOf(428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 85, 72, 54)
         const val DEFAULT_SAMPLE_RATE = 44_100
         const val MAX_FRAME_SAMPLES = 2048
     }
@@ -34,6 +44,7 @@ class NesApu {
     private val pulse2 = PulseChannel(channelOne = false)
     private val triangle = TriangleChannel()
     private val noise = NoiseChannel()
+    private val dmc = DmcChannel(dmcDma)
     private var frameCycle = 0
     private var frameMode = 0
     private var apuCycle = false
@@ -41,17 +52,28 @@ class NesApu {
     private val cyclesPerSample = Timing.CPU_HZ / SAMPLE_RATE
 
     fun reset() {
-        pulse1.reset(); pulse2.reset(); triangle.reset(); noise.reset()
-        frameCycle = 0; frameMode = 0; apuCycle = false; sampleAccumulator = 0.0; sampleCount = 0
+        pulse1.reset()
+        pulse2.reset()
+        triangle.reset()
+        noise.reset()
+        dmc.reset()
+        frameCycle = 0
+        frameMode = 0
+        apuCycle = false
+        sampleAccumulator = 0.0
+        sampleCount = 0
     }
 
-    fun beginFrame() { sampleCount = 0 }
+    fun beginFrame() {
+        sampleCount = 0
+    }
 
     fun cpuRead(address: Int): Int = if ((address and 0xFFFF) == 0x4015) {
         (if (pulse1.lengthCounter > 0) 0x01 else 0) or
-            (if (pulse2.lengthCounter > 0) 0x02 else 0) or
-            (if (triangle.lengthCounter > 0) 0x04 else 0) or
-            (if (noise.lengthCounter > 0) 0x08 else 0)
+                (if (pulse2.lengthCounter > 0) 0x02 else 0) or
+                (if (triangle.lengthCounter > 0) 0x04 else 0) or
+                (if (noise.lengthCounter > 0) 0x08 else 0) or
+                (if (dmc.active()) 0x10 else 0)
     } else 0
 
     fun cpuWrite(address: Int, value: Int) {
@@ -61,17 +83,19 @@ class NesApu {
             in 0x4004..0x4007 -> pulse2.write((address and 3), v)
             in 0x4008..0x400B -> triangle.write((address and 3), v)
             in 0x400C..0x400F -> noise.write((address and 3), v)
-            0x4010, 0x4011, 0x4012, 0x4013 -> Unit // DMC is not implemented for this SMB-focused MVP.
+            0x4010, 0x4011, 0x4012, 0x4013 -> dmc.write(address and 3, v)
             0x4015 -> {
                 pulse1.enabled = (v and 0x01) != 0
                 pulse2.enabled = (v and 0x02) != 0
                 triangle.enabled = (v and 0x04) != 0
                 noise.enabled = (v and 0x08) != 0
+                dmc.setEnabled((v and 0x10) != 0)
                 if (!pulse1.enabled) pulse1.lengthCounter = 0
                 if (!pulse2.enabled) pulse2.lengthCounter = 0
                 if (!triangle.enabled) triangle.lengthCounter = 0
                 if (!noise.enabled) noise.lengthCounter = 0
             }
+
             0x4017 -> {
                 frameMode = (v shr 7) and 1
                 frameCycle = 0
@@ -87,6 +111,7 @@ class NesApu {
         var i = 0
         while (i < cpuCycles) {
             triangle.stepTimer()
+            dmc.stepTimer()
             apuCycle = !apuCycle
             if (apuCycle) {
                 pulse1.stepTimer(); pulse2.stepTimer(); noise.stepTimer()
@@ -106,13 +131,21 @@ class NesApu {
         if (frameMode == 0) {
             when (frameCycle) {
                 7457, 22371 -> quarterFrame()
-                14913 -> { quarterFrame(); halfFrame() }
-                29829 -> { quarterFrame(); halfFrame(); frameCycle = 0 }
+                14913 -> {
+                    quarterFrame(); halfFrame()
+                }
+
+                29829 -> {
+                    quarterFrame(); halfFrame(); frameCycle = 0
+                }
             }
         } else {
             when (frameCycle) {
                 7457, 22371 -> quarterFrame()
-                14913, 37281 -> { quarterFrame(); halfFrame() }
+                14913, 37281 -> {
+                    quarterFrame(); halfFrame()
+                }
+
                 37282 -> frameCycle = 0
             }
         }
@@ -132,8 +165,10 @@ class NesApu {
         val p2 = pulse2.output()
         val t = triangle.output()
         val n = noise.output()
+        val d = dmc.output()
         val pulseOut = if (p1 + p2 == 0) 0.0 else 95.88 / ((8128.0 / (p1 + p2)) + 100.0)
-        val tndOut = if (t + n == 0) 0.0 else 159.79 / (1.0 / (t / 8227.0 + n / 12241.0) + 100.0)
+        val tndInput = t / 8227.0 + n / 12241.0 + d / 22638.0
+        val tndOut = if (t + n + d == 0) 0.0 else 159.79 / (1.0 / tndInput + 100.0)
         return (pulseOut + tndOut) * 1.4 - 0.45
     }
 
@@ -169,16 +204,29 @@ class NesApu {
 
         fun reset() {
             enabled = false; lengthCounter = 0; duty = 0; timer = 0; timerCounter = 0; sequence = 0
-            envelopeLoop = false; constantVolume = false; volume = 0; envelopeStart = false; envelopeDivider = 0; envelopeDecay = 0
-            sweepEnabled = false; sweepPeriod = 0; sweepNegate = false; sweepShift = 0; sweepReload = false; sweepDivider = 0
+            envelopeLoop = false; constantVolume = false; volume = 0; envelopeStart = false; envelopeDivider =
+                0; envelopeDecay = 0
+            sweepEnabled = false; sweepPeriod = 0; sweepNegate = false; sweepShift = 0; sweepReload =
+                false; sweepDivider = 0
         }
 
         fun write(register: Int, value: Int) {
             when (register) {
-                0 -> { duty = (value shr 6) and 3; envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume = value and 0x0F }
-                1 -> { sweepEnabled = (value and 0x80) != 0; sweepPeriod = ((value shr 4) and 7) + 1; sweepNegate = (value and 0x08) != 0; sweepShift = value and 7; sweepReload = true }
+                0 -> {
+                    duty = (value shr 6) and 3; envelopeLoop = (value and 0x20) != 0; constantVolume =
+                        (value and 0x10) != 0; volume = value and 0x0F
+                }
+
+                1 -> {
+                    sweepEnabled = (value and 0x80) != 0; sweepPeriod = ((value shr 4) and 7) + 1; sweepNegate =
+                        (value and 0x08) != 0; sweepShift = value and 7; sweepReload = true
+                }
+
                 2 -> timer = (timer and 0x700) or value
-                3 -> { timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; sequence = 0; envelopeStart = true }
+                3 -> {
+                    timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter =
+                        LENGTH_TABLE[(value shr 3) and 31]; sequence = 0; envelopeStart = true
+                }
             }
         }
 
@@ -198,7 +246,9 @@ class NesApu {
             } else envelopeDivider--
         }
 
-        fun clockLength() { if (!envelopeLoop && lengthCounter > 0) lengthCounter-- }
+        fun clockLength() {
+            if (!envelopeLoop && lengthCounter > 0) lengthCounter--
+        }
 
         fun clockSweep() {
             if (sweepDivider == 0) {
@@ -209,7 +259,9 @@ class NesApu {
                 }
                 sweepDivider = sweepPeriod
             } else sweepDivider--
-            if (sweepReload) { sweepReload = false; sweepDivider = sweepPeriod }
+            if (sweepReload) {
+                sweepReload = false; sweepDivider = sweepPeriod
+            }
         }
 
         fun output(): Int {
@@ -229,13 +281,22 @@ class NesApu {
         private var timerCounter = 0
         private var sequence = 0
 
-        fun reset() { enabled = false; lengthCounter = 0; control = false; reloadValue = 0; reloadFlag = false; linearCounter = 0; timer = 0; timerCounter = 0; sequence = 0 }
+        fun reset() {
+            enabled = false; lengthCounter = 0; control = false; reloadValue = 0; reloadFlag = false; linearCounter =
+                0; timer = 0; timerCounter = 0; sequence = 0
+        }
 
         fun write(register: Int, value: Int) {
             when (register) {
-                0 -> { control = (value and 0x80) != 0; reloadValue = value and 0x7F }
+                0 -> {
+                    control = (value and 0x80) != 0; reloadValue = value and 0x7F
+                }
+
                 2 -> timer = (timer and 0x700) or value
-                3 -> { timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; reloadFlag = true }
+                3 -> {
+                    timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter =
+                        LENGTH_TABLE[(value shr 3) and 31]; reloadFlag = true
+                }
             }
         }
 
@@ -251,7 +312,10 @@ class NesApu {
             if (!control) reloadFlag = false
         }
 
-        fun clockLength() { if (!control && lengthCounter > 0) lengthCounter-- }
+        fun clockLength() {
+            if (!control && lengthCounter > 0) lengthCounter--
+        }
+
         fun output(): Int = if (enabled && lengthCounter > 0 && linearCounter > 0) TRIANGLE_TABLE[sequence] else 0
     }
 
@@ -269,13 +333,26 @@ class NesApu {
         private var timerCounter = 0
         private var shift = 1
 
-        fun reset() { enabled = false; lengthCounter = 0; envelopeLoop = false; constantVolume = false; volume = 0; envelopeStart = false; envelopeDivider = 0; envelopeDecay = 0; mode = false; timer = 0; timerCounter = 0; shift = 1 }
+        fun reset() {
+            enabled = false; lengthCounter = 0; envelopeLoop = false; constantVolume = false; volume =
+                0; envelopeStart = false; envelopeDivider = 0; envelopeDecay = 0; mode = false; timer =
+                0; timerCounter = 0; shift = 1
+        }
 
         fun write(register: Int, value: Int) {
             when (register) {
-                0 -> { envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume = value and 0x0F }
-                2 -> { mode = (value and 0x80) != 0; timer = NOISE_PERIODS[value and 0x0F] }
-                3 -> { if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; envelopeStart = true }
+                0 -> {
+                    envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume =
+                        value and 0x0F
+                }
+
+                2 -> {
+                    mode = (value and 0x80) != 0; timer = NOISE_PERIODS[value and 0x0F]
+                }
+
+                3 -> {
+                    if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; envelopeStart = true
+                }
             }
         }
 
@@ -297,7 +374,131 @@ class NesApu {
             } else envelopeDivider--
         }
 
-        fun clockLength() { if (!envelopeLoop && lengthCounter > 0) lengthCounter-- }
-        fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) max(0, if (constantVolume) volume else envelopeDecay) else 0
+        fun clockLength() {
+            if (!envelopeLoop && lengthCounter > 0) lengthCounter--
+        }
+
+        fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) max(
+            0,
+            if (constantVolume) volume else envelopeDecay
+        ) else 0
+    }
+
+    private class DmcChannel(
+        private val dmcDma: DmcDma,
+    ) {
+        private var enabled = false
+        private var irqEnabled = false
+        private var loop = false
+        private var period = DMC_PERIODS[0]
+        private var timerCounter = 0
+        private var outputLevel = 0
+        private var sampleAddress = 0xC000
+        private var sampleLength = 1
+        private var currentAddress = 0xC000
+        private var bytesRemaining = 0
+        private var shiftRegister = 0
+        private var bitsRemaining = 0
+        private var sampleBuffer = 0
+        private var sampleBufferFull = false
+        private var silence = true
+
+        fun reset() {
+            enabled = false
+            irqEnabled = false
+            loop = false
+            period = DMC_PERIODS[0]
+            timerCounter = 0
+            outputLevel = 0
+            sampleAddress = 0xC000
+            sampleLength = 1
+            currentAddress = sampleAddress
+            bytesRemaining = 0
+            shiftRegister = 0
+            bitsRemaining = 0
+            sampleBuffer = 0
+            sampleBufferFull = false
+            silence = true
+        }
+
+        fun write(register: Int, value: Int) {
+            when (register) {
+                0 -> {
+                    irqEnabled = (value and 0x80) != 0
+                    loop = (value and 0x40) != 0
+                    period = DMC_PERIODS[value and 0x0F]
+                }
+
+                1 -> outputLevel = value and 0x7F
+                2 -> sampleAddress = 0xC000 + (value shl 6)
+                3 -> sampleLength = (value shl 4) + 1
+            }
+        }
+
+        fun setEnabled(value: Boolean) {
+            enabled = value
+            if (!enabled) {
+                bytesRemaining = 0
+            } else if (bytesRemaining == 0) {
+                restartSample()
+            }
+        }
+
+        fun active(): Boolean {
+            return bytesRemaining > 0 || sampleBufferFull
+        }
+
+        fun stepTimer() {
+            if (!enabled) return
+            fetchSampleIfNeeded()
+            if (timerCounter <= 0) {
+                timerCounter = period
+                clockOutputUnit()
+            } else {
+                timerCounter--
+            }
+        }
+
+        fun output(): Int {
+            return outputLevel
+        }
+
+        private fun fetchSampleIfNeeded() {
+            if (sampleBufferFull || bytesRemaining == 0) return
+            sampleBuffer = dmcDma.read(currentAddress) and 0xFF
+            sampleBufferFull = true
+            currentAddress++
+            if (currentAddress > 0xFFFF) currentAddress = 0x8000
+            bytesRemaining--
+            if (bytesRemaining == 0 && loop) restartSample()
+        }
+
+        private fun clockOutputUnit() {
+            if (!silence) {
+                if ((shiftRegister and 1) == 1) {
+                    if (outputLevel <= 125) outputLevel += 2
+                } else if (outputLevel >= 2) {
+                    outputLevel -= 2
+                }
+            }
+            shiftRegister = shiftRegister shr 1
+            bitsRemaining--
+            if (bitsRemaining <= 0) {
+                bitsRemaining = 8
+                if (sampleBufferFull) {
+                    silence = false
+                    shiftRegister = sampleBuffer
+                    sampleBufferFull = false
+                    fetchSampleIfNeeded()
+                } else {
+                    silence = true
+                }
+            }
+        }
+
+        private fun restartSample() {
+            currentAddress = sampleAddress
+            bytesRemaining = sampleLength
+        }
     }
 }

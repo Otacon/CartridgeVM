@@ -108,7 +108,7 @@ APU/audio:
 * Pulse 1, pulse 2, triangle, and noise channels.
 * Length counters, envelopes, approximate sweep, triangle linear counter, frame counter clocks.
 * OpenAL frontend playback.
-* DMC registers are accepted but DMC sample playback is not implemented.
+* Approximate DMC sample playback with CPU-memory sample reads.
 
 Input/frontend:
 
@@ -148,7 +148,7 @@ Architecture notes:
 * Sprite-zero hit is approximate.
 * Sprite overflow is not accurate.
 * APU is approximate and SMB-focused.
-* DMC sample playback is not implemented.
+* DMC sample playback is approximate.
 * No save states, rewind, cheats, debugger UI, gamepad support, two-player input, ZIP loading, networking, shaders, ROM
   downloading, or ROM patching.
 * Hot path still has avoidable allocations in some places, including CPU address helper objects, OAM DMA buffer

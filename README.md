@@ -82,7 +82,7 @@ Implemented:
 * Dedicated PPU bus for CHR ROM/RAM, nametable memory, palette memory, and PPU-side mirroring
 * Background rendering, 8x8 sprite rendering, palette selection, sprite priority, sprite-zero hit approximation
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
-* SMB-focused APU audio with pulse, triangle, and noise channels
+* SMB-focused APU audio with pulse, triangle, noise, and approximate DMC channels
 * One standard NES controller via `$4016` serial protocol
 * LWJGL GLFW window, OpenGL texture presentation of a software framebuffer, and OpenAL audio playback
 * NTSC-oriented frame pacing with `--unlimited` for debugging
@@ -92,7 +92,7 @@ Implemented:
 
 This is an MVP, not a cycle-perfect emulator.
 
-* APU support is approximate and focused on Super Mario Bros.; DMC sample playback is stubbed
+* APU support is approximate and focused on Mario-era software; DMC sample playback is approximate
 * Mapper 0, Mapper 2, Mapper 3, and Mapper 4 only
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
 * NTSC timing only
@@ -109,7 +109,7 @@ Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLF
 
 * `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 2, Mapper 3, Mapper 4
 * `nes.cpu`: CPU core and CPU bus memory map
-* `nes.apu`: pulse, triangle, and noise channel audio generation
+* `nes.apu`: pulse, triangle, noise, and DMC channel audio generation
 * `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation
 * `nes.input`: NES controller strobe/serial protocol
 * `nes.NesMachine`: core CPU/PPU/APU/controller orchestration and cartridge insertion
