@@ -1,11 +1,13 @@
 package frontend
 
+import di.AppScope
 import me.tatarka.inject.annotations.Inject
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11.*
 import java.nio.ByteBuffer
 
 @Inject
+@AppScope
 class OpenGlRenderer : AutoCloseable {
     private var texture = 0
     private val upload: ByteBuffer = BufferUtils.createByteBuffer(256 * 240 * 4)

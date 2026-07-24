@@ -1,11 +1,13 @@
 package frontend
 
+import di.AppScope
 import me.tatarka.inject.annotations.Inject
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
 
 @Inject
+@AppScope
 class GlfwWindow : AutoCloseable {
 
     private var handle: Long = 0

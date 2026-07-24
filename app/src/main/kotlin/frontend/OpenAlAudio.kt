@@ -1,5 +1,6 @@
 package frontend
 
+import di.AppScope
 import me.tatarka.inject.annotations.Inject
 import nes.apu.NesApu
 import org.lwjgl.BufferUtils
@@ -10,6 +11,7 @@ import org.lwjgl.openal.ALC10.*
 import java.nio.ShortBuffer
 
 @Inject
+@AppScope
 class OpenAlAudio(
     private val sampleRate: Int = NesApu.DEFAULT_SAMPLE_RATE
 ) : AutoCloseable {

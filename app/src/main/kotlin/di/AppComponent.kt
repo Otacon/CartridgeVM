@@ -1,6 +1,7 @@
 package di
 
 import app.CliArgsParser
+import app.EmulatorApplication
 import frontend.GlfwWindow
 import frontend.OpenAlAudio
 import frontend.OpenGlRenderer
@@ -19,6 +20,7 @@ abstract class AppComponent {
     abstract val openGlRenderer: OpenGlRenderer
     abstract val openAlAudio: OpenAlAudio
     abstract val nesMachine: NesMachine
+    abstract val emulatorApplication: EmulatorApplication
 
 }
 
