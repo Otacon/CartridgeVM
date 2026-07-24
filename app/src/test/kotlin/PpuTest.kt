@@ -176,6 +176,26 @@ class PpuTest {
     }
 
     @Test
+    fun `sprite zero hit waits for overlapping pixel cycle`() {
+        val ppu = ppu()
+        ppu.ppuWrite(0x2000, 1)
+        ppu.ppuWrite(16, 0x08)
+        ppu.ppuWrite(17, 0x08)
+        ppu.oam[0] = 0
+        ppu.oam[1] = 1
+        ppu.oam[3] = 0
+        ppu.cpuWrite(1, 0x1E)
+
+        repeat(341 + 2) { ppu.step() }
+
+        assertFalse((ppu.status and 0x40) != 0)
+
+        repeat(4) { ppu.step() }
+
+        assertTrue((ppu.status and 0x40) != 0)
+    }
+
+    @Test
     fun `sprite priority hides sprite behind opaque background`() {
         val ppu = ppu()
         ppu.ppuWrite(0x2000, 1)

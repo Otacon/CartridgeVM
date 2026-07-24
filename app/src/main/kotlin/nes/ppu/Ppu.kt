@@ -26,12 +26,14 @@ class Ppu(
     var nmiRequested = false; private set
 
     private var readBuffer = 0
+    private var pendingSpriteZeroHitCycle = -1
     private val bgOpaque = BooleanArray(256)
     private val spriteClaimed = BooleanArray(256)
 
     fun reset() {
         ctrl = 0; mask = 0; status = 0; oamAddress = 0; v = 0; t = 0; fineX = 0
         writeLatch = false; scanline = 0; cycle = 0; frameComplete = false; nmiRequested = false; readBuffer = 0
+        pendingSpriteZeroHitCycle = -1
     }
 
     fun pollNmi(): Boolean {
@@ -47,6 +49,7 @@ class Ppu(
     fun step() {
         val rendering = renderingEnabled()
         if (scanline in 0..239 && cycle == 1) renderScanline(scanline)
+        if (scanline in 0..239 && cycle == pendingSpriteZeroHitCycle) status = status or 0x40
         if (scanline == 241 && cycle == 1) {
             status = status or 0x80
             if ((ctrl and 0x80) != 0) nmiRequested = true
@@ -196,6 +199,7 @@ class Ppu(
     private fun renderScanline(y: Int) {
         val bgEnabled = (mask and 0x08) != 0
         val spritesEnabled = (mask and 0x10) != 0
+        pendingSpriteZeroHitCycle = -1
         var x = 0
         while (x < 256) {
             bgOpaque[x] = false
@@ -284,7 +288,9 @@ class Ppu(
             val x = sx + px
             if (color != 0 && x in 0..255 && (x >= 8 || showLeftSprites) && !spriteClaimed[x]) {
                 spriteClaimed[x] = true
-                if (i == 0 && bgOpaque[x] && x != 255) status = status or 0x40
+                if (i == 0 && bgOpaque[x] && x != 255 && pendingSpriteZeroHitCycle == -1) {
+                    pendingSpriteZeroHitCycle = x + 1
+                }
                 if ((attr and 0x20) == 0 || !bgOpaque[x]) {
                     val pal = attr and 3
                     framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F10 + pal * 4 + color) and 0x3F]
