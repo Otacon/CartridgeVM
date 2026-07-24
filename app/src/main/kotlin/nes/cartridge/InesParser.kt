@@ -83,12 +83,12 @@ class InesParser {
             Mirroring.HORIZONTAL
         }
         return Cartridge(
-            mapperNumber = mapper,
             mirroring = mirroring,
             prgRom = prg,
             chr = chr,
             isChrRam = isChrRam,
-            trainerPresent = trainer
+            trainerPresent = trainer,
+            mapper = Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
         )
     }
 

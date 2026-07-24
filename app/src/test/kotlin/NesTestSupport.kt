@@ -1,4 +1,6 @@
 import nes.cartridge.Cartridge
+import nes.cartridge.CartridgeSocket
+import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.apu.NesApu
 import nes.cpu.Cpu6502
@@ -9,8 +11,13 @@ import nes.ppu.PpuBus
 
 fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean = false, prgFill: Int = 0): ByteArray {
     val header = ByteArray(16)
-    header[0] = 'N'.code.toByte(); header[1] = 'E'.code.toByte(); header[2] = 'S'.code.toByte(); header[3] = 0x1A
-    header[4] = prgBanks.toByte(); header[5] = chrBanks.toByte(); header[6] = (flags6 or if (trainer) 4 else 0).toByte()
+    header[0] = 'N'.code.toByte()
+    header[1] = 'E'.code.toByte()
+    header[2] = 'S'.code.toByte()
+    header[3] = 0x1A
+    header[4] = prgBanks.toByte()
+    header[5] = chrBanks.toByte()
+    header[6] = (flags6 or if (trainer) 4 else 0).toByte()
     val trainerBytes = if (trainer) ByteArray(512) { 0x55 } else ByteArray(0)
     val prg = ByteArray(prgBanks * 16 * 1024) { prgFill.toByte() }
     val chr = ByteArray(chrBanks * 8 * 1024)
@@ -21,14 +28,27 @@ fun cpuWithProgram(program: ByteArray, start: Int = 0x8000): Triple<Cpu6502, Cpu
     val prg = ByteArray(16 * 1024)
     System.arraycopy(program, 0, prg, start - 0x8000, program.size)
     val vector = 0x3FFC
-    prg[vector] = (start and 0xFF).toByte(); prg[vector + 1] = (start shr 8).toByte()
-    prg[0x3FFA] = 0x00; prg[0x3FFB] = 0x90.toByte()
-    prg[0x3FFE] = 0x00; prg[0x3FFF] = 0x91.toByte()
+    prg[vector] = (start and 0xFF).toByte()
+    prg[vector + 1] = (start shr 8).toByte()
+    prg[0x3FFA] = 0x00
+    prg[0x3FFB] = 0x90.toByte()
+    prg[0x3FFE] = 0x00
+    prg[0x3FFF] = 0x91.toByte()
     prg[0x1000] = 0xEA.toByte()
     prg[0x1100] = 0x40.toByte()
-    val cart = Cartridge(0, Mirroring.HORIZONTAL, prg, ByteArray(8192), true, false)
-    val ppu = Ppu(PpuBus(cart.mapper, cart.mirroring))
-    val bus = CpuBus(cart, ppu, NesController(), NesApu())
+    val chr = ByteArray(8192)
+    val cartridge = Cartridge(
+        mirroring = Mirroring.HORIZONTAL,
+        prgRom = prg,
+        chr = chr,
+        isChrRam = true,
+        trainerPresent = false,
+        mapper = Mapper0(prgRom = prg, chr = chr, isChrRam = true)
+    )
+    val cartridgeSocket = CartridgeSocket()
+    cartridgeSocket.insert(cartridge)
+    val ppu = Ppu(PpuBus(cartridgeSocket))
+    val bus = CpuBus(cartridgeSocket, ppu, NesController(), NesApu())
     val cpu = Cpu6502(bus)
     cpu.reset()
     return Triple(cpu, bus, ppu)

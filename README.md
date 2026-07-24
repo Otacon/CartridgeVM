@@ -73,9 +73,10 @@ Implemented:
 
 * Single command-line application in `app`
 * iNES parser and Mapper 0 cartridge mapping
+* Cartridge socket abstraction for insertion/removal and CPU/PPU cartridge access
 * 2A03-style 6502 CPU core for official opcodes
-* CPU bus RAM/register/cartridge/controller/OAM DMA mapping
-* PPU registers, nametable and palette memory, CHR ROM/RAM access
+* CPU bus RAM/register/controller/OAM DMA mapping, with cartridge space routed through the cartridge socket
+* Dedicated PPU bus for CHR ROM/RAM, nametable memory, palette memory, and PPU-side mirroring
 * Background rendering, 8x8 sprite rendering, palette selection, sprite priority, sprite-zero hit approximation
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
 * SMB-focused APU audio with pulse, triangle, and noise channels
@@ -102,12 +103,14 @@ Super Mario Bros. compatibility has not been claimed unless tested locally with 
 
 Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLFW or OpenGL.
 
-* `nes.cartridge`: iNES parsing, cartridge metadata, Mapper 0
+* `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0
 * `nes.cpu`: CPU core and CPU bus memory map
 * `nes.apu`: pulse, triangle, and noise channel audio generation
-* `nes.ppu`: PPU registers, memory, timing, and framebuffer generation
+* `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation
 * `nes.input`: NES controller strobe/serial protocol
-* `nes.NesMachine`: core CPU/PPU/controller orchestration
+* `nes.NesMachine`: core CPU/PPU/APU/controller orchestration and cartridge insertion
+
+The CPU bus and PPU bus do not depend on mapper classes directly. They communicate with `CartridgeSocket`, which delegates to the mapper stored by the currently inserted `Cartridge`. Parsed iNES ROMs are validated in `InesParser`; unsupported mapper numbers are rejected there before a cartridge is created.
 
 Frontend code is under `app/src/main/kotlin/frontend`.
 

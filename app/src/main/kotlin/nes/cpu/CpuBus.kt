@@ -1,12 +1,12 @@
 package nes.cpu
 
 import nes.apu.NesApu
-import nes.cartridge.Cartridge
+import nes.cartridge.CartridgeSocket
 import nes.input.NesController
 import nes.ppu.Ppu
 
 class CpuBus(
-    private val cartridge: Cartridge,
+    private val cartridgeSocket: CartridgeSocket,
     private val ppu: Ppu,
     private val controller: NesController,
     private val apu: NesApu
@@ -24,7 +24,7 @@ class CpuBus(
             0x4015 -> apu.cpuRead(a)
             0x4016 -> controller.read()
             0x4017 -> 0
-            in 0x4020..0xFFFF -> cartridge.mapper.cpuRead(a)
+            in 0x4020..0xFFFF -> cartridgeSocket.cpuRead(a)
             else -> 0
         }
     }
@@ -40,7 +40,7 @@ class CpuBus(
             0x4015 -> apu.cpuWrite(a, v)
             0x4016 -> controller.write(v)
             0x4017 -> apu.cpuWrite(a, v)
-            in 0x4020..0xFFFF -> cartridge.mapper.cpuWrite(a, v)
+            in 0x4020..0xFFFF -> cartridgeSocket.cpuWrite(a, v)
         }
     }
 

@@ -24,7 +24,10 @@ fun main(args: Array<String>) {
     val audio = appComponent.openAlAudio
     try {
         val cartridge = inesParser.parse(cliArgs.rom)
-        val machine = NesMachine(cartridge)
+        val machine = NesMachine().also {
+            it.insert(cartridge)
+            it.reset()
+        }
         log.info("Emulation started")
         appComponent.glfwWindow.use { window ->
             val handle = window.create(256 * 3, 240 * 3)

@@ -52,7 +52,7 @@ app/src/main/kotlin/app/          CLI entry point and argument parsing
 app/src/main/kotlin/frontend/     GLFW, OpenGL presentation, OpenAL audio, keyboard input, pacing
 app/src/main/kotlin/nes/          Machine orchestration and timing
 app/src/main/kotlin/nes/apu/      APU audio generation
-app/src/main/kotlin/nes/cartridge/iNES parser and Mapper 0
+app/src/main/kotlin/nes/cartridge/iNES parser, cartridge socket, and Mapper 0
 app/src/main/kotlin/nes/cpu/      6502 CPU and CPU bus
 app/src/main/kotlin/nes/input/    NES controller protocol
 app/src/main/kotlin/nes/ppu/      PPU registers, memory, timing, and software rendering
@@ -73,6 +73,8 @@ ROM/cartridge:
 * NROM-128 and NROM-256.
 * CHR ROM and CHR RAM.
 * Horizontal and vertical mirroring.
+* `Cartridge` stores ROM metadata/data plus a generic `Mapper` instance.
+* `CartridgeSocket` simulates cartridge insertion/removal and is the only cartridge access point for CPU/PPU buses.
 * Clear rejection for invalid headers, truncated ROMs, NES 2.0, unsupported mappers, four-screen mirroring, and invalid
   Mapper 0 sizes.
 
@@ -82,13 +84,15 @@ CPU/bus:
 * Reset, NMI, IRQ, BRK/RTI, stack behavior, page-cross penalties, branch penalties, zero-page wrapping, indirect JMP
   wrap bug.
 * CPU memory map for RAM, PPU registers, APU registers, OAM DMA, controller, and cartridge space.
+* Cartridge CPU-space reads/writes go through `CartridgeSocket`, not directly through mapper classes.
 * Unofficial opcodes intentionally throw explicit errors.
 
 PPU:
 
 * 256x240 software framebuffer.
 * PPU register interface `$2000-$2007` with mirroring.
-* Nametable, palette, CHR ROM/RAM access.
+* Dedicated PPU bus for CHR ROM/RAM, nametable RAM, palette RAM, and PPU-side mirroring.
+* CHR ROM/RAM access goes through `CartridgeSocket`, not directly through mapper classes.
 * Buffered PPUDATA reads and palette read behavior.
 * VBlank flag, status read side effects, NMI generation.
 * Background rendering with attributes, scrolling, and nametable-bit handling.
@@ -124,6 +128,12 @@ Diagnostics:
 
 * `--debug` prints ROM metadata, frame limiter state, target FPS, FPS, and input edge logs.
 * `--unlimited` disables frame limiting.
+
+Architecture notes:
+
+* `NesMachine` starts without a constructor cartridge argument; call `insert(cartridge)` before reset/run for normal use.
+* `InesParser` validates iNES mapper numbers and creates the concrete Mapper 0 instance for parsed cartridges.
+* CPU, PPU, APU, and bus packages should not depend on concrete mapper classes.
 
 ## Known Limitations
 

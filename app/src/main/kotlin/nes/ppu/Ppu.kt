@@ -18,8 +18,7 @@ class Ppu(
     var scanline = 0; private set
     var cycle = 0; private set
     var frameComplete = false; private set
-    var nmiRequested = false
-        private set
+    var nmiRequested = false; private set
 
     private var readBuffer = 0
     private val bgOpaque = BooleanArray(256)
@@ -35,7 +34,9 @@ class Ppu(
         return value
     }
 
-    fun clearFrameComplete() { frameComplete = false }
+    fun clearFrameComplete() {
+        frameComplete = false
+    }
 
     fun step() {
         val rendering = renderingEnabled()
@@ -69,6 +70,7 @@ class Ppu(
             writeLatch = false
             result
         }
+
         4 -> oam[oamAddress].toInt() and 0xFF
         7 -> readData()
         else -> 0
@@ -83,9 +85,13 @@ class Ppu(
                 t = (t and 0xF3FF) or ((data and 0x03) shl 10)
                 if ((old and 0x80) == 0 && (ctrl and 0x80) != 0 && (status and 0x80) != 0) nmiRequested = true
             }
+
             1 -> mask = data
             3 -> oamAddress = data
-            4 -> { oam[oamAddress] = data.toByte(); oamAddress = (oamAddress + 1) and 0xFF }
+            4 -> {
+                oam[oamAddress] = data.toByte(); oamAddress = (oamAddress + 1) and 0xFF
+            }
+
             5 -> if (!writeLatch) {
                 fineX = data and 7
                 t = (t and 0xFFE0) or (data shr 3)
@@ -95,6 +101,7 @@ class Ppu(
                 t = (t and 0xFC1F) or ((data and 0xF8) shl 2)
                 writeLatch = false
             }
+
             6 -> if (!writeLatch) {
                 t = (t and 0x00FF) or ((data and 0x3F) shl 8)
                 writeLatch = true
@@ -103,6 +110,7 @@ class Ppu(
                 v = t
                 writeLatch = false
             }
+
             7 -> writeData(data)
         }
     }
@@ -138,7 +146,9 @@ class Ppu(
         incrementVramAddress()
     }
 
-    private fun incrementVramAddress() { v = (v + if ((ctrl and 0x04) != 0) 32 else 1) and 0x7FFF }
+    private fun incrementVramAddress() {
+        v = (v + if ((ctrl and 0x04) != 0) 32 else 1) and 0x7FFF
+    }
 
     private fun renderingEnabled() = (mask and 0x18) != 0
 
@@ -180,14 +190,17 @@ class Ppu(
         val bgEnabled = (mask and 0x08) != 0
         val spritesEnabled = (mask and 0x10) != 0
         var x = 0
-        while (x < 256) { bgOpaque[x] = false; framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00) and 0x3F]; x++ }
+        while (x < 256) {
+            bgOpaque[x] = false; framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00) and 0x3F]; x++
+        }
         if (bgEnabled) renderBackground(y)
         if (spritesEnabled) renderSprites(y)
     }
 
     private fun renderBackground(y: Int) {
         val scrollX = (((v and 0x001F) shl 3) + fineX + if ((v and 0x0400) != 0) 256 else 0) and 0x1FF
-        val scrollY = ((((v shr 5) and 0x1F) shl 3) + ((v shr 12) and 7) + if ((v and 0x0800) != 0) 256 else 0) and 0x1FF
+        val scrollY =
+            ((((v shr 5) and 0x1F) shl 3) + ((v shr 12) and 7) + if ((v and 0x0800) != 0) 256 else 0) and 0x1FF
         val patternBase = if ((ctrl and 0x10) != 0) 0x1000 else 0
         var x = 0
         while (x < 256) {

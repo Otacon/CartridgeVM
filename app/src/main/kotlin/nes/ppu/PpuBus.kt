@@ -1,11 +1,10 @@
 package nes.ppu
 
-import nes.cartridge.Mapper
+import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mirroring
 
 class PpuBus(
-    private val mapper: Mapper,
-    private val mirroring: Mirroring,
+    private val cartridgeSocket: CartridgeSocket,
 ) {
     private val nametables = ByteArray(2048)
     private val paletteRam = ByteArray(32)
@@ -13,7 +12,7 @@ class PpuBus(
     fun read(address: Int): Int {
         val a = address and 0x3FFF
         return when {
-            a < 0x2000 -> mapper.ppuRead(a)
+            a < 0x2000 -> cartridgeSocket.ppuRead(a)
             a < 0x3F00 -> nametables[mirrorNametable(a)].toInt() and 0xFF
             else -> paletteRam[mirrorPalette(a)].toInt() and 0x3F
         }
@@ -22,7 +21,7 @@ class PpuBus(
     fun write(address: Int, value: Int) {
         val a = address and 0x3FFF
         when {
-            a < 0x2000 -> mapper.ppuWrite(a, value)
+            a < 0x2000 -> cartridgeSocket.ppuWrite(a, value)
             a < 0x3F00 -> nametables[mirrorNametable(a)] = value.toByte()
             else -> paletteRam[mirrorPalette(a)] = (value and 0x3F).toByte()
         }
@@ -32,9 +31,10 @@ class PpuBus(
         val index = (address - 0x2000) and 0x0FFF
         val table = index / 0x400
         val offset = index and 0x3FF
-        val physical = when (mirroring) {
+        val physical = when (cartridgeSocket.mirroring) {
             Mirroring.VERTICAL -> table and 1
             Mirroring.HORIZONTAL -> table shr 1
+            else -> table shr 1
         }
         return physical * 0x400 + offset
     }
