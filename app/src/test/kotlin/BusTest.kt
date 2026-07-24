@@ -73,6 +73,20 @@ class BusTest {
     }
 
     @Test
+    fun `controller accepts a complete button snapshot and filters opposite directions`() {
+        val controller = NesController()
+        val buttons = (1 shl NesController.A) or
+                (1 shl NesController.LEFT) or
+                (1 shl NesController.RIGHT)
+
+        controller.setButtons(buttons)
+
+        assertTrue((controller.snapshot() and (1 shl NesController.A)) != 0)
+        assertTrue((controller.snapshot() and (1 shl NesController.LEFT)) != 0)
+        assertFalse((controller.snapshot() and (1 shl NesController.RIGHT)) != 0)
+    }
+
+    @Test
     fun `cartridge reads return zero after removal`() {
         val prg = ByteArray(16 * 1024)
         prg[0] = 0x12

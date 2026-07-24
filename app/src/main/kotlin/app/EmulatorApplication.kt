@@ -50,13 +50,16 @@ class EmulatorApplication(
         val handle = window.create(256 * 3, 240 * 3)
         renderer.init()
         val input = KeyboardInput(handle, machine.controller)
+        val pollInput = {
+            window.pollEvents()
+            input.poll()
+        }
         val pacer = FramePacer(Timing.FRAME_NANOS)
         var paused = false
         var frames = 0
         var fpsTime = System.nanoTime()
         while (!window.shouldClose()) {
-            window.pollEvents()
-            input.poll()
+            pollInput()
             if (input.consumePause()) {
                 paused = !paused
             }
@@ -68,7 +71,7 @@ class EmulatorApplication(
                 window.requestClose()
             }
             if (!paused) {
-                machine.runUntilFrame()
+                machine.runUntilFrame(pollInput)
                 audio.submit(machine.apu.samples, machine.apu.sampleCount)
             } else {
                 Thread.sleep(8)

@@ -128,6 +128,8 @@ Input/frontend:
     * Escape: Quit.
 * Controller is exposed through `$4016` strobe/serial reads.
 * Opposite directions are filtered.
+* GLFW events and controller state are sampled before each frame and approximately every 2 ms during frame emulation
+  to reduce input-to-emulation latency. Pause/reset edges must remain latched across repeated within-frame polls.
 
 Diagnostics:
 

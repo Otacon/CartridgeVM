@@ -19,10 +19,6 @@ class NesMachine(
     val cpu: Cpu6502,
 ) {
 
-    init {
-        reset()
-    }
-
     fun insert(cartridge: Cartridge) {
         cartridgeSocket.insert(cartridge)
     }
@@ -35,13 +31,19 @@ class NesMachine(
         cpu.reset()
     }
 
-    fun runUntilFrame() {
+    fun runUntilFrame(onInputPoll: (() -> Unit)? = null) {
         ppu.clearFrameComplete()
         apu.beginFrame()
+        var cyclesUntilInputPoll = CPU_CYCLES_PER_INPUT_POLL
         while (!ppu.frameComplete) {
             latchInterrupts()
             val cycles = cpu.step()
             apu.step(cycles)
+            cyclesUntilInputPoll -= cycles
+            if (onInputPoll != null && cyclesUntilInputPoll <= 0) {
+                onInputPoll()
+                cyclesUntilInputPoll += CPU_CYCLES_PER_INPUT_POLL
+            }
             var i = 0
             val ppuCycles = cycles * Timing.PPU_PER_CPU
             while (i < ppuCycles) {
@@ -54,5 +56,10 @@ class NesMachine(
     private fun latchInterrupts() {
         if (ppu.pollNmi()) cpu.requestNmi()
         cpu.setIrqLine(cartridgeSocket.irqPending() || apu.irqPending())
+    }
+
+    companion object {
+        private const val INPUT_POLLS_PER_SECOND = 500
+        private const val CPU_CYCLES_PER_INPUT_POLL = Timing.CPU_HZ / INPUT_POLLS_PER_SECOND
     }
 }

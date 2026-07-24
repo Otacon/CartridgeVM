@@ -17,19 +17,23 @@ class KeyboardInput(
     private val log = LoggerFactory.getLogger("KeyboardInput")
 
     fun poll() {
-        controller.setButton(NesController.A, GLFW_KEY_Z.isKeyPressed())
-        controller.setButton(NesController.B, GLFW_KEY_X.isKeyPressed())
-        controller.setButton(NesController.SELECT, GLFW_KEY_RIGHT_SHIFT.isKeyPressed())
-        controller.setButton(NesController.START, GLFW_KEY_ENTER.isKeyPressed() || GLFW_KEY_KP_ENTER.isKeyPressed())
-        controller.setButton(NesController.UP, GLFW_KEY_UP.isKeyPressed())
-        controller.setButton(NesController.DOWN, GLFW_KEY_DOWN.isKeyPressed())
-        controller.setButton(NesController.LEFT, GLFW_KEY_LEFT.isKeyPressed())
-        controller.setButton(NesController.RIGHT, GLFW_KEY_RIGHT.isKeyPressed())
+        var buttons = 0
+        if (GLFW_KEY_Z.isKeyPressed()) buttons = buttons or (1 shl NesController.A)
+        if (GLFW_KEY_X.isKeyPressed()) buttons = buttons or (1 shl NesController.B)
+        if (GLFW_KEY_RIGHT_SHIFT.isKeyPressed()) buttons = buttons or (1 shl NesController.SELECT)
+        if (GLFW_KEY_ENTER.isKeyPressed() || GLFW_KEY_KP_ENTER.isKeyPressed()) {
+            buttons = buttons or (1 shl NesController.START)
+        }
+        if (GLFW_KEY_UP.isKeyPressed()) buttons = buttons or (1 shl NesController.UP)
+        if (GLFW_KEY_DOWN.isKeyPressed()) buttons = buttons or (1 shl NesController.DOWN)
+        if (GLFW_KEY_LEFT.isKeyPressed()) buttons = buttons or (1 shl NesController.LEFT)
+        if (GLFW_KEY_RIGHT.isKeyPressed()) buttons = buttons or (1 shl NesController.RIGHT)
+        controller.setButtons(buttons)
         logPressedEdges()
         val p = GLFW_KEY_P.isKeyPressed()
         val r = GLFW_KEY_R.isKeyPressed()
-        pauseEdge = p && !prevPause
-        resetEdge = r && !prevReset
+        pauseEdge = pauseEdge || (p && !prevPause)
+        resetEdge = resetEdge || (r && !prevReset)
         prevPause = p
         prevReset = r
     }

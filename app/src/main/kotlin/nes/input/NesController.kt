@@ -31,7 +31,11 @@ class NesController {
     fun setButton(button: Int, pressed: Boolean) {
         require(button in A..RIGHT) { "Invalid controller button: $button" }
         val buttonMask = 1 shl button
-        if (pressed) live = live or buttonMask else live = live and buttonMask.inv()
+        setButtons(if (pressed) live or buttonMask else live and buttonMask.inv())
+    }
+
+    fun setButtons(buttons: Int) {
+        live = buttons and 0xFF
         if ((live and (1 shl LEFT)) != 0 && (live and (1 shl RIGHT)) != 0) live = live and (1 shl RIGHT).inv()
         if ((live and (1 shl UP)) != 0 && (live and (1 shl DOWN)) != 0) live = live and (1 shl DOWN).inv()
         if (strobe) latched = live
