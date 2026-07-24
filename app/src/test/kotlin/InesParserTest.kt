@@ -2,6 +2,7 @@ import kotlin.test.*
 import nes.cartridge.InesParser
 import nes.cartridge.Mapper2
 import nes.cartridge.Mapper3
+import nes.cartridge.Mapper4
 import nes.cartridge.Mirroring
 import nes.cartridge.RomFormatException
 
@@ -41,6 +42,26 @@ class InesParserTest {
         assertEquals(32 * 1024, cartridge.chr.size)
         assertFalse(cartridge.isChrRam)
         assertTrue(cartridge.mapper is Mapper3)
+    }
+
+    @Test
+    fun `valid MMC3 parses PRG ROM and CHR ROM`() {
+        val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 2, flags6 = 0x40))
+
+        assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertEquals(16 * 1024, cartridge.chr.size)
+        assertFalse(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper4)
+    }
+
+    @Test
+    fun `valid MMC3 with CHR RAM parses PRG ROM and CHR RAM`() {
+        val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x40))
+
+        assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertEquals(8192, cartridge.chr.size)
+        assertTrue(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper4)
     }
 
     @Test
@@ -115,6 +136,13 @@ class InesParserTest {
     fun `CNROM with invalid PRG size throws ROM format exception`() {
         assertFailsWith<RomFormatException> {
             parser.parse(ines(prgBanks = 3, chrBanks = 1, flags6 = 0x30))
+        }
+    }
+
+    @Test
+    fun `MMC3 with one PRG bank throws ROM format exception`() {
+        assertFailsWith<RomFormatException> {
+            parser.parse(ines(prgBanks = 1, chrBanks = 1, flags6 = 0x40))
         }
     }
 }

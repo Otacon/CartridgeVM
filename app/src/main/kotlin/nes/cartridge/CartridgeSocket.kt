@@ -9,7 +9,7 @@ class CartridgeSocket {
     private var cartridge: Cartridge? = null
 
     val mirroring: Mirroring?
-        get() = cartridge?.mirroring
+        get() = cartridge?.mapper?.mirroring() ?: cartridge?.mirroring
 
     fun insert(cartridge: Cartridge) {
         this.cartridge = cartridge
@@ -33,5 +33,13 @@ class CartridgeSocket {
 
     fun ppuWrite(address: Int, value: Int) {
         cartridge?.mapper?.ppuWrite(address, value)
+    }
+
+    fun clockScanline() {
+        cartridge?.mapper?.clockScanline()
+    }
+
+    fun irqPending(): Boolean {
+        return cartridge?.mapper?.irqPending() ?: false
     }
 }

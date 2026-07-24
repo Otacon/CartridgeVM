@@ -27,6 +27,7 @@ class Ppu(
 
     private var readBuffer = 0
     private val bgOpaque = BooleanArray(256)
+    private val spriteClaimed = BooleanArray(256)
 
     fun reset() {
         ctrl = 0; mask = 0; status = 0; oamAddress = 0; v = 0; t = 0; fineX = 0
@@ -55,6 +56,7 @@ class Ppu(
             if (cycle in 1..256 && (cycle and 7) == 0) incrementCoarseX()
             if (cycle == 256) incrementY()
             if (cycle == 257) transferHorizontalAddress()
+            if (cycle == 260 && scanline in 0..239) bus.clockScanline()
             if (scanline == 261 && cycle in 280..304) transferVerticalAddress()
         }
         cycle++
@@ -196,13 +198,17 @@ class Ppu(
         val spritesEnabled = (mask and 0x10) != 0
         var x = 0
         while (x < 256) {
-            bgOpaque[x] = false; framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00) and 0x3F]; x++
+            bgOpaque[x] = false
+            spriteClaimed[x] = false
+            framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00) and 0x3F]
+            x++
         }
         if (bgEnabled) renderBackground(y)
         if (spritesEnabled) renderSprites(y)
     }
 
     private fun renderBackground(y: Int) {
+        val showLeftBackground = (mask and 0x02) != 0
         val scrollX = (((v and 0x001F) shl 3) + fineX + if ((v and 0x0400) != 0) 256 else 0) and 0x1FF
         val scrollY =
             ((((v shr 5) and 0x1F) shl 3) + ((v shr 12) and 7) + if ((v and 0x0800) != 0) 256 else 0) and 0x1FF
@@ -224,7 +230,7 @@ class Ppu(
             val hi = ppuRead(patternBase + tile * 16 + fineY + 8)
             val bit = 7 - (sx and 7)
             val color = (((hi shr bit) and 1) shl 1) or ((lo shr bit) and 1)
-            if (color != 0) {
+            if (color != 0 && (x >= 8 || showLeftBackground)) {
                 bgOpaque[x] = true
                 framebuffer[y * 256 + x] = Palette.COLORS[ppuRead(0x3F00 + palette * 4 + color) and 0x3F]
             }
@@ -235,6 +241,7 @@ class Ppu(
     private fun renderSprites(y: Int) {
         val spriteHeight = if ((ctrl and 0x20) != 0) 16 else 8
         val spritePatternBase = if ((ctrl and 0x08) != 0) 0x1000 else 0
+        val showLeftSprites = (mask and 0x04) != 0
         var selected = 0
         var i = 0
         while (i < 64 && selected < 8) {
@@ -246,14 +253,14 @@ class Ppu(
             }
             i++
         }
-        var s = selected - 1
-        while (s >= 0) {
-            renderSprite(scanlineSprites[s], y, spriteHeight, spritePatternBase)
-            s--
+        var s = 0
+        while (s < selected) {
+            renderSprite(scanlineSprites[s], y, spriteHeight, spritePatternBase, showLeftSprites)
+            s++
         }
     }
 
-    private fun renderSprite(i: Int, y: Int, spriteHeight: Int, spritePatternBase: Int) {
+    private fun renderSprite(i: Int, y: Int, spriteHeight: Int, spritePatternBase: Int, showLeftSprites: Boolean) {
         val base = i * 4
         val sy = (oam[base].toInt() and 0xFF) + 1
         val tile = oam[base + 1].toInt() and 0xFF
@@ -275,7 +282,8 @@ class Ppu(
             val bit = if ((attr and 0x40) != 0) px else 7 - px
             val color = (((hi shr bit) and 1) shl 1) or ((lo shr bit) and 1)
             val x = sx + px
-            if (color != 0 && x in 0..255) {
+            if (color != 0 && x in 0..255 && (x >= 8 || showLeftSprites) && !spriteClaimed[x]) {
+                spriteClaimed[x] = true
                 if (i == 0 && bgOpaque[x] && x != 255) status = status or 0x40
                 if ((attr and 0x20) == 0 || !bgOpaque[x]) {
                     val pal = attr and 3

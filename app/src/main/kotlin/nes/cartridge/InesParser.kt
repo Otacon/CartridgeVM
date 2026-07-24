@@ -113,9 +113,19 @@ class InesParser {
                     throw RomFormatException("Invalid CHR ROM size for Mapper 3: ${chrBanks * 8} KiB")
                 }
             }
+            4 -> {
+                if (prgBanks < 2 || prgBanks > 32) {
+                    log.error("Invalid PRG ROM size for Mapper 4: ${prgBanks * 16} KiB")
+                    throw RomFormatException("Invalid PRG ROM size for Mapper 4: ${prgBanks * 16} KiB")
+                }
+                if (chrBanks > 32) {
+                    log.error("Invalid CHR ROM size for Mapper 4: ${chrBanks * 8} KiB")
+                    throw RomFormatException("Invalid CHR ROM size for Mapper 4: ${chrBanks * 8} KiB")
+                }
+            }
             else -> {
-                log.error("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 2 / UxROM, and Mapper 3 / CNROM are supported")
-                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 2 / UxROM, and Mapper 3 / CNROM are supported")
+                log.error("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are supported")
+                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are supported")
             }
         }
     }
@@ -125,6 +135,7 @@ class InesParser {
             0 -> Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
             2 -> Mapper2(prgRom = prg, chrRam = chr)
             3 -> Mapper3(prgRom = prg, chrRom = chr)
+            4 -> Mapper4(prgRom = prg, chr = chr, isChrRam = isChrRam)
             else -> error("Unsupported mapper $mapper")
         }
     }

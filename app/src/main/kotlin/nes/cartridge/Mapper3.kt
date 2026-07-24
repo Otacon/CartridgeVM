@@ -27,6 +27,12 @@ class Mapper3(
 
     override fun ppuWrite(address: Int, value: Int) = Unit
 
+    override fun clockScanline() = Unit
+
+    override fun irqPending(): Boolean = false
+
+    override fun mirroring(): Mirroring? = null
+
     companion object {
         private const val PRG_BANK_SIZE = 16 * 1024
         private const val CHR_BANK_SIZE = 8 * 1024

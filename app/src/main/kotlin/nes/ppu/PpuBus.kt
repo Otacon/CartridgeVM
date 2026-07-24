@@ -31,6 +31,10 @@ class PpuBus(
         }
     }
 
+    fun clockScanline() {
+        cartridgeSocket.clockScanline()
+    }
+
     private fun mirrorNametable(address: Int): Int {
         val index = (address - 0x2000) and 0x0FFF
         val table = index / 0x400

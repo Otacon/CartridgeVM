@@ -38,6 +38,7 @@ class NesMachine(
         apu.beginFrame()
         while (!ppu.frameComplete) {
             if (ppu.pollNmi()) cpu.requestNmi()
+            if (cartridgeSocket.irqPending()) cpu.requestIrq()
             val cycles = cpu.step()
             apu.step(cycles)
             var i = 0
@@ -45,6 +46,7 @@ class NesMachine(
             while (i < ppuCycles) {
                 ppu.step()
                 if (ppu.pollNmi()) cpu.requestNmi()
+                if (cartridgeSocket.irqPending()) cpu.requestIrq()
                 i++
             }
         }

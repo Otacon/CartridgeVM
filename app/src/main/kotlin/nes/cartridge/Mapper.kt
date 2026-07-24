@@ -5,4 +5,7 @@ interface Mapper {
     fun cpuWrite(address: Int, value: Int)
     fun ppuRead(address: Int): Int
     fun ppuWrite(address: Int, value: Int)
+    fun clockScanline()
+    fun irqPending(): Boolean
+    fun mirroring(): Mirroring? = null
 }

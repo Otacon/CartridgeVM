@@ -18,4 +18,10 @@ class Mapper0(
     override fun ppuWrite(address: Int, value: Int) {
         if (isChrRam) chr[address and 0x1FFF] = value.toByte()
     }
+
+    override fun clockScanline() = Unit
+
+    override fun irqPending(): Boolean = false
+
+    override fun mirroring(): Mirroring? = null
 }

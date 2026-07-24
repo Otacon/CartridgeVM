@@ -29,6 +29,12 @@ class Mapper2(
         chrRam[address and 0x1FFF] = value.toByte()
     }
 
+    override fun clockScanline() = Unit
+
+    override fun irqPending(): Boolean = false
+
+    override fun mirroring(): Mirroring? = null
+
     companion object {
         private const val PRG_BANK_SIZE = 16 * 1024
     }

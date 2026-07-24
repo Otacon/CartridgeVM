@@ -3,6 +3,7 @@ import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
+import nes.ppu.Palette
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
 
@@ -105,7 +106,7 @@ class PpuTest {
         ppu.ppuWrite(0x2000, 1)
         ppu.ppuWrite(0x0000 + 16, 0x80)
         ppu.ppuWrite(0x3F01, 0x22)
-        ppu.cpuWrite(1, 0x08)
+        ppu.cpuWrite(1, 0x0A)
 
         repeat(2) { ppu.step() }
 
@@ -120,7 +121,7 @@ class PpuTest {
         ppu.ppuWrite(0x3F01, 0x22)
         ppu.cpuWrite(6, 0x24)
         ppu.cpuWrite(6, 0x00)
-        ppu.cpuWrite(1, 0x08)
+        ppu.cpuWrite(1, 0x0A)
 
         repeat(2) { ppu.step() }
 
@@ -135,7 +136,7 @@ class PpuTest {
         ppu.oam[3] = 0
         ppu.ppuWrite(16, 0x80)
         ppu.ppuWrite(0x3F11, 0x22)
-        ppu.cpuWrite(1, 0x10)
+        ppu.cpuWrite(1, 0x14)
 
         repeat(344) { ppu.step() }
 
@@ -151,7 +152,7 @@ class PpuTest {
         ppu.ppuWrite(3 * 16, 0x80)
         ppu.ppuWrite(0x3F11, 0x22)
         ppu.cpuWrite(0, 0x20)
-        ppu.cpuWrite(1, 0x10)
+        ppu.cpuWrite(1, 0x14)
 
         repeat(341 * 9 + 2) { ppu.step() }
 
@@ -167,10 +168,77 @@ class PpuTest {
         ppu.oam[0] = 0
         ppu.oam[1] = 1
         ppu.oam[3] = 0
-        ppu.cpuWrite(1, 0x18)
+        ppu.cpuWrite(1, 0x1E)
 
         repeat(344) { ppu.step() }
 
         assertTrue((ppu.status and 0x40) != 0)
+    }
+
+    @Test
+    fun `sprite priority hides sprite behind opaque background`() {
+        val ppu = ppu()
+        ppu.ppuWrite(0x2000, 1)
+        repeat(8) {
+            ppu.ppuWrite(16 + it, 0x80)
+            ppu.ppuWrite(32 + it, 0x80)
+        }
+        ppu.ppuWrite(0x3F01, 0x21)
+        ppu.ppuWrite(0x3F11, 0x22)
+        ppu.oam[0] = 0
+        ppu.oam[1] = 2
+        ppu.oam[2] = 0x20
+        ppu.oam[3] = 0
+        ppu.cpuWrite(1, 0x1E)
+
+        repeat(344) { ppu.step() }
+
+        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[256])
+    }
+
+    @Test
+    fun `sprite priority draws sprite over transparent background`() {
+        val ppu = ppu()
+        ppu.ppuWrite(0x2000, 0)
+        repeat(8) {
+            ppu.ppuWrite(32 + it, 0x80)
+        }
+        ppu.ppuWrite(0x3F11, 0x22)
+        ppu.oam[0] = 0
+        ppu.oam[1] = 2
+        ppu.oam[2] = 0x20
+        ppu.oam[3] = 0
+        ppu.cpuWrite(1, 0x1E)
+
+        repeat(344) { ppu.step() }
+
+        assertEquals(Palette.COLORS[0x22], ppu.framebuffer[256])
+    }
+
+    @Test
+    fun `lower priority sprite cannot show through winning sprite behind background`() {
+        val ppu = ppu()
+        ppu.ppuWrite(0x2000, 1)
+        repeat(8) {
+            ppu.ppuWrite(16 + it, 0x80)
+            ppu.ppuWrite(32 + it, 0x80)
+            ppu.ppuWrite(48 + it, 0x80)
+        }
+        ppu.ppuWrite(0x3F01, 0x21)
+        ppu.ppuWrite(0x3F11, 0x22)
+        ppu.ppuWrite(0x3F15, 0x23)
+        ppu.oam[0] = 0
+        ppu.oam[1] = 2
+        ppu.oam[2] = 0x20
+        ppu.oam[3] = 0
+        ppu.oam[4] = 0
+        ppu.oam[5] = 3
+        ppu.oam[6] = 0x01
+        ppu.oam[7] = 0
+        ppu.cpuWrite(1, 0x1E)
+
+        repeat(344) { ppu.step() }
+
+        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[256])
     }
 }
