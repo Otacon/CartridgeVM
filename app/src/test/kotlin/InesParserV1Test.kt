@@ -71,6 +71,16 @@ class InesParserV1Test {
     }
 
     @Test
+    fun `valid AxROM parses PRG ROM and CHR RAM`() {
+        val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x70))
+
+        assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertEquals(8192, cartridge.chr.size)
+        assertTrue(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper7)
+    }
+
+    @Test
     fun `parser skips trainer bytes before PRG ROM`() {
         val cartridge = parser.parse(ines(1, 1, trainer = true, prgFill = 0x42))
 
@@ -160,6 +170,13 @@ class InesParserV1Test {
     fun `MMC3 with one PRG bank throws ROM format exception`() {
         assertFailsWith<RomFormatException> {
             parser.parse(ines(prgBanks = 1, chrBanks = 1, flags6 = 0x40))
+        }
+    }
+
+    @Test
+    fun `AxROM with CHR ROM throws ROM format exception`() {
+        assertFailsWith<RomFormatException> {
+            parser.parse(ines(prgBanks = 4, chrBanks = 1, flags6 = 0x70))
         }
     }
 

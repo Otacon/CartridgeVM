@@ -61,6 +61,17 @@ class InesParserV2Test {
     }
 
     @Test
+    fun `NES 2 AxROM parses declared CHR RAM`() {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x70, chrRamShift = 7),
+        )
+
+        assertEquals(8 * 1024, cartridge.chr.size)
+        assertTrue(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper7)
+    }
+
+    @Test
     fun `NES 2 extended unsupported mapper throws ROM format exception`() {
         val exception = assertFailsWith<RomFormatException> {
             parser.parse(nes2(prgLsb = 2, chrLsb = 1, flags6 = 0x40, mapperUpper = 1))

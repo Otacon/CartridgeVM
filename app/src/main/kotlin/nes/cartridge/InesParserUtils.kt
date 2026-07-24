@@ -104,9 +104,19 @@ class InesParserUtils {
                 if (prgSize !in (2L * PRG_BANK_SIZE)..(32L * PRG_BANK_SIZE) || prgSize % MMC3_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
                 if (chrSize !in CHR_BANK_SIZE.toLong()..(32L * CHR_BANK_SIZE) || chrSize % MMC3_CHR_BANK_SIZE != 0L) invalidSize(if (chrRomSize == 0L) "CHR RAM" else "CHR ROM", mapper, chrSize)
             }
+            7 -> {
+                if (prgSize !in AXROM_PRG_BANK_SIZE.toLong()..(8L * AXROM_PRG_BANK_SIZE) ||
+                    prgSize % AXROM_PRG_BANK_SIZE != 0L
+                ) {
+                    invalidSize("PRG ROM", mapper, prgSize)
+                }
+                if (chrRomSize != 0L || chrRamSize != CHR_BANK_SIZE) {
+                    throw RomFormatException("Invalid CHR memory for Mapper 7: AxROM requires 8 KiB CHR RAM")
+                }
+            }
             else -> {
-                log.error("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are supported")
-                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, and Mapper 4 / MMC3 are supported")
+                log.error("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are supported")
+                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are supported")
             }
         }
     }
@@ -117,6 +127,7 @@ class InesParserUtils {
         2 -> Mapper2(prgRom = prg, chrRam = chr)
         3 -> Mapper3(prgRom = prg, chrRom = chr)
         4 -> Mapper4(prgRom = prg, chr = chr, isChrRam = isChrRam)
+        7 -> Mapper7(prgRom = prg, chrRam = chr)
         else -> error("Unsupported mapper $mapper")
     }
 
@@ -136,5 +147,6 @@ class InesParserUtils {
         private const val MMC1_CHR_BANK_SIZE = 4 * 1024
         private const val MMC3_PRG_BANK_SIZE = 8 * 1024
         private const val MMC3_CHR_BANK_SIZE = 1024
+        private const val AXROM_PRG_BANK_SIZE = 32 * 1024
     }
 }
