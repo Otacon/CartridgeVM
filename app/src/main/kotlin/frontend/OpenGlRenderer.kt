@@ -52,7 +52,7 @@ class OpenGlRenderer : AutoCloseable {
         glClearColor(0f, 0f, 0f, 1f)
         glClear(GL_COLOR_BUFFER_BIT)
         val (w, h) = if (crtEnabled) {
-            fitAspect(windowWidth, windowHeight, 4f / 3f, 1f)
+            fitAspect(windowWidth, windowHeight, 256f / 240f, 1f)
         } else {
             val scale = maxOf(1, minOf(windowWidth / 256, windowHeight / 240))
             256f * scale / windowWidth.toFloat() to 240f * scale / windowHeight.toFloat()

@@ -53,7 +53,7 @@ class EmulatorApplication(
     }
 
     private fun runWindowLoop() {
-        val handle = if (cliArgs.crt) window.create(1152, 864) else window.create(256 * 3, 240 * 3)
+        val handle = if (cliArgs.crt) window.create(256 * 4, 240 * 4) else window.create(256 * 3, 240 * 3)
         renderer.init(cliArgs.crt)
         val input = if (cliArgs.controller) {
             ControllerInput(machine.controller)

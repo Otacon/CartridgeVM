@@ -32,7 +32,7 @@ class GlfwWindow : AutoCloseable {
             return b[0]
         }
 
-    fun create(width: Int, height: Int): Long {
+    fun create(width: Int, height: Int, aspectWidth: Int = width, aspectHeight: Int = height): Long {
         GLFWErrorCallback.createPrint(System.err).set()
         if (!glfwInit()) {
             throw IllegalStateException("GLFW initialization failure")
@@ -44,6 +44,7 @@ class GlfwWindow : AutoCloseable {
         if (handle == 0L) {
             throw IllegalStateException("GLFW window creation failure")
         }
+        glfwSetWindowAspectRatio(handle, aspectWidth, aspectHeight)
         glfwMakeContextCurrent(handle)
         glfwSwapInterval(0)
         GL.createCapabilities()
