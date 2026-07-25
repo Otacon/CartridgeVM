@@ -59,7 +59,7 @@ Use `--crt` to enable a stable 4:3 consumer CRT simulation with overscan, scanli
 
 Opposite directions are filtered so left/right and up/down are not both sent to the emulated controller at the same time.
 
-Pass `--controller` to use the first connected controller. GLFW's standard gamepad mapping is preferred; controllers without a known mapping, including some 8BitDo modes on macOS, use an Xbox-compatible raw input fallback. Without the flag, keyboard input is used.
+Pass `--controller` to use the first connected controller through GLFW's standard gamepad mapping. Without the flag, keyboard input is used.
 
 | Controller          | NES input |
 |---------------------| --- |

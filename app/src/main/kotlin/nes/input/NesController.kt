@@ -2,6 +2,7 @@ package nes.input
 
 import di.AppScope
 import me.tatarka.inject.annotations.Inject
+import org.slf4j.LoggerFactory
 
 @Inject
 @AppScope
@@ -22,6 +23,8 @@ class NesController {
     private var index = 0
     private var strobe = false
 
+    private val log = LoggerFactory.getLogger("NesController")
+
     fun reset() {
         latched = live
         index = 0
@@ -35,9 +38,11 @@ class NesController {
     }
 
     fun setButtons(buttons: Int) {
+        val previous = live
         live = buttons and 0xFF
         if ((live and (1 shl LEFT)) != 0 && (live and (1 shl RIGHT)) != 0) live = live and (1 shl RIGHT).inv()
         if ((live and (1 shl UP)) != 0 && (live and (1 shl DOWN)) != 0) live = live and (1 shl DOWN).inv()
+        logButtonEdges(previous, live)
         if (strobe) latched = live
     }
 
@@ -56,4 +61,22 @@ class NesController {
     }
 
     fun snapshot(): Int = live
+
+    private fun logButtonEdges(previous: Int, current: Int) {
+        val pressed = current and previous.inv()
+        val released = previous and current.inv()
+        logEdges(pressed, "pressed")
+        logEdges(released, "released")
+    }
+
+    private fun logEdges(buttons: Int, action: String) {
+        if ((buttons and (1 shl START)) != 0) log.debug("START {}", action)
+        if ((buttons and (1 shl A)) != 0) log.debug("A {}", action)
+        if ((buttons and (1 shl B)) != 0) log.debug("B {}", action)
+        if ((buttons and (1 shl SELECT)) != 0) log.debug("SELECT {}", action)
+        if ((buttons and (1 shl UP)) != 0) log.debug("UP {}", action)
+        if ((buttons and (1 shl DOWN)) != 0) log.debug("DOWN {}", action)
+        if ((buttons and (1 shl LEFT)) != 0) log.debug("LEFT {}", action)
+        if ((buttons and (1 shl RIGHT)) != 0) log.debug("RIGHT {}", action)
+    }
 }
