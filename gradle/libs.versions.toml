@@ -1,22 +1,34 @@
-# Version catalog is a central place for you to declare and version dependencies
-# https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
-# https://docs.gradle.org/current/userguide/platforms.html#sub::toml-dependencies-format
-
 [versions]
 kotlin = "2.3.21"
-kotlinxDatetime = "0.7.1"
-kotlinxSerializationJSON = "1.9.0"
-kotlinxCoroutines = "1.10.2"
+clikt = "5.1.0"
+kotlinInject = "0.9.0"
+ksp = "2.3.4"
+logback = "1.5.38"
+lwjgl = "3.4.2"
+slf4j = "2.0.18"
 
 [libraries]
-kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
-kotlinxDatetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
-kotlinxSerialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJSON" }
-kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 
-# Libraries can be bundled together for easier import
+kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+
+kotlinInjectCompiler = { module = "me.tatarka.inject:kotlin-inject-compiler-ksp", version.ref = "kotlinInject" }
+kotlinInjectRuntime = { module = "me.tatarka.inject:kotlin-inject-runtime", version.ref = "kotlinInject" }
+
+kotlinTest = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
+logbackClassic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+
+lwjgl = { module = "org.lwjgl:lwjgl" }
+lwjglBom = { module = "org.lwjgl:lwjgl-bom", version.ref = "lwjgl" }
+lwjglGlfw = { module = "org.lwjgl:lwjgl-glfw" }
+lwjglOpenal = { module = "org.lwjgl:lwjgl-openal" }
+lwjglOpengl = { module = "org.lwjgl:lwjgl-opengl" }
+
+slf4jApi = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+
 [bundles]
-kotlinxEcosystem = ["kotlinxDatetime", "kotlinxSerialization", "kotlinxCoroutines"]
+lwjgl = ["lwjgl", "lwjglGlfw", "lwjglOpenal", "lwjglOpengl"]
 
 [plugins]
-kotlinPluginSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

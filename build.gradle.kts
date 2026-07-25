@@ -1,5 +1,5 @@
 plugins {
-    id("com.google.devtools.ksp") version "2.3.4"
+    alias(libs.plugins.ksp)
     id("buildsrc.convention.kotlin-jvm")
     application
 }
@@ -16,48 +16,43 @@ sourceSets {
 }
 
 dependencies {
-    val lwjglVersion = "3.4.2"
+    implementation(libs.clikt)
 
-    implementation("com.github.ajalt.clikt:clikt:5.1.0")
+    implementation(libs.slf4jApi)
+    runtimeOnly(libs.logbackClassic)
+    ksp(libs.kotlinInjectCompiler)
+    implementation(libs.kotlinInjectRuntime)
 
-    implementation("org.slf4j:slf4j-api:2.0.18")
-    runtimeOnly("ch.qos.logback:logback-classic:1.5.38")
-    ksp("me.tatarka.inject:kotlin-inject-compiler-ksp:0.9.0")
-    implementation("me.tatarka.inject:kotlin-inject-runtime:0.9.0")
-
-    implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
-    implementation("org.lwjgl:lwjgl")
-    implementation("org.lwjgl:lwjgl-glfw")
-    implementation("org.lwjgl:lwjgl-openal")
-    implementation("org.lwjgl:lwjgl-opengl")
+    implementation(platform(libs.lwjglBom))
+    implementation(libs.bundles.lwjgl)
 
     // MacOsX
-    runtimeOnly("org.lwjgl:lwjgl::natives-macos")
-    runtimeOnly("org.lwjgl:lwjgl-glfw::natives-macos")
-    runtimeOnly("org.lwjgl:lwjgl-openal::natives-macos")
-    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-macos")
-    runtimeOnly("org.lwjgl:lwjgl::natives-macos-arm64")
-    runtimeOnly("org.lwjgl:lwjgl-glfw::natives-macos-arm64")
-    runtimeOnly("org.lwjgl:lwjgl-openal::natives-macos-arm64")
-    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-macos-arm64")
+    runtimeOnly(variantOf(libs.lwjgl) { classifier("natives-macos") })
+    runtimeOnly(variantOf(libs.lwjglGlfw) { classifier("natives-macos") })
+    runtimeOnly(variantOf(libs.lwjglOpenal) { classifier("natives-macos") })
+    runtimeOnly(variantOf(libs.lwjglOpengl) { classifier("natives-macos") })
+    runtimeOnly(variantOf(libs.lwjgl) { classifier("natives-macos-arm64") })
+    runtimeOnly(variantOf(libs.lwjglGlfw) { classifier("natives-macos-arm64") })
+    runtimeOnly(variantOf(libs.lwjglOpenal) { classifier("natives-macos-arm64") })
+    runtimeOnly(variantOf(libs.lwjglOpengl) { classifier("natives-macos-arm64") })
 
     // Linux
-    runtimeOnly("org.lwjgl:lwjgl::natives-linux")
-    runtimeOnly("org.lwjgl:lwjgl-glfw::natives-linux")
-    runtimeOnly("org.lwjgl:lwjgl-openal::natives-linux")
-    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-linux")
-    runtimeOnly("org.lwjgl:lwjgl::natives-linux-arm64")
-    runtimeOnly("org.lwjgl:lwjgl-glfw::natives-linux-arm64")
-    runtimeOnly("org.lwjgl:lwjgl-openal::natives-linux-arm64")
-    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-linux-arm64")
+    runtimeOnly(variantOf(libs.lwjgl) { classifier("natives-linux") })
+    runtimeOnly(variantOf(libs.lwjglGlfw) { classifier("natives-linux") })
+    runtimeOnly(variantOf(libs.lwjglOpenal) { classifier("natives-linux") })
+    runtimeOnly(variantOf(libs.lwjglOpengl) { classifier("natives-linux") })
+    runtimeOnly(variantOf(libs.lwjgl) { classifier("natives-linux-arm64") })
+    runtimeOnly(variantOf(libs.lwjglGlfw) { classifier("natives-linux-arm64") })
+    runtimeOnly(variantOf(libs.lwjglOpenal) { classifier("natives-linux-arm64") })
+    runtimeOnly(variantOf(libs.lwjglOpengl) { classifier("natives-linux-arm64") })
 
     // Windows
-    runtimeOnly("org.lwjgl:lwjgl::natives-windows")
-    runtimeOnly("org.lwjgl:lwjgl-glfw::natives-windows")
-    runtimeOnly("org.lwjgl:lwjgl-openal::natives-windows")
-    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-windows")
+    runtimeOnly(variantOf(libs.lwjgl) { classifier("natives-windows") })
+    runtimeOnly(variantOf(libs.lwjglGlfw) { classifier("natives-windows") })
+    runtimeOnly(variantOf(libs.lwjglOpenal) { classifier("natives-windows") })
+    runtimeOnly(variantOf(libs.lwjglOpengl) { classifier("natives-windows") })
 
-    testImplementation(kotlin("test"))
+    testImplementation(libs.kotlinTest)
 }
 
 application {
