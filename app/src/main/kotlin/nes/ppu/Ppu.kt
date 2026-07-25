@@ -16,18 +16,30 @@ class Ppu(
     private val scanlineSprites = IntArray(8)
     private val paletteColors = IntArray(32)
 
-    var ctrl = 0; private set
-    var mask = 0; private set
-    var status = 0; private set
-    var oamAddress = 0; private set
-    var v = 0; private set
-    var t = 0; private set
-    var fineX = 0; private set
-    var writeLatch = false; private set
-    var scanline = 0; private set
-    var cycle = 0; private set
-    var frameComplete = false; private set
-    var nmiRequested = false; private set
+    var ctrl = 0
+        private set
+    var mask = 0
+        private set
+    var status = 0
+        private set
+    var oamAddress = 0
+        private set
+    var v = 0
+        private set
+    var t = 0
+        private set
+    var fineX = 0
+        private set
+    var writeLatch = false
+        private set
+    var scanline = 0
+        private set
+    var cycle = 0
+        private set
+    var frameComplete = false
+        private set
+    var nmiRequested = false
+        private set
 
     private var readBuffer = 0
     private var pendingSpriteZeroHitCycle = -1
@@ -36,8 +48,19 @@ class Ppu(
     private val spriteClaimed = BooleanArray(256)
 
     fun reset() {
-        ctrl = 0; mask = 0; status = 0; oamAddress = 0; v = 0; t = 0; fineX = 0
-        writeLatch = false; scanline = 0; cycle = 0; frameComplete = false; nmiRequested = false; readBuffer = 0
+        ctrl = 0
+        mask = 0
+        status = 0
+        oamAddress = 0
+        v = 0
+        t = 0
+        fineX = 0
+        writeLatch = false
+        scanline = 0
+        cycle = 0
+        frameComplete = false
+        nmiRequested = false
+        readBuffer = 0
         pendingSpriteZeroHitCycle = -1
         oddFrame = false
     }

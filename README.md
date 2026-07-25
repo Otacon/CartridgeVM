@@ -17,7 +17,7 @@ Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin/JVM, LWJGL,
 Run tests only:
 
 ```bash
-./gradlew :app:test
+./gradlew test
 ```
 
 ## Run

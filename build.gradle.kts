@@ -1,9 +1,18 @@
-import org.gradle.jvm.toolchain.JavaLanguageVersion
-
 plugins {
     id("com.google.devtools.ksp") version "2.3.4"
     id("buildsrc.convention.kotlin-jvm")
     application
+}
+
+sourceSets {
+    main {
+        kotlin.srcDir("app/src/main/kotlin")
+        resources.srcDir("app/src/main/resources")
+    }
+    test {
+        kotlin.srcDir("app/src/test/kotlin")
+        resources.srcDir("app/src/test/resources")
+    }
 }
 
 dependencies {
@@ -22,6 +31,7 @@ dependencies {
     implementation("org.lwjgl:lwjgl-openal")
     implementation("org.lwjgl:lwjgl-opengl")
 
+    // MacOsX
     runtimeOnly("org.lwjgl:lwjgl::natives-macos")
     runtimeOnly("org.lwjgl:lwjgl-glfw::natives-macos")
     runtimeOnly("org.lwjgl:lwjgl-openal::natives-macos")
@@ -30,6 +40,8 @@ dependencies {
     runtimeOnly("org.lwjgl:lwjgl-glfw::natives-macos-arm64")
     runtimeOnly("org.lwjgl:lwjgl-openal::natives-macos-arm64")
     runtimeOnly("org.lwjgl:lwjgl-opengl::natives-macos-arm64")
+
+    // Linux
     runtimeOnly("org.lwjgl:lwjgl::natives-linux")
     runtimeOnly("org.lwjgl:lwjgl-glfw::natives-linux")
     runtimeOnly("org.lwjgl:lwjgl-openal::natives-linux")
@@ -38,6 +50,8 @@ dependencies {
     runtimeOnly("org.lwjgl:lwjgl-glfw::natives-linux-arm64")
     runtimeOnly("org.lwjgl:lwjgl-openal::natives-linux-arm64")
     runtimeOnly("org.lwjgl:lwjgl-opengl::natives-linux-arm64")
+
+    // Windows
     runtimeOnly("org.lwjgl:lwjgl::natives-windows")
     runtimeOnly("org.lwjgl:lwjgl-glfw::natives-windows")
     runtimeOnly("org.lwjgl:lwjgl-openal::natives-windows")

@@ -29,7 +29,7 @@ Main commands:
 
 ```bash
 ./gradlew build
-./gradlew :app:test
+./gradlew test
 ./gradlew run --args="/path/to/game.nes"
 ./gradlew run --args="--debug /path/to/game.nes"
 ./gradlew run --args="--debug --unlimited /path/to/game.nes"
@@ -38,7 +38,7 @@ Main commands:
 Use `--unlimited` only for debugging speed. Normal play should run with the frame limiter enabled at about NTSC `60.099`
 FPS.
 
-macOS GLFW requires `-XstartOnFirstThread`; this is configured in `app/build.gradle.kts` for Gradle `run` and generated
+macOS GLFW requires `-XstartOnFirstThread`; this is configured in `build.gradle.kts` for Gradle `run` and generated
 application scripts.
 
 ## Project Layout
@@ -177,7 +177,7 @@ then input/controller protocol, then CPU/APU details.
 Run at least:
 
 ```bash
-./gradlew :app:test
+./gradlew test
 ```
 
 Run full build before considering work complete:
