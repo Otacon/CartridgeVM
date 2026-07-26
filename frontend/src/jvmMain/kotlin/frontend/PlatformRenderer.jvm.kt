@@ -18,7 +18,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
     private var presentedFrames = 0L
     private val upload: ByteBuffer = ByteBuffer.allocateDirect(256 * 240 * 4).order(ByteOrder.nativeOrder())
 
-    override fun init(crt: Boolean) {
+    actual override fun init(crt: Boolean) {
         crtEnabled = crt
         texture = glGenTextures()
         if (texture == 0) throw IllegalStateException("OpenGL initialization failure")
@@ -32,7 +32,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         if (crt) initCrtProgram()
     }
 
-    override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
+    actual override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
         upload.clear()
         var i = 0
         while (i < framebuffer.size) {
@@ -71,7 +71,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         presentedFrames++
     }
 
-    override fun close() {
+    actual override fun close() {
         if (crtProgram != 0) glDeleteProgram(crtProgram)
         if (texture != 0) glDeleteTextures(texture)
         crtProgram = 0

@@ -37,7 +37,7 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoClo
         alSourcef(source, AL_GAIN, 0.65f)
     }
 
-    override fun submit(samples: ShortArray, count: Int) {
+    actual override fun submit(samples: ShortArray, count: Int) {
         if (count <= 0) return
         alcMakeContextCurrent(context)
         unqueueProcessed()

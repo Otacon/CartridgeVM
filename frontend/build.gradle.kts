@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -10,6 +12,15 @@ val lwjglVersion = libs.versions.lwjgl.get()
 
 kotlin {
     jvm()
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            commonWebpackConfig {
+                outputFileName = "cartridgevm.js"
+            }
+        }
+        binaries.executable()
+    }
     jvmToolchain(jvmToolchainVersion)
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
@@ -18,10 +29,16 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":nes"))
+            implementation(compose.runtime)
             implementation(libs.kermit)
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)
+        }
+        wasmJsMain.dependencies {
+            implementation(compose.foundation)
+            implementation(compose.material)
+            implementation(libs.kotlinxBrowser)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)

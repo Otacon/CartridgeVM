@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.ksp)
@@ -7,8 +9,12 @@ val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").map(St
 
 kotlin {
     jvm()
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
     jvmToolchain(jvmToolchainVersion)
-
+    
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kermit)

@@ -28,7 +28,7 @@ actual class PlatformControllerInput actual constructor(
         }
     }
 
-    override fun poll() {
+    actual override fun poll() {
         stateAvailable = gamepad.poll()
         if (!stateAvailable) {
             controller.setButtons(0)
@@ -57,7 +57,7 @@ actual class PlatformControllerInput actual constructor(
         quitPressed = button(10)
     }
 
-    override fun quitRequested() = stateAvailable && quitPressed
+    actual override fun quitRequested() = stateAvailable && quitPressed
 
     override fun close() {
         controller.setButtons(0)

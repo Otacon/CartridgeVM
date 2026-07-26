@@ -29,7 +29,7 @@ fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean
 
 fun cpuWithProgram(program: ByteArray, start: Int = 0x8000): Triple<Cpu6502, CpuBus, Ppu> {
     val prg = ByteArray(16 * 1024)
-    System.arraycopy(program, 0, prg, start - 0x8000, program.size)
+    program.copyInto(prg, destinationOffset = start - 0x8000)
     val vector = 0x3FFC
     prg[vector] = start.low8Bits().toByte()
     prg[vector + 1] = (start shr 8).toByte()

@@ -10,10 +10,26 @@ interface Renderer {
     fun close()
 }
 
-expect class PlatformRenderer() : Renderer
+expect class PlatformRenderer() : Renderer {
+    override fun init(crt: Boolean)
 
-expect class PlatformAudioPipeline() : AudioPipeline
+    override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int)
 
-expect class PlatformKeyboardInput(controller: NesController) : BaseEmulatorInput
+    override fun close()
+}
 
-expect class PlatformControllerInput(controller: NesController) : BaseEmulatorInput
+expect class PlatformAudioPipeline() : AudioPipeline {
+    override fun submit(samples: ShortArray, count: Int)
+}
+
+expect class PlatformKeyboardInput(controller: NesController) : BaseEmulatorInput {
+    override fun poll()
+
+    override fun quitRequested(): Boolean
+}
+
+expect class PlatformControllerInput(controller: NesController) : BaseEmulatorInput {
+    override fun poll()
+
+    override fun quitRequested(): Boolean
+}

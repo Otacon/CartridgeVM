@@ -6,7 +6,7 @@ No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassem
 
 ## Requirements
 
-Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin/JVM, LWJGL, GLFW, OpenGL, OpenAL, and Kotlin Test/JUnit 5.
+Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin Multiplatform, Kotlin/JVM, Kotlin/Wasm, LWJGL, OpenGL/WebGL, OpenAL/WebAudio, and Kotlin Test/JUnit 5.
 
 ## Build
 
@@ -21,6 +21,8 @@ Run tests only:
 ```
 
 ## Run
+
+### Desktop
 
 Provide your own legally obtained `.nes` ROM file:
 
@@ -41,6 +43,16 @@ Running without a ROM path prints usage information and exits non-zero.
 
 Use `--crt` to enable a stable 4:3 consumer CRT simulation with overscan, scanline beam shaping, phosphor slot masking, analog color bleed, halation, and edge falloff. The default renderer remains pixel-sharp when the flag is omitted.
 
+### WebAssembly
+
+Run the browser build:
+
+```bash
+./gradlew :frontend:wasmJsBrowserDevelopmentRun
+```
+
+Then choose a legally obtained `.nes` ROM from the Compose-rendered web menu. Browser audio is resumed from normal menu gestures such as opening a ROM, pausing, resetting, or toggling CRT. Keyboard input is always available, and the first connected browser Gamepad API controller is polled automatically.
+
 ## Controls
 
 | Key | NES input |
@@ -59,7 +71,7 @@ Use `--crt` to enable a stable 4:3 consumer CRT simulation with overscan, scanli
 
 Opposite directions are filtered so left/right and up/down are not both sent to the emulated controller at the same time.
 
-Pass `--controller` to use the first connected controller through GLFW's standard gamepad mapping. Without the flag, keyboard input is used.
+Pass `--controller` on desktop to use the first connected controller through JInput. Without the flag, keyboard input is used. The web build polls the first connected browser Gamepad API controller automatically in addition to keyboard input.
 
 | Controller          | NES input |
 |---------------------| --- |
@@ -104,7 +116,8 @@ Implemented:
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
 * SMB-focused APU audio with pulse, triangle, noise, and approximate DMC channels
 * One standard NES controller via `$4016` serial protocol
-* LWJGL GLFW window, OpenGL texture presentation of a software framebuffer, and OpenAL audio playback
+* Desktop Compose window, OpenGL texture presentation of a software framebuffer, and OpenAL audio playback
+* WebAssembly browser frontend with WebGL presentation, WebAudio playback, keyboard input, and Gamepad API controller input
 * NTSC-oriented frame pacing with `--unlimited` for debugging
 * Pause, reset, and quit controls
 

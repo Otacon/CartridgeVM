@@ -35,7 +35,7 @@ actual class PlatformKeyboardInput actual constructor(
     }
 
     @Synchronized
-    override fun poll() {
+    actual override fun poll() {
         var buttons = 0
         if (Key.Z.isPressed()) buttons = buttons or (1 shl NesController.A)
         if (Key.X.isPressed()) buttons = buttons or (1 shl NesController.B)
@@ -50,7 +50,7 @@ actual class PlatformKeyboardInput actual constructor(
     }
 
     @Synchronized
-    override fun quitRequested() = Key.Escape.isPressed()
+    actual override fun quitRequested() = Key.Escape.isPressed()
 
     @Synchronized
     override fun close() {

@@ -1080,8 +1080,7 @@ class Cpu6502(
         }
     }
 
-    @JvmInline
-    private value class Addr(private val packed: Int) {
+    private class Addr(private val packed: Int) {
         val addr: Int get() = packed and 0xFFFF
         val page: Int get() = packed ushr 16
     }
