@@ -2,51 +2,13 @@
 
 package app
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
-import androidx.compose.material.darkColors
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import frontend.PlatformAudioPipeline
-import frontend.PlatformControllerInput
-import frontend.PlatformKeyboardInput
-import frontend.PlatformRenderer
-import frontend.RomData
-import frontend.RomLoader
+import frontend.*
 import kotlinx.browser.document
 import kotlinx.browser.window
-import nes.NesMachine
 import nes.Timing
-import nes.apu.DmcDma
-import nes.apu.NesApu
-import nes.cartridge.CartridgeSocket
-import nes.cartridge.InesParserComposite
-import nes.cartridge.InesParserUtils
-import nes.cartridge.InesParserV1
-import nes.cartridge.InesParserV2
-import nes.cpu.Cpu6502
-import nes.cpu.CpuBus
-import nes.cpu.CpuStall
+import nes.di.NesComponent
+import nes.di.create
 import nes.input.NesController
-import nes.ppu.Ppu
-import nes.ppu.PpuBus
-import androidx.compose.ui.window.ComposeViewport
 import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Uint8Array
 import org.w3c.dom.HTMLCanvasElement
@@ -60,96 +22,121 @@ fun main() {
 }
 
 private class WebEmulatorApplication {
-    private val graph = NesGraph()
+    private val nesComponent = NesComponent::class.create()
     private val renderer = PlatformRenderer()
     private val audio = PlatformAudioPipeline()
-    private val keyboardInput = PlatformKeyboardInput(graph.controller)
-    private val controllerInput = PlatformControllerInput(graph.controller)
-    private val input = WebCombinedInput(graph.controller, keyboardInput, controllerInput)
-    private val romLoader = RomLoader(graph.parser, graph.machine)
-    private val canvas = document.getElementById("screen") as HTMLCanvasElement
+    private val machine = nesComponent.nesMachine
+    private val keyboardInput = PlatformKeyboardInput(machine.controller)
+    private val controllerInput = PlatformControllerInput(machine.controller)
+    private val input = WebCombinedInput(machine.controller, keyboardInput, controllerInput)
+    private val romLoader = RomLoader(nesComponent.inesParser, machine)
     private val romInput = document.getElementById("rom") as HTMLInputElement
-    private var status by mutableStateOf("Choose a legally obtained .nes ROM. Keyboard and gamepads are active.")
-    private var crtEnabled by mutableStateOf(false)
-    private var paused by mutableStateOf(false)
+    private lateinit var canvas: HTMLCanvasElement
+    private lateinit var statusElement: HTMLElement
+    private lateinit var pauseItem: HTMLElement
+    private lateinit var crtItem: HTMLElement
+    private var status = "Choose a legally obtained .nes ROM. Keyboard and gamepads are active."
+    private var crtEnabled = false
+    private var paused = false
     private var running = false
     private var frameStart = 0.0
 
     fun run() {
+        renderShell()
+        configureRomPicker()
         renderer.attach(canvas)
         renderer.init(crtEnabled)
         keyboardInput.attach(canvas)
-        configureRomPicker()
-        @OptIn(ExperimentalComposeUiApi::class)
-        ComposeViewport(document.getElementById("menu") as HTMLElement) {
-            WebEmulatorMenu()
-        }
         canvas.focus()
         window.requestAnimationFrame(::frame)
     }
 
-    @Composable
-    private fun WebEmulatorMenu() {
-        MaterialTheme(colors = darkColors(primary = Color(0xFF8FD7FF), secondary = Color(0xFFF6F2E8))) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF191922))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Button(
-                    onClick = {
-                        audio.resume()
-                        romInput.value = ""
-                        romInput.click()
-                    },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFF6F2E8), contentColor = Color(0xFF101014)),
-                    contentPadding = ButtonDefaults.ContentPadding,
-                    modifier = Modifier.height(28.dp),
-                ) { Text("Open ROM...", fontSize = 12.sp) }
-                Button(
-                    onClick = {
-                        audio.resume()
-                        crtEnabled = !crtEnabled
-                        renderer.init(crtEnabled)
-                        canvas.focus()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (crtEnabled) Color(0xFF8FD7FF) else Color(0xFFF6F2E8),
-                        contentColor = Color(0xFF101014),
-                    ),
-                    contentPadding = ButtonDefaults.ContentPadding,
-                    modifier = Modifier.height(28.dp),
-                ) { Text(if (crtEnabled) "CRT: On" else "CRT: Off", fontSize = 12.sp) }
-                Button(
-                    onClick = {
-                        audio.resume()
-                        paused = !paused
-                        canvas.focus()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (paused) Color(0xFF8FD7FF) else Color(0xFFF6F2E8),
-                        contentColor = Color(0xFF101014),
-                    ),
-                    contentPadding = ButtonDefaults.ContentPadding,
-                    modifier = Modifier.height(28.dp),
-                ) { Text(if (paused) "Resume" else "Pause", fontSize = 12.sp) }
-                Button(
-                    onClick = {
-                        audio.resume()
-                        graph.machine.reset()
-                        paused = false
-                        canvas.focus()
-                    },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFF6F2E8), contentColor = Color(0xFF101014)),
-                    contentPadding = ButtonDefaults.ContentPadding,
-                    modifier = Modifier.height(28.dp),
-                ) { Text("Reset", fontSize = 12.sp) }
-                Text(status, color = Color(0xFFF6F2E8), fontSize = 12.sp)
-            }
+    private fun renderShell() {
+        val app = document.getElementById("app") as HTMLElement
+        app.innerHTML = """
+            <div class="shell">
+                <div class="menubar">
+                    <div class="menu">
+                        <button class="menu-title" type="button">File</button>
+                        <div class="dropdown">
+                            <button id="openRom" class="menu-item" type="button">Open ROM...</button>
+                            <div class="separator"></div>
+                            <button id="closeRom" class="menu-item" type="button">Close ROM</button>
+                        </div>
+                    </div>
+                    <div class="menu">
+                        <button class="menu-title" type="button">Emulation</button>
+                        <div class="dropdown">
+                            <button id="pause" class="menu-item" type="button">Pause</button>
+                            <button id="reset" class="menu-item" type="button">Reset</button>
+                        </div>
+                    </div>
+                    <div class="menu">
+                        <button class="menu-title" type="button">View</button>
+                        <div class="dropdown">
+                            <button id="crt" class="menu-item" type="button">Enable CRT</button>
+                        </div>
+                    </div>
+                    <div id="status" class="status"></div>
+                </div>
+                <div class="screen-wrap">
+                    <canvas id="screen" width="256" height="240" tabindex="0"></canvas>
+                </div>
+            </div>
+        """.trimIndent()
+
+        canvas = document.getElementById("screen") as HTMLCanvasElement
+        statusElement = document.getElementById("status") as HTMLElement
+        pauseItem = document.getElementById("pause") as HTMLElement
+        crtItem = document.getElementById("crt") as HTMLElement
+        configureMenus()
+        updateMenuState()
+    }
+
+    private fun configureMenus() {
+        (document.getElementById("openRom") as HTMLElement).onclick = {
+            audio.resume()
+            romInput.value = ""
+            romInput.click()
+            canvas.focus()
         }
+
+        (document.getElementById("closeRom") as HTMLElement).onclick = {
+            running = false
+            paused = false
+            status = "No ROM loaded"
+            updateMenuState()
+            canvas.focus()
+        }
+
+        pauseItem.onclick = {
+            audio.resume()
+            paused = !paused
+            updateMenuState()
+            canvas.focus()
+        }
+
+        (document.getElementById("reset") as HTMLElement).onclick = {
+            audio.resume()
+            machine.reset()
+            paused = false
+            updateMenuState()
+            canvas.focus()
+        }
+
+        crtItem.onclick = {
+            audio.resume()
+            crtEnabled = !crtEnabled
+            renderer.init(crtEnabled)
+            updateMenuState()
+            canvas.focus()
+        }
+    }
+
+    private fun updateMenuState() {
+        statusElement.textContent = status
+        pauseItem.textContent = if (paused) "Resume" else "Pause"
+        crtItem.textContent = if (crtEnabled) "Disable CRT" else "Enable CRT"
     }
 
     private fun configureRomPicker() {
@@ -167,6 +154,7 @@ private class WebEmulatorApplication {
             running = romLoader.load(RomData(file.name, bytes))
             paused = false
             status = if (running) "Loaded ${file.name}" else "Unable to load ${file.name}"
+            updateMenuState()
             canvas.focus()
         }
         reader.readAsArrayBuffer(file)
@@ -176,15 +164,19 @@ private class WebEmulatorApplication {
         if (frameStart == 0.0) frameStart = now
         while (now - frameStart >= Timing.FRAME_NANOS / 1_000_000.0) {
             input.poll()
-            if (input.consumePause()) paused = !paused
+            if (input.consumePause()) {
+                paused = !paused
+                updateMenuState()
+            }
             if (input.consumeReset()) {
-                graph.machine.reset()
+                machine.reset()
                 paused = false
+                updateMenuState()
             }
             if (running && !paused) {
-                graph.machine.runUntilFrame(input::poll)
-                audio.submit(graph.machine.apu.samples, graph.machine.apu.sampleCount)
-                renderer.present(graph.machine.ppu.framebuffer, canvas.clientWidth, canvas.clientHeight)
+                machine.runUntilFrame(input::poll)
+                audio.submit(machine.apu.samples, machine.apu.sampleCount)
+                renderer.present(machine.ppu.framebuffer, canvas.clientWidth, canvas.clientHeight)
             }
             frameStart += Timing.FRAME_NANOS / 1_000_000.0
         }
@@ -196,30 +188,18 @@ private class WebCombinedInput(
     private val nesController: NesController,
     private val keyboard: PlatformKeyboardInput,
     private val controller: PlatformControllerInput,
-) : frontend.BaseEmulatorInput() {
+) : BaseEmulatorInput() {
     override fun poll() {
         keyboard.poll()
         controller.poll()
         nesController.setButtons(keyboard.buttonMask() or controller.buttonMask())
-        updateControlEdges(keyboard.consumePause() || controller.consumePause(), keyboard.consumeReset() || controller.consumeReset())
+        updateControlEdges(
+            keyboard.consumePause() || controller.consumePause(),
+            keyboard.consumeReset() || controller.consumeReset()
+        )
     }
 
     override fun quitRequested(): Boolean = false
-}
-
-private class NesGraph {
-    private val cartridgeSocket = CartridgeSocket()
-    val controller = NesController()
-    private val cpuStall = CpuStall()
-    private val dmcDma = DmcDma(cartridgeSocket, cpuStall)
-    private val ppuBus = PpuBus(cartridgeSocket)
-    private val ppu = Ppu(ppuBus)
-    private val apu = NesApu(dmcDma)
-    private val cpuBus = CpuBus(cartridgeSocket, ppu, controller, apu, cpuStall)
-    private val cpu = Cpu6502(cpuBus)
-    val machine = NesMachine(controller, cartridgeSocket, ppu, apu, cpu)
-    private val parserUtils = InesParserUtils()
-    val parser = InesParserComposite(InesParserV1(parserUtils), InesParserV2(parserUtils), parserUtils)
 }
 
 private fun ArrayBuffer.toByteArray(): ByteArray {

@@ -52,5 +52,19 @@ private external fun audioClose(context: JsAny)
 @JsFun("(context) => context.currentTime")
 private external fun audioCurrentTime(context: JsAny): Double
 
-@JsFun("(context, samples, sampleRate, startTime) => { const buffer = context.createBuffer(1, samples.length, sampleRate); const channel = buffer.getChannelData(0); for (let i = 0; i < samples.length; i++) channel[i] = samples[i]; const source = context.createBufferSource(); source.buffer = buffer; source.connect(context.destination); source.start(startTime); }")
+@JsFun(
+    """
+    (context, samples, sampleRate, startTime) => {
+        const buffer = context.createBuffer(1, samples.length, sampleRate);
+        const channel = buffer.getChannelData(0);
+        for (let i = 0; i < samples.length; i++) {
+            channel[i] = samples[i];
+        }
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(context.destination);
+        source.start(startTime);
+    }
+    """
+)
 private external fun queuePcm(context: JsAny, samples: JsArray<JsNumber>, sampleRate: Int, startTime: Double)

@@ -43,7 +43,7 @@ Running without a ROM path prints usage information and exits non-zero.
 
 Use `--crt` to enable a stable 4:3 consumer CRT simulation with overscan, scanline beam shaping, phosphor slot masking, analog color bleed, halation, and edge falloff. The default renderer remains pixel-sharp when the flag is omitted.
 
-### WebAssembly
+### Web
 
 Run the browser build:
 
@@ -51,7 +51,7 @@ Run the browser build:
 ./gradlew :frontend:wasmJsBrowserDevelopmentRun
 ```
 
-Then choose a legally obtained `.nes` ROM from the Compose-rendered web menu. Browser audio is resumed from normal menu gestures such as opening a ROM, pausing, resetting, or toggling CRT. Keyboard input is always available, and the first connected browser Gamepad API controller is polled automatically.
+Then choose a legally obtained `.nes` ROM from the browser menubar. Browser audio is resumed from normal menu gestures such as opening a ROM, pausing, resetting, or toggling CRT. Keyboard input is always available, and the first connected browser Gamepad API controller is polled automatically.
 
 ## Controls
 
@@ -117,7 +117,7 @@ Implemented:
 * SMB-focused APU audio with pulse, triangle, noise, and approximate DMC channels
 * One standard NES controller via `$4016` serial protocol
 * Desktop Compose window, OpenGL texture presentation of a software framebuffer, and OpenAL audio playback
-* WebAssembly browser frontend with WebGL presentation, WebAudio playback, keyboard input, and Gamepad API controller input
+* Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API controller input
 * NTSC-oriented frame pacing with `--unlimited` for debugging
 * Pause, reset, and quit controls
 

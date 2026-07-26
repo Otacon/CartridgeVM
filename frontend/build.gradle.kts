@@ -36,8 +36,6 @@ kotlin {
             implementation(libs.kotlinTest)
         }
         wasmJsMain.dependencies {
-            implementation(compose.foundation)
-            implementation(compose.material)
             implementation(libs.kotlinxBrowser)
         }
         jvmMain.dependencies {

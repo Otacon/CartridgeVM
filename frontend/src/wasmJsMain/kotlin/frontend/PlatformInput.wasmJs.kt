@@ -111,7 +111,17 @@ actual class PlatformControllerInput actual constructor(
     }
 }
 
-@JsFun("() => { const pads = navigator.getGamepads ? navigator.getGamepads() : []; for (const pad of pads) if (pad && pad.connected) return pad; return null; }")
+@JsFun(
+    """
+    () => {
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        for (const pad of pads) {
+            if (pad && pad.connected) return pad;
+        }
+        return null;
+    }
+    """
+)
 private external fun firstGamepad(): JsAny?
 
 @JsFun("(pad, index) => !!(pad.buttons[index] && pad.buttons[index].pressed)")

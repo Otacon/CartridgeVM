@@ -204,9 +204,21 @@ actual class PlatformRenderer actual constructor() : Renderer {
                 vec3 farRight = linearSample(coordinate + vec2(1.65 * pixel.x, 0.0));
 
                 vec3 signal;
-                signal.r = farLeft.r * 0.07 + left.r * 0.24 + center.r * 0.45 + right.r * 0.20 + farRight.r * 0.04;
-                signal.g = farLeft.g * 0.04 + left.g * 0.20 + center.g * 0.52 + right.g * 0.20 + farRight.g * 0.04;
-                signal.b = farLeft.b * 0.04 + left.b * 0.20 + center.b * 0.45 + right.b * 0.24 + farRight.b * 0.07;
+                signal.r = farLeft.r * 0.07 +
+                    left.r * 0.24 +
+                    center.r * 0.45 +
+                    right.r * 0.20 +
+                    farRight.r * 0.04;
+                signal.g = farLeft.g * 0.04 +
+                    left.g * 0.20 +
+                    center.g * 0.52 +
+                    right.g * 0.20 +
+                    farRight.g * 0.04;
+                signal.b = farLeft.b * 0.04 +
+                    left.b * 0.20 +
+                    center.b * 0.45 +
+                    right.b * 0.24 +
+                    farRight.b * 0.07;
                 return signal;
             }
 
@@ -258,7 +270,10 @@ actual class PlatformRenderer actual constructor() : Renderer {
                 color = vec3(1.0) - exp(-color * 1.30);
                 color = pow(max(color, 0.0), vec3(1.0 / 2.2));
 
-                float reflection = pow(max(0.0, 1.0 - length(glassPoint - vec2(-0.72, 0.78)) / 1.30), 4.0);
+                float reflection = pow(
+                    max(0.0, 1.0 - length(glassPoint - vec2(-0.72, 0.78)) / 1.30),
+                    4.0
+                );
                 color += vec3(0.055, 0.070, 0.080) * reflection;
                 color += vec3(0.004, 0.006, 0.009);
 
@@ -273,7 +288,9 @@ private external fun jsFloatArrayOf(values: JsArray<JsNumber>): org.khronos.webg
 
 private fun jsFloatArrayOf(vararg values: Float): org.khronos.webgl.Float32Array {
     val array = JsArray<JsNumber>()
-    values.forEachIndexed { index, value -> array[index] = value.toDouble().toJsNumber() }
+    values.forEachIndexed { index, value ->
+        array[index] = value.toDouble().toJsNumber()
+    }
     return jsFloatArrayOf(array)
 }
 
