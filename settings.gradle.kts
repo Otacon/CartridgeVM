@@ -17,3 +17,6 @@ plugins {
 }
 
 rootProject.name = "cartridgevm"
+
+include(":nes")
+include(":frontend")
