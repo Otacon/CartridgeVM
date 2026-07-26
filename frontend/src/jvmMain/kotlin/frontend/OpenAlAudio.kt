@@ -40,6 +40,7 @@ class OpenAlAudio(
 
     fun submit(samples: ShortArray, count: Int) {
         if (count <= 0) return
+        alcMakeContextCurrent(context)
         unqueueProcessed()
         if (freeCount == 0) return
         val buffer = freeBuffers[--freeCount]
@@ -61,6 +62,7 @@ class OpenAlAudio(
     }
 
     override fun close() {
+        alcMakeContextCurrent(context)
         alSourceStop(source)
         unqueueProcessed()
         alDeleteSources(source)

@@ -4,7 +4,6 @@ import app.CliArgsParser
 import app.EmulatorApplication
 import frontend.OpenAlAudio
 import frontend.OpenGlRenderer
-import frontend.SwtWindow
 import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Provides
 import me.tatarka.inject.annotations.Scope
@@ -38,10 +37,6 @@ abstract class FrontendComponent {
 
     @AppScope
     @Provides
-    fun swtWindow(): SwtWindow = SwtWindow()
-
-    @AppScope
-    @Provides
     fun openGlRenderer(): OpenGlRenderer = OpenGlRenderer()
 
     @AppScope
@@ -56,8 +51,7 @@ abstract class FrontendComponent {
         renderer: OpenGlRenderer,
         audio: OpenAlAudio,
         machine: NesMachine,
-        window: SwtWindow,
-    ): EmulatorApplication = EmulatorApplication(cliArgs, inesParser, renderer, audio, machine, window)
+    ): EmulatorApplication = EmulatorApplication(cliArgs, inesParser, renderer, audio, machine)
 
 }
 

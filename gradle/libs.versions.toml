@@ -6,13 +6,11 @@ ksp = "2.3.4"
 compose = "1.9.3"
 kermit = "2.1.0"
 lwjgl = "3.4.2"
-swt = "3.134.0"
-jna = "5.18.1"
+lwjgl3Awt = "0.2.4"
+jinput = "2.0.10"
 
 [libraries]
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
-
-kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
 kotlinInjectCompiler = { module = "me.tatarka.inject:kotlin-inject-compiler-ksp", version.ref = "kotlinInject" }
 kotlinInjectRuntime = { module = "me.tatarka.inject:kotlin-inject-runtime", version.ref = "kotlinInject" }
@@ -21,15 +19,10 @@ kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 kotlinTest = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 
 lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
-lwjglGlfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
+lwjglJawt = { module = "org.lwjgl:lwjgl-jawt", version.ref = "lwjgl" }
+lwjglOpenGl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
 lwjglOpenal = { module = "org.lwjgl:lwjgl-openal", version.ref = "lwjgl" }
-jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
-swtMacosAarch64 = { module = "org.eclipse.platform:org.eclipse.swt.cocoa.macosx.aarch64", version.ref = "swt" }
-swtMacosX64 = { module = "org.eclipse.platform:org.eclipse.swt.cocoa.macosx.x86_64", version.ref = "swt" }
-swtLinuxAarch64 = { module = "org.eclipse.platform:org.eclipse.swt.gtk.linux.aarch64", version.ref = "swt" }
-swtLinuxX64 = { module = "org.eclipse.platform:org.eclipse.swt.gtk.linux.x86_64", version.ref = "swt" }
-swtWindowsAarch64 = { module = "org.eclipse.platform:org.eclipse.swt.win32.win32.aarch64", version.ref = "swt" }
-swtWindowsX64 = { module = "org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64", version.ref = "swt" }
+jinput = { module = "net.java.jinput:jinput", version.ref = "jinput" }
 
 [plugins]
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

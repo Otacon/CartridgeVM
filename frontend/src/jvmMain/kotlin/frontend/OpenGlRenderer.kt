@@ -2,13 +2,14 @@ package frontend
 
 import me.tatarka.inject.annotations.Inject
 import nes.util.low8Bits
-import org.eclipse.swt.opengl.GLCanvas
+import org.lwjgl.opengl.GL11.*
+import org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE
+import org.lwjgl.opengl.GL20.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 @Inject
 class OpenGlRenderer : AutoCloseable {
-    private val gl = NativeOpenGl.load()
     private var texture = 0
     private var crtProgram = 0
     private var crtEnabled = false
@@ -17,20 +18,17 @@ class OpenGlRenderer : AutoCloseable {
     private var presentedFrames = 0L
     private val upload: ByteBuffer = ByteBuffer.allocateDirect(256 * 240 * 4).order(ByteOrder.nativeOrder())
 
-    fun init(canvas: GLCanvas, crt: Boolean) {
-        canvas.setCurrent()
+    fun init(crt: Boolean) {
         crtEnabled = crt
-        val textures = IntArray(1)
-        gl.glGenTextures(1, textures)
-        texture = textures[0]
+        texture = glGenTextures()
         if (texture == 0) throw IllegalStateException("OpenGL initialization failure")
-        gl.glBindTexture(GL_TEXTURE_2D, texture)
+        glBindTexture(GL_TEXTURE_2D, texture)
         val filtering = if (crt) GL_LINEAR else GL_NEAREST
-        gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering)
-        gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering)
-        gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-        gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-        gl.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, upload)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, upload)
         if (crt) initCrtProgram()
     }
 
@@ -46,11 +44,11 @@ class OpenGlRenderer : AutoCloseable {
             i++
         }
         upload.flip()
-        gl.glBindTexture(GL_TEXTURE_2D, texture)
-        gl.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 240, GL_RGBA, GL_UNSIGNED_BYTE, upload)
-        gl.glViewport(0, 0, windowWidth, windowHeight)
-        gl.glClearColor(0f, 0f, 0f, 1f)
-        gl.glClear(GL_COLOR_BUFFER_BIT)
+        glBindTexture(GL_TEXTURE_2D, texture)
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 240, GL_RGBA, GL_UNSIGNED_BYTE, upload)
+        glViewport(0, 0, windowWidth, windowHeight)
+        glClearColor(0f, 0f, 0f, 1f)
+        glClear(GL_COLOR_BUFFER_BIT)
         val (w, h) = if (crtEnabled) {
             fitAspect(windowWidth, windowHeight, 256f / 240f, 1f)
         } else {
@@ -58,24 +56,24 @@ class OpenGlRenderer : AutoCloseable {
             256f * scale / windowWidth.toFloat() to 240f * scale / windowHeight.toFloat()
         }
         if (crtEnabled) {
-            gl.glUseProgram(crtProgram)
-            gl.glUniform2f(outputSizeUniform, windowWidth.toFloat(), windowHeight.toFloat())
-            gl.glUniform1f(timeUniform, presentedFrames / 60f)
+            glUseProgram(crtProgram)
+            glUniform2f(outputSizeUniform, windowWidth.toFloat(), windowHeight.toFloat())
+            glUniform1f(timeUniform, presentedFrames / 60f)
         }
-        gl.glEnable(GL_TEXTURE_2D)
-        gl.glBegin(GL_QUADS)
-        gl.glTexCoord2f(0f, 1f); gl.glVertex2f(-w, -h)
-        gl.glTexCoord2f(1f, 1f); gl.glVertex2f(w, -h)
-        gl.glTexCoord2f(1f, 0f); gl.glVertex2f(w, h)
-        gl.glTexCoord2f(0f, 0f); gl.glVertex2f(-w, h)
-        gl.glEnd()
-        if (crtEnabled) gl.glUseProgram(0)
+        glEnable(GL_TEXTURE_2D)
+        glBegin(GL_QUADS)
+        glTexCoord2f(0f, 1f); glVertex2f(-w, -h)
+        glTexCoord2f(1f, 1f); glVertex2f(w, -h)
+        glTexCoord2f(1f, 0f); glVertex2f(w, h)
+        glTexCoord2f(0f, 0f); glVertex2f(-w, h)
+        glEnd()
+        if (crtEnabled) glUseProgram(0)
         presentedFrames++
     }
 
     override fun close() {
-        if (crtProgram != 0) gl.glDeleteProgram(crtProgram)
-        if (texture != 0) gl.glDeleteTextures(1, intArrayOf(texture))
+        if (crtProgram != 0) glDeleteProgram(crtProgram)
+        if (texture != 0) glDeleteTextures(texture)
         crtProgram = 0
         texture = 0
     }
@@ -83,75 +81,41 @@ class OpenGlRenderer : AutoCloseable {
     private fun initCrtProgram() {
         val vertexShader = compileShader(GL_VERTEX_SHADER, "/shaders/crt.vert")
         val fragmentShader = compileShader(GL_FRAGMENT_SHADER, "/shaders/crt.frag")
-        crtProgram = gl.glCreateProgram()
-        gl.glAttachShader(crtProgram, vertexShader)
-        gl.glAttachShader(crtProgram, fragmentShader)
-        gl.glLinkProgram(crtProgram)
-        gl.glDeleteShader(vertexShader)
-        gl.glDeleteShader(fragmentShader)
-        val status = IntArray(1)
-        gl.glGetProgramiv(crtProgram, GL_LINK_STATUS, status)
-        if (status[0] == GL_FALSE) {
+        crtProgram = glCreateProgram()
+        glAttachShader(crtProgram, vertexShader)
+        glAttachShader(crtProgram, fragmentShader)
+        glLinkProgram(crtProgram)
+        glDeleteShader(vertexShader)
+        glDeleteShader(fragmentShader)
+        if (glGetProgrami(crtProgram, GL_LINK_STATUS) == GL_FALSE) {
             throw IllegalStateException("CRT shader link failure: ${programInfoLog(crtProgram)}")
         }
-        gl.glUseProgram(crtProgram)
-        gl.glUniform1i(gl.glGetUniformLocation(crtProgram, "frameTexture"), 0)
-        outputSizeUniform = gl.glGetUniformLocation(crtProgram, "outputSize")
-        timeUniform = gl.glGetUniformLocation(crtProgram, "time")
-        gl.glUseProgram(0)
+        glUseProgram(crtProgram)
+        glUniform1i(glGetUniformLocation(crtProgram, "frameTexture"), 0)
+        outputSizeUniform = glGetUniformLocation(crtProgram, "outputSize")
+        timeUniform = glGetUniformLocation(crtProgram, "time")
+        glUseProgram(0)
     }
 
     private fun compileShader(type: Int, resource: String): Int {
         val source = checkNotNull(javaClass.getResource(resource)) { "Missing shader resource: $resource" }.readText()
-        val shader = gl.glCreateShader(type)
-        gl.glShaderSource(shader, 1, arrayOf(source), intArrayOf(source.length))
-        gl.glCompileShader(shader)
-        val status = IntArray(1)
-        gl.glGetShaderiv(shader, GL_COMPILE_STATUS, status)
-        if (status[0] == GL_FALSE) {
+        val shader = glCreateShader(type)
+        glShaderSource(shader, source)
+        glCompileShader(shader)
+        if (glGetShaderi(shader, GL_COMPILE_STATUS) == GL_FALSE) {
             val error = shaderInfoLog(shader)
-            gl.glDeleteShader(shader)
+            glDeleteShader(shader)
             throw IllegalStateException("CRT shader compile failure ($resource): $error")
         }
         return shader
     }
 
     private fun shaderInfoLog(shader: Int): String {
-        val length = IntArray(1)
-        gl.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, length)
-        val log = ByteArray(maxOf(1, length[0]))
-        gl.glGetShaderInfoLog(shader, log.size, null, log)
-        return log.decodeToString().trimEnd('\u0000')
+        return glGetShaderInfoLog(shader)
     }
 
     private fun programInfoLog(program: Int): String {
-        val length = IntArray(1)
-        gl.glGetProgramiv(program, GL_INFO_LOG_LENGTH, length)
-        val log = ByteArray(maxOf(1, length[0]))
-        gl.glGetProgramInfoLog(program, log.size, null, log)
-        return log.decodeToString().trimEnd('\u0000')
-    }
-
-    private companion object {
-        const val GL_FALSE = 0
-        const val GL_TEXTURE_2D = 0x0DE1
-        const val GL_TEXTURE_MIN_FILTER = 0x2801
-        const val GL_TEXTURE_MAG_FILTER = 0x2800
-        const val GL_TEXTURE_WRAP_S = 0x2802
-        const val GL_TEXTURE_WRAP_T = 0x2803
-        const val GL_NEAREST = 0x2600
-        const val GL_LINEAR = 0x2601
-        const val GL_CLAMP_TO_EDGE = 0x812F
-        const val GL_RGBA = 0x1908
-        const val GL_RGBA8 = 0x8058
-        const val GL_UNSIGNED_BYTE = 0x1401
-        const val GL_COLOR_BUFFER_BIT = 0x4000
-        const val GL_QUADS = 0x0007
-        const val GL_VERTEX_SHADER = 0x8B31
-        const val GL_FRAGMENT_SHADER = 0x8B30
-        const val GL_COMPILE_STATUS = 0x8B81
-        const val GL_LINK_STATUS = 0x8B82
-        const val GL_INFO_LOG_LENGTH = 0x8B84
+        return glGetProgramInfoLog(program)
     }
 
     private fun fitAspect(windowWidth: Int, windowHeight: Int, aspect: Float, fill: Float): Pair<Float, Float> {

@@ -2,51 +2,34 @@ package frontend
 
 import co.touchlab.kermit.Logger
 import nes.input.NesController
-import org.lwjgl.glfw.GLFW.*
-import org.lwjgl.glfw.GLFWErrorCallback
-import org.lwjgl.glfw.GLFWGamepadState
-import org.lwjgl.system.MemoryStack
+import net.java.games.input.Component
+import net.java.games.input.Controller
+import net.java.games.input.ControllerEnvironment
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.logging.Level
 
 class ControllerInput(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
-    private val joystick: Int
-    private val state = GLFWGamepadState.calloc()
+    private val log = Logger.withTag("ControllerInput")
+    private val gamepad = controllers()
+        .onEach { log.d { "Input device: ${it.name} type=${it.type}" } }
+        .firstOrNull { it.type == Controller.Type.GAMEPAD || it.type == Controller.Type.STICK }
+        ?: throw IllegalStateException("--controller was requested, but no gamepad was detected")
+    private val components = gamepad.components.associateBy { it.identifier.name }
     private var stateAvailable = false
     private var quitPressed = false
-    private var closed = false
-
-    private val log = Logger.withTag("ControllerInput")
 
     init {
-        GLFWErrorCallback.createPrint(System.err).set()
-        if (!glfwInit()) {
-            throw IllegalStateException("--controller was requested, but GLFW initialization failed")
+        log.i { "Using gamepad: ${gamepad.name}" }
+        gamepad.components.forEach { component ->
+            log.d { "Gamepad component: ${component.name} id=${component.identifier.name}" }
         }
-        joystick = (GLFW_JOYSTICK_1..GLFW_JOYSTICK_LAST).firstOrNull { glfwJoystickPresent(it) }
-            ?: throw IllegalStateException("--controller was requested, but GLFW did not detect a connected controller")
-        val mappedGamepad = MemoryStack.stackPush().use { stack ->
-            glfwUpdateGamepadMappings(stack.UTF8(MACOS_XBOX_360_MAPPING))
-            glfwJoystickIsGamepad(joystick)
-        }
-        if (!mappedGamepad) {
-            throw IllegalStateException(
-                "--controller was requested, but GLFW did not detect a mapped gamepad for '${glfwGetJoystickName(joystick)}'",
-            )
-        }
-        log.i { "Using mapped gamepad: ${glfwGetGamepadName(joystick)}" }
     }
 
     override fun poll() {
-        glfwPollEvents()
-        if (!glfwJoystickPresent(joystick)) {
-            stateAvailable = false
-            controller.setButtons(0)
-            quitPressed = false
-            return
-        }
-
-        stateAvailable = glfwGetGamepadState(joystick, state)
+        stateAvailable = gamepad.poll()
         if (!stateAvailable) {
             controller.setButtons(0)
             quitPressed = false
@@ -54,39 +37,61 @@ class ControllerInput(
         }
 
         var buttons = 0
-        if (GLFW_GAMEPAD_BUTTON_A.isPressed()) buttons = buttons or (1 shl NesController.B)
-        if (GLFW_GAMEPAD_BUTTON_B.isPressed()) buttons = buttons or (1 shl NesController.A)
-        if (GLFW_GAMEPAD_BUTTON_BACK.isPressed()) buttons = buttons or (1 shl NesController.SELECT)
-        if (GLFW_GAMEPAD_BUTTON_START.isPressed()) buttons = buttons or (1 shl NesController.START)
-        if (GLFW_GAMEPAD_BUTTON_DPAD_UP.isPressed()) buttons = buttons or (1 shl NesController.UP)
-        if (GLFW_GAMEPAD_BUTTON_DPAD_DOWN.isPressed()) buttons = buttons or (1 shl NesController.DOWN)
-        if (GLFW_GAMEPAD_BUTTON_DPAD_LEFT.isPressed()) buttons = buttons or (1 shl NesController.LEFT)
-        if (GLFW_GAMEPAD_BUTTON_DPAD_RIGHT.isPressed()) buttons = buttons or (1 shl NesController.RIGHT)
-        val pause = GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER.isPressed()
-        val reset = GLFW_GAMEPAD_BUTTON_LEFT_BUMPER.isPressed()
-        quitPressed = GLFW_GAMEPAD_BUTTON_GUIDE.isPressed()
+        if (button(0)) buttons = buttons or (1 shl NesController.B)
+        if (button(1)) buttons = buttons or (1 shl NesController.A)
+        if (button(9)) buttons = buttons or (1 shl NesController.SELECT)
+        if (button(8)) buttons = buttons or (1 shl NesController.START)
+
+        val pov = components[Component.Identifier.Axis.POV.name]?.pollData
+        val up = button(11) || pov == Component.POV.UP || pov == Component.POV.UP_LEFT || pov == Component.POV.UP_RIGHT
+        val down = button(12) || pov == Component.POV.DOWN || pov == Component.POV.DOWN_LEFT || pov == Component.POV.DOWN_RIGHT
+        val left = button(13) || pov == Component.POV.LEFT || pov == Component.POV.UP_LEFT || pov == Component.POV.DOWN_LEFT
+        val right = button(14) || pov == Component.POV.RIGHT || pov == Component.POV.UP_RIGHT || pov == Component.POV.DOWN_RIGHT
+        if (up) buttons = buttons or (1 shl NesController.UP)
+        if (down) buttons = buttons or (1 shl NesController.DOWN)
+        if (left) buttons = buttons or (1 shl NesController.LEFT)
+        if (right) buttons = buttons or (1 shl NesController.RIGHT)
+
         controller.setButtons(buttons)
-        updateControlEdges(pause, reset)
+        updateControlEdges(button(5), button(4))
+        quitPressed = button(10)
     }
 
     override fun quitRequested() = stateAvailable && quitPressed
 
     override fun close() {
-        if (closed) return
-        closed = true
-        state.free()
-        glfwTerminate()
-        glfwSetErrorCallback(null)?.free()
+        controller.setButtons(0)
     }
 
-    private fun Int.isPressed(): Boolean = state.buttons(this).toInt() == GLFW_PRESS
+    private fun button(index: Int): Boolean = components[index.toString()]?.pollData == 1f
 
     private companion object {
-        const val MACOS_XBOX_360_MAPPING =
-            "030000005e0400008e02000014010000,Xbox 360 Controller," +
-                "a:b0,b:b1,back:b9,dpdown:b12,dpleft:b13,dpright:b14,dpup:b11," +
-                "guide:b10,leftshoulder:b4,leftstick:b6,lefttrigger:a2,leftx:a0,lefty:a1~," +
-                "rightshoulder:b5,rightstick:b7,righttrigger:a5,rightx:a3,righty:a4~," +
-                "start:b8,x:b2,y:b3,platform:Mac OS X,"
+        fun controllers(): Array<Controller> {
+            val os = System.getProperty("os.name").lowercase()
+            val libraries = when {
+                os.contains("mac") -> listOf("libjinput-osx.jnilib" to System.mapLibraryName("jinput-osx"))
+                os.contains("linux") -> listOf("libjinput-linux64.so" to System.mapLibraryName("jinput-linux64"))
+                os.contains("win") -> listOf(
+                    "jinput-raw_64.dll" to System.mapLibraryName("jinput-raw_64"),
+                    "jinput-dx8_64.dll" to System.mapLibraryName("jinput-dx8_64"),
+                )
+                else -> emptyList()
+            }
+            if (libraries.isNotEmpty()) {
+                val directory = Files.createTempDirectory("cartridgevm-jinput-")
+                directory.toFile().deleteOnExit()
+                libraries.forEach { (resource, fileName) ->
+                    val target = directory.resolve(fileName)
+                    ControllerInput::class.java.getResourceAsStream("/$resource").use { input ->
+                        requireNotNull(input) { "Missing JInput native library: $resource" }
+                        Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                    }
+                    target.toFile().deleteOnExit()
+                }
+                System.setProperty("net.java.games.input.librarypath", directory.toString())
+            }
+            java.util.logging.Logger.getLogger("net.java.games.input.ControllerEnvironment").level = Level.WARNING
+            return ControllerEnvironment.getDefaultEnvironment().controllers
+        }
     }
 }
