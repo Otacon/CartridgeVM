@@ -1,12 +1,7 @@
 package app
 
 import di.AppScope
-import frontend.FramePacer
-import frontend.GlfwWindow
-import frontend.KeyboardInput
-import frontend.OpenAlAudio
-import frontend.OpenGlRenderer
-import frontend.ControllerInput
+import frontend.*
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 import nes.Timing
@@ -23,7 +18,7 @@ class EmulatorApplication(
     private val renderer: OpenGlRenderer,
     private val audio: OpenAlAudio,
     private val machine: NesMachine,
-    private val window: GlfwWindow,
+    private val window: SwtWindow,
 ) {
     private val log = LoggerFactory.getLogger("EmulatorApplication")
 
@@ -34,10 +29,8 @@ class EmulatorApplication(
             machine.reset()
             log.info("Emulation started")
             window.use {
-                try {
+                renderer.use {
                     runWindowLoop()
-                } finally {
-                    renderer.close()
                 }
             }
             log.info("Emulation finished")
@@ -53,13 +46,20 @@ class EmulatorApplication(
     }
 
     private fun runWindowLoop() {
-        val handle = if (cliArgs.crt) window.create(256 * 4, 240 * 4) else window.create(256 * 3, 240 * 3)
-        renderer.init(cliArgs.crt)
-        val input = if (cliArgs.controller) {
+        val controllerInput = if (cliArgs.controller) {
+            log.debug("Initializing GLFW controller input")
             ControllerInput(machine.controller)
         } else {
-            KeyboardInput(handle, machine.controller)
+            null
         }
+        log.debug("Creating SWT OpenGL window")
+        val canvas = if (cliArgs.crt) window.create(256 * 4, 240 * 4) else window.create(256 * 3, 240 * 3)
+        log.debug("SWT OpenGL window created")
+        log.debug("Initializing OpenGL renderer")
+        renderer.init(canvas, cliArgs.crt)
+        log.debug("OpenGL renderer initialized")
+        val input = controllerInput ?: KeyboardInput(window, machine.controller)
+        log.debug("Input initialized")
         val pollInput = {
             window.pollEvents()
             input.poll()
@@ -87,6 +87,7 @@ class EmulatorApplication(
                 } else {
                     Thread.sleep(8)
                 }
+                window.makeCurrent()
                 renderer.present(machine.ppu.framebuffer, window.width, window.height)
                 window.swapBuffers()
                 if (!cliArgs.unlimited) {
@@ -102,4 +103,5 @@ class EmulatorApplication(
             }
         }
     }
+
 }

@@ -6,6 +6,8 @@ ksp = "2.3.4"
 logback = "1.5.38"
 lwjgl = "3.4.2"
 slf4j = "2.0.18"
+swt = "3.134.0"
+jna = "5.18.1"
 
 [libraries]
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
@@ -23,12 +25,15 @@ lwjgl = { module = "org.lwjgl:lwjgl" }
 lwjglBom = { module = "org.lwjgl:lwjgl-bom", version.ref = "lwjgl" }
 lwjglGlfw = { module = "org.lwjgl:lwjgl-glfw" }
 lwjglOpenal = { module = "org.lwjgl:lwjgl-openal" }
-lwjglOpengl = { module = "org.lwjgl:lwjgl-opengl" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+swtMacosAarch64 = { module = "org.eclipse.platform:org.eclipse.swt.cocoa.macosx.aarch64", version.ref = "swt" }
+swtMacosX64 = { module = "org.eclipse.platform:org.eclipse.swt.cocoa.macosx.x86_64", version.ref = "swt" }
+swtLinuxAarch64 = { module = "org.eclipse.platform:org.eclipse.swt.gtk.linux.aarch64", version.ref = "swt" }
+swtLinuxX64 = { module = "org.eclipse.platform:org.eclipse.swt.gtk.linux.x86_64", version.ref = "swt" }
+swtWindowsAarch64 = { module = "org.eclipse.platform:org.eclipse.swt.win32.win32.aarch64", version.ref = "swt" }
+swtWindowsX64 = { module = "org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64", version.ref = "swt" }
 
 slf4jApi = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-
-[bundles]
-lwjgl = ["lwjgl", "lwjglGlfw", "lwjglOpenal", "lwjglOpengl"]
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

@@ -2,6 +2,7 @@ package frontend
 
 import nes.input.NesController
 import org.lwjgl.glfw.GLFW.*
+import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.glfw.GLFWGamepadState
 import org.lwjgl.system.MemoryStack
 import org.slf4j.LoggerFactory
@@ -9,22 +10,25 @@ import org.slf4j.LoggerFactory
 class ControllerInput(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
-    private val joystick = (GLFW_JOYSTICK_1..GLFW_JOYSTICK_LAST).firstOrNull {
-        glfwJoystickPresent(it)
-    } ?: throw IllegalStateException(
-        "--controller was requested, but GLFW did not detect a connected controller",
-    )
-    private val mappedGamepad = MemoryStack.stackPush().use { stack ->
-        glfwUpdateGamepadMappings(stack.UTF8(MACOS_XBOX_360_MAPPING))
-        glfwJoystickIsGamepad(joystick)
-    }
+    private val joystick: Int
     private val state = GLFWGamepadState.calloc()
     private var stateAvailable = false
     private var quitPressed = false
+    private var closed = false
 
     private val log = LoggerFactory.getLogger("ControllerInput")
 
     init {
+        GLFWErrorCallback.createPrint(System.err).set()
+        if (!glfwInit()) {
+            throw IllegalStateException("--controller was requested, but GLFW initialization failed")
+        }
+        joystick = (GLFW_JOYSTICK_1..GLFW_JOYSTICK_LAST).firstOrNull { glfwJoystickPresent(it) }
+            ?: throw IllegalStateException("--controller was requested, but GLFW did not detect a connected controller")
+        val mappedGamepad = MemoryStack.stackPush().use { stack ->
+            glfwUpdateGamepadMappings(stack.UTF8(MACOS_XBOX_360_MAPPING))
+            glfwJoystickIsGamepad(joystick)
+        }
         if (!mappedGamepad) {
             throw IllegalStateException(
                 "--controller was requested, but GLFW did not detect a mapped gamepad for '${glfwGetJoystickName(joystick)}'",
@@ -34,6 +38,7 @@ class ControllerInput(
     }
 
     override fun poll() {
+        glfwPollEvents()
         if (!glfwJoystickPresent(joystick)) {
             stateAvailable = false
             controller.setButtons(0)
@@ -53,18 +58,10 @@ class ControllerInput(
         if (GLFW_GAMEPAD_BUTTON_B.isPressed()) buttons = buttons or (1 shl NesController.A)
         if (GLFW_GAMEPAD_BUTTON_BACK.isPressed()) buttons = buttons or (1 shl NesController.SELECT)
         if (GLFW_GAMEPAD_BUTTON_START.isPressed()) buttons = buttons or (1 shl NesController.START)
-        if (GLFW_GAMEPAD_BUTTON_DPAD_UP.isPressed()) {
-            buttons = buttons or (1 shl NesController.UP)
-        }
-        if (GLFW_GAMEPAD_BUTTON_DPAD_DOWN.isPressed()) {
-            buttons = buttons or (1 shl NesController.DOWN)
-        }
-        if (GLFW_GAMEPAD_BUTTON_DPAD_LEFT.isPressed()) {
-            buttons = buttons or (1 shl NesController.LEFT)
-        }
-        if (GLFW_GAMEPAD_BUTTON_DPAD_RIGHT.isPressed()) {
-            buttons = buttons or (1 shl NesController.RIGHT)
-        }
+        if (GLFW_GAMEPAD_BUTTON_DPAD_UP.isPressed()) buttons = buttons or (1 shl NesController.UP)
+        if (GLFW_GAMEPAD_BUTTON_DPAD_DOWN.isPressed()) buttons = buttons or (1 shl NesController.DOWN)
+        if (GLFW_GAMEPAD_BUTTON_DPAD_LEFT.isPressed()) buttons = buttons or (1 shl NesController.LEFT)
+        if (GLFW_GAMEPAD_BUTTON_DPAD_RIGHT.isPressed()) buttons = buttons or (1 shl NesController.RIGHT)
         val pause = GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER.isPressed()
         val reset = GLFW_GAMEPAD_BUTTON_LEFT_BUMPER.isPressed()
         quitPressed = GLFW_GAMEPAD_BUTTON_GUIDE.isPressed()
@@ -75,7 +72,11 @@ class ControllerInput(
     override fun quitRequested() = stateAvailable && quitPressed
 
     override fun close() {
+        if (closed) return
+        closed = true
         state.free()
+        glfwTerminate()
+        glfwSetErrorCallback(null)?.free()
     }
 
     private fun Int.isPressed(): Boolean = state.buttons(this).toInt() == GLFW_PRESS

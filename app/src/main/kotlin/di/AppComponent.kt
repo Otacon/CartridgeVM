@@ -2,9 +2,9 @@ package di
 
 import app.CliArgsParser
 import app.EmulatorApplication
-import frontend.GlfwWindow
 import frontend.OpenAlAudio
 import frontend.OpenGlRenderer
+import frontend.SwtWindow
 import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Scope
 import nes.NesMachine
@@ -16,7 +16,7 @@ abstract class AppComponent {
 
     abstract val cliArgParser: CliArgsParser
     abstract val inesParser: InesParserComposite
-    abstract val glfwWindow: GlfwWindow
+    abstract val swtWindow: SwtWindow
     abstract val openGlRenderer: OpenGlRenderer
     abstract val openAlAudio: OpenAlAudio
     abstract val nesMachine: NesMachine
