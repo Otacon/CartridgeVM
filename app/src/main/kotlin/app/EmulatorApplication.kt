@@ -8,6 +8,7 @@ import nes.Timing
 import nes.cartridge.InesParserComposite
 import nes.cartridge.RomFormatException
 import org.slf4j.LoggerFactory
+import java.nio.file.Path
 import kotlin.system.exitProcess
 
 @Inject
@@ -21,12 +22,10 @@ class EmulatorApplication(
     private val window: SwtWindow,
 ) {
     private val log = LoggerFactory.getLogger("EmulatorApplication")
+    private var currentRom: Path? = null
 
     fun run() {
         try {
-            val cartridge = inesParser.parse(cliArgs.rom)
-            machine.insert(cartridge)
-            machine.reset()
             log.info("Emulation started")
             window.use {
                 renderer.use {
@@ -54,10 +53,12 @@ class EmulatorApplication(
         }
         log.debug("Creating SWT OpenGL window")
         val canvas = if (cliArgs.crt) window.create(256 * 4, 240 * 4) else window.create(256 * 3, 240 * 3)
+        window.onRomSelected = { loadRom(it) }
         log.debug("SWT OpenGL window created")
         log.debug("Initializing OpenGL renderer")
         renderer.init(canvas, cliArgs.crt)
         log.debug("OpenGL renderer initialized")
+        cliArgs.rom?.let { loadRom(it) }
         val input = controllerInput ?: KeyboardInput(window, machine.controller)
         log.debug("Input initialized")
         val pollInput = {
@@ -81,12 +82,14 @@ class EmulatorApplication(
                 if (input.quitRequested()) {
                     window.requestClose()
                 }
-                if (!paused) {
+                if (window.shouldClose()) break
+                if (currentRom != null && !paused) {
                     machine.runUntilFrame(pollInput)
                     audio.submit(machine.apu.samples, machine.apu.sampleCount)
                 } else {
                     Thread.sleep(8)
                 }
+                if (window.shouldClose()) break
                 window.makeCurrent()
                 renderer.present(machine.ppu.framebuffer, window.width, window.height)
                 window.swapBuffers()
@@ -96,11 +99,25 @@ class EmulatorApplication(
                 frames++
                 val now = System.nanoTime()
                 if (now - fpsTime >= 1_000_000_000L) {
-                    window.title = "CartridgeVM NES [${cliArgs.rom.fileName} | FPS: $frames]"
+                    val romName = currentRom?.fileName?.toString() ?: "No ROM"
+                    window.title = "CartridgeVM NES [$romName | FPS: $frames]"
                     frames = 0
                     fpsTime = now
                 }
             }
+        }
+    }
+
+    private fun loadRom(path: Path) {
+        try {
+            val cartridge = inesParser.parse(path)
+            machine.insert(cartridge)
+            machine.reset()
+            currentRom = path
+            window.title = "CartridgeVM NES [${path.fileName}]"
+            log.info("Loaded ROM: {}", path.fileName)
+        } catch (e: RomFormatException) {
+            log.error("Unable to load rom: $path", e)
         }
     }
 

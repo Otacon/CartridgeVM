@@ -2,6 +2,7 @@ package app
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
@@ -26,8 +27,9 @@ class CliArgsParser : CliktCommand("cartridgevm") {
     val crt: Boolean by option(names = arrayOf("--crt"), help = "Enable consumer CRT display emulation")
         .flag()
 
-    val rom: Path by argument(help = "Path to .nes ROM")
+    val rom: Path? by argument(help = "Path to .nes ROM")
         .path(mustExist = true, canBeDir = false)
+        .optional()
 
     override fun run() = Unit
 

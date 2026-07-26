@@ -11,10 +11,12 @@ import org.eclipse.swt.opengl.GLCanvas
 import org.eclipse.swt.opengl.GLData
 import org.eclipse.swt.widgets.Composite
 import org.eclipse.swt.widgets.Display
+import org.eclipse.swt.widgets.FileDialog
 import org.eclipse.swt.widgets.Menu
 import org.eclipse.swt.widgets.MenuItem
 import org.eclipse.swt.widgets.Shell
 import org.slf4j.LoggerFactory
+import java.nio.file.Path
 
 @Inject
 @AppScope
@@ -25,6 +27,8 @@ class SwtWindow : AutoCloseable {
     private val pressedKeys = mutableSetOf<Int>()
     private val log = LoggerFactory.getLogger("SwtWindow")
     private var ignoredCocoaPaintFailure = false
+
+    var onRomSelected: ((Path) -> Unit)? = null
 
     var title: String
         get() = shell.text
@@ -143,9 +147,23 @@ class SwtWindow : AutoCloseable {
         val fileMenu = Menu(shell, SWT.DROP_DOWN)
         fileMenuHeader.menu = fileMenu
 
+        val openItem = MenuItem(fileMenu, SWT.PUSH)
+        openItem.text = "Open ROM..."
+        openItem.addListener(SWT.Selection) { openRomDialog()?.let { onRomSelected?.invoke(it) } }
+
+        MenuItem(fileMenu, SWT.SEPARATOR)
+
         val exitItem = MenuItem(fileMenu, SWT.PUSH)
         exitItem.text = "Exit"
         exitItem.addListener(SWT.Selection) { requestClose() }
         return menuBar
+    }
+
+    private fun openRomDialog(): Path? {
+        val dialog = FileDialog(shell, SWT.OPEN)
+        dialog.text = "Open NES ROM"
+        dialog.setFilterNames("NES ROMs (*.nes)")
+        dialog.setFilterExtensions("*.nes")
+        return dialog.open()?.let { Path.of(it) }
     }
 }
