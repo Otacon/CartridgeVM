@@ -31,7 +31,7 @@ import kotlin.system.exitProcess
 @Inject
 class EmulatorApplication(
     private val cliArgs: CliArgsParser,
-    private val inesParser: InesParserComposite,
+    inesParser: InesParserComposite,
     private val renderer: PlatformRenderer,
     private val audio: PlatformAudioPipeline,
     private val machine: NesMachine,
