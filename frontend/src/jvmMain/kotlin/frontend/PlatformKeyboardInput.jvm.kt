@@ -6,7 +6,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import nes.input.NesController
-import java.awt.event.KeyEvent as AwtKeyEvent
 
 actual class PlatformKeyboardInput actual constructor(
     private val controller: NesController,
@@ -21,17 +20,6 @@ actual class PlatformKeyboardInput actual constructor(
             else -> return false
         }
         return event.key in handledKeys
-    }
-
-    @Synchronized
-    fun onAwtKeyEvent(event: AwtKeyEvent): Boolean {
-        val key = event.toComposeKey() ?: return false
-        when (event.id) {
-            AwtKeyEvent.KEY_PRESSED -> pressedKeys += key
-            AwtKeyEvent.KEY_RELEASED -> pressedKeys -= key
-            else -> return false
-        }
-        return true
     }
 
     @Synchronized
@@ -51,6 +39,11 @@ actual class PlatformKeyboardInput actual constructor(
 
     @Synchronized
     actual override fun quitRequested() = Key.Escape.isPressed()
+
+    @Synchronized
+    fun releaseAll() {
+        pressedKeys.clear()
+    }
 
     @Synchronized
     override fun close() {
@@ -76,19 +69,5 @@ actual class PlatformKeyboardInput actual constructor(
             Key.Escape,
         )
 
-        fun AwtKeyEvent.toComposeKey(): Key? = when (keyCode) {
-            AwtKeyEvent.VK_Z -> Key.Z
-            AwtKeyEvent.VK_X -> Key.X
-            AwtKeyEvent.VK_SHIFT -> if (keyLocation == AwtKeyEvent.KEY_LOCATION_RIGHT) Key.ShiftRight else Key.ShiftLeft
-            AwtKeyEvent.VK_ENTER -> Key.Enter
-            AwtKeyEvent.VK_UP -> Key.DirectionUp
-            AwtKeyEvent.VK_DOWN -> Key.DirectionDown
-            AwtKeyEvent.VK_LEFT -> Key.DirectionLeft
-            AwtKeyEvent.VK_RIGHT -> Key.DirectionRight
-            AwtKeyEvent.VK_P -> Key.P
-            AwtKeyEvent.VK_R -> Key.R
-            AwtKeyEvent.VK_ESCAPE -> Key.Escape
-            else -> null
-        }
     }
 }
