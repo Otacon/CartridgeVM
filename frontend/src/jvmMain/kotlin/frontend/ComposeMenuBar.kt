@@ -67,7 +67,6 @@ fun ComposeMenuBar(
             )
             Box(Modifier.fillMaxHeight().width(1.dp).background(MENU_BORDER_COLOR))
             ToggleButton(
-                label = "CRT",
                 selected = crtEnabled,
                 onClick = onToggleCrt,
             )
@@ -141,7 +140,6 @@ private fun MenuButton(
 
 @Composable
 private fun ToggleButton(
-    label: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -159,7 +157,7 @@ private fun ToggleButton(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(label, style = MENU_TEXT_STYLE)
+        BasicText("CRT", style = MENU_TEXT_STYLE)
     }
 }
 
