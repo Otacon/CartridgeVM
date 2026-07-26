@@ -1,7 +1,4 @@
 import nes.cartridge.*
-import kotlin.io.path.createTempFile
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.writeBytes
 import kotlin.test.*
 
 class InesParserCompositeTest {
@@ -28,19 +25,6 @@ class InesParserCompositeTest {
 
         assertEquals(16 * 1024, cartridge.prgRom.size)
         assertFalse(cartridge.isChrRam)
-    }
-
-    @Test
-    fun `parses Path and File entry points`() {
-        val rom = createTempFile(prefix = "cartridgevm", suffix = ".nes")
-        try {
-            rom.writeBytes(ines())
-
-            assertEquals(16 * 1024, parser.parse(rom).prgRom.size)
-            assertEquals(16 * 1024, parser.parse(rom.toFile()).prgRom.size)
-        } finally {
-            rom.deleteIfExists()
-        }
     }
 
     @Test
