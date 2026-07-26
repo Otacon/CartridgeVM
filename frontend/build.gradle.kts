@@ -11,13 +11,21 @@ val lwjglVersion = libs.versions.lwjgl.get()
 kotlin {
     jvm()
     jvmToolchain(jvmToolchainVersion)
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
     sourceSets {
-        jvmMain.dependencies {
+        commonMain.dependencies {
             implementation(project(":nes"))
+            implementation(libs.kermit)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlinTest)
+        }
+        jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.clikt)
-            implementation(libs.kermit)
             implementation(libs.kotlinInjectRuntime)
             implementation(libs.jinput)
             implementation(libs.lwjgl)
@@ -43,9 +51,6 @@ kotlin {
             runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-windows")
             runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-windows")
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-windows")
-        }
-        jvmTest.dependencies {
-            implementation(libs.kotlinTest)
         }
     }
 }

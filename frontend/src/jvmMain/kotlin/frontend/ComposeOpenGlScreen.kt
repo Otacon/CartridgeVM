@@ -2,8 +2,10 @@ package frontend
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
@@ -12,7 +14,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import co.touchlab.kermit.Logger
-import frontend.EmulatorRunState.Running
 import nes.NesMachine
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.awt.AWTGLCanvas
@@ -27,15 +28,14 @@ import javax.swing.SwingUtilities
 @Composable
 fun ComposeOpenGlScreen(
     machine: NesMachine,
-    renderer: OpenGlRenderer,
-    audio: OpenAlAudio,
+    renderer: PlatformRenderer,
+    audio: AudioPipeline,
     input: EmulatorInput,
-    keyboardInput: ComposeKeyboardInput?,
+    keyboardInput: PlatformKeyboardInput?,
     crt: Boolean,
     frameNanos: Long,
     unlimited: Boolean,
     running: Boolean,
-    pollInputOnEmulatorThread: Boolean,
     modifier: Modifier = Modifier,
     onFps: (Int) -> Unit = {},
     onQuit: () -> Unit,
@@ -45,6 +45,12 @@ fun ComposeOpenGlScreen(
     val canvas = remember {
         NesOpenGlCanvas(renderer, frameBuffer, crt)
     }
+    val runtime = remember(machine, audio, input, frameBuffer) {
+        EmulatorRuntime(machine, audio, input, frameBuffer)
+    }
+    val isRunning by rememberUpdatedState(running)
+    val fpsHandler by rememberUpdatedState(onFps)
+    val quitHandler by rememberUpdatedState(onQuit)
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -61,41 +67,24 @@ fun ComposeOpenGlScreen(
         }
     }
 
-    DisposableEffect(canvas, machine, audio, input, running, unlimited) {
+    DisposableEffect(canvas, runtime, unlimited) {
         var closed = false
         val thread = Thread({
             val pacer = FramePacer(frameNanos)
-            var runState = Running
             var frames = 0
             var fpsTime = System.nanoTime()
 
             while (!closed) {
-                if (pollInputOnEmulatorThread) input.poll()
-                if (input.consumePause()) {
-                    runState = if (runState == Running) EmulatorRunState.Paused else Running
-                }
-                if (input.consumeReset()) {
-                    machine.reset()
-                    runState = Running
-                }
-                if (input.quitRequested()) {
-                    SwingUtilities.invokeLater(onQuit)
-                }
-
-                if (running && runState == Running) {
-                    machine.runUntilFrame { if (pollInputOnEmulatorThread) input.poll() }
-                    audio.submit(machine.apu.samples, machine.apu.sampleCount)
-                    frameBuffer.update(machine.ppu.framebuffer)
-                } else {
-                    Thread.sleep(8)
-                }
+                val result = runtime.step(isRunning)
+                if (result.quitRequested) SwingUtilities.invokeLater(quitHandler)
+                if (!result.frameRendered) Thread.sleep(8)
                 canvas.renderOnEdt()
                 if (!unlimited) pacer.waitForNextFrame()
 
                 frames++
                 val now = System.nanoTime()
                 if (now - fpsTime >= 1_000_000_000L) {
-                    onFps(frames)
+                    fpsHandler(frames)
                     frames = 0
                     fpsTime = now
                 }
@@ -107,7 +96,7 @@ fun ComposeOpenGlScreen(
         onDispose {
             closed = true
             thread.join(1_000)
-            input.close()
+            runtime.close()
         }
     }
 
@@ -142,10 +131,8 @@ fun ComposeOpenGlScreen(
     }
 }
 
-private enum class EmulatorRunState { Running, Paused }
-
 private class NesOpenGlCanvas(
-    private val renderer: OpenGlRenderer,
+    private val renderer: PlatformRenderer,
     private val frameBuffer: SharedFrameBuffer,
     private val crt: Boolean,
 ) : AWTGLCanvas(GLData().apply {
@@ -202,12 +189,12 @@ private class NesOpenGlCanvas(
     }
 }
 
-private class SharedFrameBuffer {
+private class SharedFrameBuffer : VideoOutput {
     private val frame = IntArray(256 * 240)
 
     @Synchronized
-    fun update(source: IntArray) {
-        source.copyInto(frame, endIndex = minOf(source.size, frame.size))
+    override fun submit(framebuffer: IntArray) {
+        framebuffer.copyInto(frame, endIndex = minOf(framebuffer.size, frame.size))
     }
 
     @Synchronized

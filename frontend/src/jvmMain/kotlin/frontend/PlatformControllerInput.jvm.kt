@@ -9,10 +9,10 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.logging.Level
 
-class ControllerInput(
+actual class PlatformControllerInput actual constructor(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
-    private val log = Logger.withTag("ControllerInput")
+    private val log = Logger.withTag("PlatformControllerInput")
     private val gamepad = controllers()
         .onEach { log.d { "Input device: ${it.name} type=${it.type}" } }
         .firstOrNull { it.type == Controller.Type.GAMEPAD || it.type == Controller.Type.STICK }
@@ -82,7 +82,7 @@ class ControllerInput(
                 directory.toFile().deleteOnExit()
                 libraries.forEach { (resource, fileName) ->
                     val target = directory.resolve(fileName)
-                    ControllerInput::class.java.getResourceAsStream("/$resource").use { input ->
+                    PlatformControllerInput::class.java.getResourceAsStream("/$resource").use { input ->
                         requireNotNull(input) { "Missing JInput native library: $resource" }
                         Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
                     }

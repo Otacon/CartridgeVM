@@ -2,8 +2,8 @@ package di
 
 import app.CliArgsParser
 import app.EmulatorApplication
-import frontend.OpenAlAudio
-import frontend.OpenGlRenderer
+import frontend.PlatformAudioPipeline
+import frontend.PlatformRenderer
 import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Provides
 import me.tatarka.inject.annotations.Scope
@@ -37,19 +37,19 @@ abstract class FrontendComponent {
 
     @AppScope
     @Provides
-    fun openGlRenderer(): OpenGlRenderer = OpenGlRenderer()
+    fun renderer(): PlatformRenderer = PlatformRenderer()
 
     @AppScope
     @Provides
-    fun openAlAudio(): OpenAlAudio = OpenAlAudio()
+    fun audio(): PlatformAudioPipeline = PlatformAudioPipeline()
 
     @AppScope
     @Provides
     fun emulatorApplication(
         cliArgs: CliArgsParser,
         inesParser: InesParserComposite,
-        renderer: OpenGlRenderer,
-        audio: OpenAlAudio,
+        renderer: PlatformRenderer,
+        audio: PlatformAudioPipeline,
         machine: NesMachine,
     ): EmulatorApplication = EmulatorApplication(cliArgs, inesParser, renderer, audio, machine)
 

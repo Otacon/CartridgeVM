@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,11 +21,9 @@ import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 import nes.Timing
 import nes.cartridge.InesParserComposite
-import nes.cartridge.RomFormatException
-import java.awt.FileDialog
-import java.awt.Frame
 import java.nio.file.Path
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.io.path.readBytes
 import kotlin.system.exitProcess
@@ -33,22 +32,19 @@ import kotlin.system.exitProcess
 class EmulatorApplication(
     private val cliArgs: CliArgsParser,
     private val inesParser: InesParserComposite,
-    private val renderer: OpenGlRenderer,
-    private val audio: OpenAlAudio,
+    private val renderer: PlatformRenderer,
+    private val audio: PlatformAudioPipeline,
     private val machine: NesMachine,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
-    private var currentRom: Path? = null
+    private val state = EmulatorApplicationState(RomLoader(inesParser, machine))
 
     fun run() {
         try {
             log.i { "Emulation started" }
-            cliArgs.rom?.let { loadRom(it) }
+            cliArgs.rom?.let { loadRom(it.toRomData()) }
             runComposeWindow()
             log.i { "Emulation finished" }
-        } catch (e: RomFormatException) {
-            log.e(e) { "Unable to load rom" }
-            exitProcess(2)
         } catch (e: Exception) {
             log.e(e) { "Runtime error" }
             exitProcess(1)
@@ -58,22 +54,23 @@ class EmulatorApplication(
         }
     }
 
-    private var controllerInput: ControllerInput? = null
+    private var controllerInput: PlatformControllerInput? = null
 
     private fun runComposeWindow() {
-        val keyboardInput = ComposeKeyboardInput(machine.controller)
+        val keyboardInput = PlatformKeyboardInput(machine.controller)
 
         application {
-            var loadedRom by remember { mutableStateOf(currentRom) }
-            val romName = loadedRom?.fileName?.toString() ?: "No ROM"
+            var loadedRom by remember { mutableStateOf(state.currentRomName) }
+            val romName = loadedRom ?: "No ROM"
             var title by remember { mutableStateOf("CartridgeVM NES [$romName]") }
             var input by remember { mutableStateOf<EmulatorInput?>(if (cliArgs.controller) null else keyboardInput) }
+            val coroutineScope = rememberCoroutineScope()
 
             LaunchedEffect(cliArgs.controller) {
                 if (cliArgs.controller) {
                     withFrameNanos { }
                     log.d { "Initializing controller input" }
-                    val initialized = withContext(Dispatchers.IO) { ControllerInput(machine.controller) }
+                    val initialized = withContext(Dispatchers.IO) { PlatformControllerInput(machine.controller) }
                     controllerInput = initialized
                     input = initialized
                 }
@@ -84,18 +81,22 @@ class EmulatorApplication(
                 title = title,
                 state = WindowState(size = if (cliArgs.crt) DpSize(1024.dp, 960.dp) else DpSize(768.dp, 720.dp)),
             ) {
+                val romPicker = remember(window) { AwtRomPicker(window) }
                 MenuBar {
-                    Menu("File") {
-                        Item("Open ROM...") {
-                            openRomDialog(window)?.let { path ->
-                                if (loadRom(path)) {
-                                    loadedRom = path
-                                    title = "CartridgeVM NES [${path.fileName}]"
+                    Menu(emulatorMainMenu.label) {
+                        emulatorMainMenu.entries.forEach { entry ->
+                            when (entry) {
+                                is MenuEntry.Item -> Item(entry.label) {
+                                    coroutineScope.launch {
+                                        if (state.performMenuAction(entry.action, romPicker, ::exitApplication)) {
+                                            loadedRom = state.currentRomName
+                                            title = "CartridgeVM NES [${state.currentRomName}]"
+                                        }
+                                    }
                                 }
+                                MenuEntry.Separator -> Separator()
                             }
                         }
-                        Separator()
-                        Item("Exit", onClick = ::exitApplication)
                     }
                 }
 
@@ -110,10 +111,9 @@ class EmulatorApplication(
                         frameNanos = Timing.FRAME_NANOS,
                         unlimited = cliArgs.unlimited,
                         running = loadedRom != null,
-                        pollInputOnEmulatorThread = true,
                         modifier = Modifier.fillMaxSize(),
                         onFps = { fps ->
-                            val currentName = currentRom?.fileName?.toString() ?: "No ROM"
+                            val currentName = state.currentRomName ?: "No ROM"
                             title = "CartridgeVM NES [$currentName | FPS: $fps]"
                         },
                         onQuit = ::exitApplication,
@@ -123,27 +123,8 @@ class EmulatorApplication(
         }
     }
 
-    private fun loadRom(path: Path): Boolean {
-        try {
-            val cartridge = inesParser.parse(path.readBytes())
-            machine.insert(cartridge)
-            machine.reset()
-            currentRom = path
-            log.i { "Loaded ROM: ${path.fileName}" }
-            return true
-        } catch (e: RomFormatException) {
-            log.e(e) { "Unable to load rom: $path" }
-            return false
-        }
-    }
+    private fun loadRom(rom: RomData): Boolean = state.loadRom(rom)
 
-    private fun openRomDialog(parent: Frame): Path? {
-        val dialog = FileDialog(parent, "Open NES ROM", FileDialog.LOAD).apply {
-            filenameFilter = java.io.FilenameFilter { _, name -> name.endsWith(".nes", ignoreCase = true) }
-            isVisible = true
-        }
-        val file = dialog.file ?: return null
-        return Path.of(dialog.directory, file)
-    }
+    private fun Path.toRomData() = RomData(fileName.toString(), readBytes())
 
 }

@@ -9,7 +9,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 @Inject
-class OpenGlRenderer : AutoCloseable {
+actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
     private var texture = 0
     private var crtProgram = 0
     private var crtEnabled = false
@@ -18,7 +18,7 @@ class OpenGlRenderer : AutoCloseable {
     private var presentedFrames = 0L
     private val upload: ByteBuffer = ByteBuffer.allocateDirect(256 * 240 * 4).order(ByteOrder.nativeOrder())
 
-    fun init(crt: Boolean) {
+    override fun init(crt: Boolean) {
         crtEnabled = crt
         texture = glGenTextures()
         if (texture == 0) throw IllegalStateException("OpenGL initialization failure")
@@ -32,7 +32,7 @@ class OpenGlRenderer : AutoCloseable {
         if (crt) initCrtProgram()
     }
 
-    fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
+    override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
         upload.clear()
         var i = 0
         while (i < framebuffer.size) {

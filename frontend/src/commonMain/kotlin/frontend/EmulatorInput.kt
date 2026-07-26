@@ -1,6 +1,6 @@
 package frontend
 
-interface EmulatorInput : AutoCloseable {
+interface EmulatorInput {
     fun poll()
 
     fun consumePause(): Boolean
@@ -9,7 +9,7 @@ interface EmulatorInput : AutoCloseable {
 
     fun quitRequested(): Boolean
 
-    override fun close() = Unit
+    fun close() = Unit
 }
 
 abstract class BaseEmulatorInput : EmulatorInput {

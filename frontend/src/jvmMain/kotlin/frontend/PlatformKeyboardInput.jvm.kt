@@ -8,7 +8,7 @@ import androidx.compose.ui.input.key.type
 import nes.input.NesController
 import java.awt.event.KeyEvent as AwtKeyEvent
 
-class ComposeKeyboardInput(
+actual class PlatformKeyboardInput actual constructor(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
     private val pressedKeys = mutableSetOf<Key>()

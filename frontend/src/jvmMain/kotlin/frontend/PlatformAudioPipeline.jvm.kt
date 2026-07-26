@@ -10,9 +10,8 @@ import org.lwjgl.openal.ALC10.*
 import java.nio.ShortBuffer
 
 @Inject
-class OpenAlAudio(
-    private val sampleRate: Int = NesApu.DEFAULT_SAMPLE_RATE
-) : AutoCloseable {
+actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoCloseable {
+    private val sampleRate = NesApu.DEFAULT_SAMPLE_RATE
     private val device: Long
     private val context: Long
     private val source: Int
@@ -38,7 +37,7 @@ class OpenAlAudio(
         alSourcef(source, AL_GAIN, 0.65f)
     }
 
-    fun submit(samples: ShortArray, count: Int) {
+    override fun submit(samples: ShortArray, count: Int) {
         if (count <= 0) return
         alcMakeContextCurrent(context)
         unqueueProcessed()
