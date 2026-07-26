@@ -37,6 +37,7 @@ private class WebEmulatorApplication {
     private lateinit var crtItem: HTMLElement
     private var status = "Choose a legally obtained .nes ROM. Keyboard and gamepads are active."
     private var crtEnabled = false
+    private var crtShaderLoaded = false
     private var paused = false
     private var running = false
     private var frameStart = 0.0
@@ -44,11 +45,64 @@ private class WebEmulatorApplication {
     fun run() {
         renderShell()
         configureRomPicker()
+        loadBaseShaders()
+    }
+
+    private fun loadBaseShaders() {
+        fetchText(
+            url = "shaders/frame.vert",
+            onLoad = { vertex ->
+                fetchText(
+                    url = "shaders/frame.frag",
+                    onLoad = { fragment ->
+                        renderer.setShaderSources(vertex, fragment)
+                        initializeRenderer()
+                    },
+                    onError = ::showShaderError,
+                )
+            },
+            onError = ::showShaderError,
+        )
+    }
+
+    private fun initializeRenderer() {
         renderer.attach(canvas)
         renderer.init(crtEnabled)
         keyboardInput.attach(canvas)
         canvas.focus()
         window.requestAnimationFrame(::frame)
+    }
+
+    private fun enableCrt() {
+        if (crtShaderLoaded) {
+            setCrtEnabled(true)
+            return
+        }
+
+        status = "Loading CRT shader..."
+        updateMenuState()
+        fetchText(
+            url = "shaders/crt.frag",
+            onLoad = { fragment ->
+                renderer.setCrtShaderSource(fragment)
+                crtShaderLoaded = true
+                setCrtEnabled(true)
+            },
+            onError = ::showShaderError,
+        )
+    }
+
+    private fun setCrtEnabled(enabled: Boolean) {
+        crtEnabled = enabled
+        renderer.init(crtEnabled)
+        status = if (enabled) "CRT enabled" else "CRT disabled"
+        updateMenuState()
+        canvas.focus()
+    }
+
+    private fun showShaderError(error: String) {
+        status = "Unable to load shader: $error"
+        updateMenuState()
     }
 
     private fun renderShell() {
@@ -126,10 +180,11 @@ private class WebEmulatorApplication {
 
         crtItem.onclick = {
             audio.resume()
-            crtEnabled = !crtEnabled
-            renderer.init(crtEnabled)
-            updateMenuState()
-            canvas.focus()
+            if (crtEnabled) {
+                setCrtEnabled(false)
+            } else {
+                enableCrt()
+            }
         }
     }
 
@@ -215,3 +270,18 @@ private external fun uint8ArrayLength(array: Uint8Array): Int
 
 @JsFun("(array, index) => array[index]")
 private external fun uint8ArrayGet(array: Uint8Array, index: Int): Int
+
+@JsFun(
+    """
+    (url, onLoad, onError) => {
+        fetch(url)
+            .then((response) => {
+                if (!response.ok) throw new Error(response.status + " " + response.statusText);
+                return response.text();
+            })
+            .then(onLoad)
+            .catch((error) => onError(String(error)));
+    }
+    """
+)
+private external fun fetchText(url: String, onLoad: (String) -> Unit, onError: (String) -> Unit)
