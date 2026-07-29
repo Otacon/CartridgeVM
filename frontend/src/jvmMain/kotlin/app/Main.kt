@@ -7,9 +7,9 @@ import di.FrontendComponent
 import di.create
 
 fun main(args: Array<String>) {
-    val appComponent = FrontendComponent::class.create()
-    val cliArgs = appComponent.cliArgParser
+    val cliArgs = CliArgsParser()
     cliArgs.main(args)
     Logger.setMinSeverity(if (cliArgs.debug) Severity.Debug else Severity.Info)
-    appComponent.emulatorApplication.run()
+    val appComponent = FrontendComponent::class.create(cliArgs.asConfig())
+    EmulatorApplication(cliArgs, appComponent).run()
 }

@@ -67,6 +67,7 @@ kotlin {
 
 dependencies {
     add("kspJvm", libs.kotlinInjectCompiler)
+    add("kspWasmJs", libs.kotlinInjectCompiler)
 }
 
 compose.desktop {

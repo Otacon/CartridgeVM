@@ -1,19 +1,13 @@
 package frontend
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import di.LocalFrontendComponent
 
 @Composable
 fun MainScreen(
-    viewModel: MainScreenViewModel,
-    frameBuffer: SharedFrameBuffer?,
+    frameBuffer: SharedFrameBuffer,
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
     keyboardEventsEnabled: Boolean,
@@ -21,6 +15,7 @@ fun MainScreen(
     onTitleChanged: (String) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
+    val viewModel = LocalFrontendComponent.current.viewModel
     var focusRequestKey by remember { mutableStateOf(true) }
     val state by viewModel.state.collectAsState()
 
@@ -43,15 +38,13 @@ fun MainScreen(
         onToggleCrt = { viewModel.setCrtEnabled(!state.isCrtEnabled) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
-        if (frameBuffer != null) {
-            ComposeSkiaScreen(
-                frameBuffer = frameBuffer,
-                renderer = renderer,
-                keyboardInput = keyboardInput.takeIf { keyboardEventsEnabled },
-                crt = state.isCrtEnabled,
-                focusRequestKey = focusRequestKey,
-                modifier = contentModifier,
-            )
-        }
+        ComposeSkiaScreen(
+            frameBuffer = frameBuffer,
+            renderer = renderer,
+            keyboardInput = keyboardInput.takeIf { keyboardEventsEnabled },
+            crt = state.isCrtEnabled,
+            focusRequestKey = focusRequestKey,
+            modifier = contentModifier,
+        )
     }
 }
