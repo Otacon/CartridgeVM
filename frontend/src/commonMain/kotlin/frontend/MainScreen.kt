@@ -19,7 +19,6 @@ fun MainScreen(
     keyboardEventsEnabled: Boolean,
     onOpenRomClick: () -> Unit,
     onTitleChanged: (String) -> Unit,
-    onRunningChanged: (Boolean) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
     var focusRequestKey by remember { mutableStateOf(true) }
@@ -31,10 +30,6 @@ fun MainScreen(
 
     LaunchedEffect(state.windowTitle) {
         onTitleChanged(state.windowTitle)
-    }
-
-    LaunchedEffect(state.isRunning) {
-        onRunningChanged(state.isRunning)
     }
 
     ComposeMenuBar(

@@ -2,11 +2,7 @@
 
 package frontend
 
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
 import kotlinx.browser.window
 import nes.input.NesController
 import org.w3c.dom.HTMLCanvasElement
@@ -52,7 +48,7 @@ actual class PlatformKeyboardInput actual constructor(
         if ("ArrowRight".isPressed()) buttons = buttons or (1 shl NesController.RIGHT)
         currentButtons = buttons
         controller.setButtons(currentButtons)
-        updateControlEdges("KeyP".isPressed(), "KeyR".isPressed())
+        updateControlEdges("KeyR".isPressed())
     }
 
     fun buttonMask(): Int = currentButtons
@@ -118,7 +114,7 @@ actual class PlatformControllerInput actual constructor(
         if (gamepad == null) {
             currentButtons = 0
             controller.setButtons(0)
-            updateControlEdges(pause = false, reset = false)
+            updateControlEdges(reset = false)
             return
         }
         var buttons = 0
@@ -127,12 +123,15 @@ actual class PlatformControllerInput actual constructor(
         if (gamepadButton(gamepad, 8)) buttons = buttons or (1 shl NesController.SELECT)
         if (gamepadButton(gamepad, 9)) buttons = buttons or (1 shl NesController.START)
         if (gamepadButton(gamepad, 12) || gamepadAxis(gamepad, 1) < -0.45) buttons = buttons or (1 shl NesController.UP)
-        if (gamepadButton(gamepad, 13) || gamepadAxis(gamepad, 1) > 0.45) buttons = buttons or (1 shl NesController.DOWN)
-        if (gamepadButton(gamepad, 14) || gamepadAxis(gamepad, 0) < -0.45) buttons = buttons or (1 shl NesController.LEFT)
-        if (gamepadButton(gamepad, 15) || gamepadAxis(gamepad, 0) > 0.45) buttons = buttons or (1 shl NesController.RIGHT)
+        if (gamepadButton(gamepad, 13) || gamepadAxis(gamepad, 1) > 0.45) buttons =
+            buttons or (1 shl NesController.DOWN)
+        if (gamepadButton(gamepad, 14) || gamepadAxis(gamepad, 0) < -0.45) buttons =
+            buttons or (1 shl NesController.LEFT)
+        if (gamepadButton(gamepad, 15) || gamepadAxis(gamepad, 0) > 0.45) buttons =
+            buttons or (1 shl NesController.RIGHT)
         currentButtons = buttons
         controller.setButtons(currentButtons)
-        updateControlEdges(gamepadButton(gamepad, 5), gamepadButton(gamepad, 4))
+        updateControlEdges(gamepadButton(gamepad, 5))
     }
 
     fun buttonMask(): Int = currentButtons

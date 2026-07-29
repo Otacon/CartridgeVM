@@ -2,7 +2,10 @@
 
 package app
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeViewport
 import frontend.*
 import kotlinx.browser.document
@@ -48,8 +51,8 @@ private class WebEmulatorApplication {
         DisposableEffect(Unit) {
             runtimeHost.start(
                 onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
-                onQuit = { coroutineScope.launch { viewModel.setRunning(false) } },
-                onError = { coroutineScope.launch { viewModel.setRunning(false) } },
+                onQuit = { coroutineScope.launch { machine.powerOff() } },
+                onError = { coroutineScope.launch { machine.powerOff() } },
             )
             onDispose(runtimeHost::stop)
         }
@@ -65,7 +68,6 @@ private class WebEmulatorApplication {
             keyboardInput = keyboardInput,
             keyboardEventsEnabled = true,
             onTitleChanged = { document.title = it },
-            onRunningChanged = runtimeHost::setRunning,
             onOpenRomClick = {
                 coroutineScope.launch {
                     val rom = romPicker.pickRom()
@@ -85,10 +87,7 @@ private class WebCombinedInput(
         keyboard.poll()
         controller.poll()
         nesController.setButtons(keyboard.buttonMask() or controller.buttonMask())
-        updateControlEdges(
-            keyboard.consumePause() || controller.consumePause(),
-            keyboard.consumeReset() || controller.consumeReset(),
-        )
+        updateControlEdges(keyboard.consumeReset() || controller.consumeReset())
     }
 
     override fun quitRequested(): Boolean = false

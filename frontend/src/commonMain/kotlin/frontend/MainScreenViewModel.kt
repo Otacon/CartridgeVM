@@ -1,9 +1,11 @@
 package frontend
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
@@ -23,11 +25,14 @@ class MainScreenViewModel(
     private var fps: Int? = null
 
     fun onCreate() {
+        viewModelScope.launch {
+            machine.isPoweredOn.collect { isPoweredOn ->
+                _state.update { it.copy(isRunning = isPoweredOn) }
+            }
+        }
         config.rom?.let { loadRom(it) }
         _state.update {
-            it.copy(
-                isCrtEnabled = config.crt,
-            )
+            it.copy(isCrtEnabled = config.crt)
         }
     }
 
@@ -40,37 +45,32 @@ class MainScreenViewModel(
         updateTitle()
     }
 
-    fun setCrtEnabled(crtEnabled: Boolean) {
-        _state.update { it.copy(isCrtEnabled = crtEnabled) }
-    }
-
-    fun setRunning(running: Boolean) {
-        _state.update { it.copy(isRunning = running) }
+    fun setCrtEnabled(crtEnabled: Boolean) = _state.update {
+        it.copy(isCrtEnabled = crtEnabled)
     }
 
     private fun loadRom(romData: RomData) {
         this.rom = romData.name
         platformSynchronized(runtime.lock) {
+            machine.powerOff()
             machine.insert(parser.parse(romData.bytes))
-            machine.reset()
+            machine.powerOn()
         }
-        _state.update { it.copy(isRunning = true) }
         updateTitle()
     }
 
-    private fun updateTitle() {
+    private fun updateTitle() = _state.update { current ->
         val elements = buildList {
             rom?.let { add(it) }
             fps?.let { add("$it fps") }
         }
-        _state.update { current ->
-            val values = if (elements.isNotEmpty()) {
-                " | " + elements.joinToString(prefix = "[", postfix = "]") { it }
-            } else {
-                ""
-            }
-            current.copy(windowTitle = "CartridgeVM$values")
+
+        val values = if (elements.isNotEmpty()) {
+            " | " + elements.joinToString(prefix = "[", postfix = "]") { it }
+        } else {
+            ""
         }
+        current.copy(windowTitle = "CartridgeVM$values")
     }
 }
 

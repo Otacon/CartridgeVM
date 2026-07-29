@@ -53,7 +53,7 @@ actual class PlatformControllerInput actual constructor(
         if (right) buttons = buttons or (1 shl NesController.RIGHT)
 
         controller.setButtons(buttons)
-        updateControlEdges(button(5), button(4))
+        updateControlEdges(button(5))
         quitPressed = button(10)
     }
 

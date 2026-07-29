@@ -100,7 +100,6 @@ class EmulatorApplication(
                     keyboardInput = keyboardInput,
                     keyboardEventsEnabled = keyboardEventsEnabled,
                     onTitleChanged = { window.title = it },
-                    onRunningChanged = runtimeHost::setRunning,
                     onOpenRomClick = {
                         coroutineScope.launch {
                             val rom = romPicker.pickRom()

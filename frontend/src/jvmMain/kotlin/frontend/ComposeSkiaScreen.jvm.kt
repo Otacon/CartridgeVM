@@ -4,16 +4,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import java.util.concurrent.atomic.AtomicBoolean
 
-actual class PlatformAtomicBoolean actual constructor(initial: Boolean) {
-    private val value = AtomicBoolean(initial)
-
-    actual fun get(): Boolean = value.get()
-
-    actual fun set(value: Boolean) {
-        this.value.set(value)
-    }
-}
-
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = synchronized(lock, block)
 
 actual fun startPlatformEmulatorLoop(

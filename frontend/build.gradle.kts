@@ -46,6 +46,7 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.clikt)
             implementation(libs.kotlinInjectRuntime)
+            implementation(libs.kotlinxCoroutinesSwing)
             implementation(libs.jinput)
             implementation(libs.lwjgl)
             implementation(libs.lwjglOpenal)

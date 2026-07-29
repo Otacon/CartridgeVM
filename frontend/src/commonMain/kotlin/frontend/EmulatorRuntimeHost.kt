@@ -13,12 +13,7 @@ class EmulatorRuntimeHost(
     val lock = Any()
 
     private val runtime = EmulatorRuntime(machine, audio, input, frameBuffer)
-    private val runningFlag = PlatformAtomicBoolean(false)
     private var loop: ComposeEmulatorLoop? = null
-
-    fun setRunning(running: Boolean) {
-        runningFlag.set(running)
-    }
 
     fun start(
         onFps: (Int) -> Unit,
@@ -30,7 +25,7 @@ class EmulatorRuntimeHost(
             frameNanos = frameNanos,
             step = {
                 platformSynchronized(lock) {
-                    runtime.step(runningFlag.get())
+                    runtime.step()
                 }
             },
             onFps = onFps,
@@ -51,12 +46,6 @@ class EmulatorRuntimeHost(
 }
 
 expect fun <T> platformSynchronized(lock: Any, block: () -> T): T
-
-expect class PlatformAtomicBoolean(initial: Boolean) {
-    fun get(): Boolean
-
-    fun set(value: Boolean)
-}
 
 interface ComposeEmulatorLoop : AutoCloseable
 
