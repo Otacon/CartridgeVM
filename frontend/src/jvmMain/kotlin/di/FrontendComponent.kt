@@ -2,6 +2,7 @@ package di
 
 import app.CliArgsParser
 import app.EmulatorApplication
+import frontend.Config
 import frontend.PlatformAudioPipeline
 import frontend.PlatformRenderer
 import me.tatarka.inject.annotations.Component
@@ -42,6 +43,10 @@ abstract class FrontendComponent {
     @AppScope
     @Provides
     fun audio(): PlatformAudioPipeline = PlatformAudioPipeline()
+
+    @AppScope
+    @Provides
+    fun config(): Config = cliArgParser.asConfig()
 
     @AppScope
     @Provides

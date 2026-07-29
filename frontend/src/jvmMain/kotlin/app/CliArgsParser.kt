@@ -6,8 +6,11 @@ import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
+import frontend.Config
+import frontend.RomData
 import me.tatarka.inject.annotations.Inject
 import java.nio.file.Path
+import kotlin.io.path.readBytes
 
 @Inject
 class CliArgsParser : CliktCommand("cartridgevm") {
@@ -30,5 +33,16 @@ class CliArgsParser : CliktCommand("cartridgevm") {
         .optional()
 
     override fun run() = Unit
+
+    fun asConfig(): Config {
+        val romData = rom?.let { RomData(it.fileName.toString(), it.readBytes()) }
+        return Config(
+            debug = debug,
+            unlimited = unlimited,
+            controller = controller,
+            crt = crt,
+            rom = romData,
+        )
+    }
 
 }

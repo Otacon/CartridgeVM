@@ -9,11 +9,7 @@ import nes.Timing
 @Composable
 fun MainScreen(
     onOpenRomClick: () -> Unit,
-    onExitClick: () -> Unit,
-    onToggleCrt: () -> Unit,
-    isCrtEnabled: Boolean,
     unlimited: Boolean,
-    isRunning: Boolean,
     keyboardInput: PlatformKeyboardInput,
     keyboardEventsEnabled: Boolean,
     input: EmulatorInput?,
@@ -21,17 +17,27 @@ fun MainScreen(
     machineLock: Any,
     renderer: PlatformRenderer,
     audio: PlatformAudioPipeline,
+    onTitleChanged: (String) -> Unit,
+    viewModel: MainScreenViewModel,
+    onExitClick: (() -> Unit)? = null,
 ) {
-    var focusRequestKey by remember { mutableIntStateOf(0) }
+    var focusRequestKey by remember { mutableStateOf(true) }
+    val state by viewModel.state.collectAsState()
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+    LaunchedEffect(state.windowTitle) {
+        onTitleChanged(state.windowTitle)
+    }
     ComposeMenuBar(
         onOpenRom = onOpenRomClick,
         onExit = onExitClick,
         onMenuOpened = {
             if (input === keyboardInput) keyboardInput.releaseAll()
         },
-        onMenuDismissed = { focusRequestKey++ },
-        crtEnabled = isCrtEnabled,
-        onToggleCrt = onToggleCrt,
+        onMenuDismissed = { focusRequestKey = !focusRequestKey },
+        crtEnabled = state.isCrtEnabled,
+        onToggleCrt = { viewModel.setCrtEnabled(!state.isCrtEnabled) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
         input?.let { activeInput ->
@@ -42,15 +48,13 @@ fun MainScreen(
                 audio = audio,
                 input = activeInput,
                 keyboardInput = keyboardInput.takeIf { keyboardEventsEnabled },
-                crt = isCrtEnabled,
+                crt = state.isCrtEnabled,
                 frameNanos = Timing.FRAME_NANOS,
                 unlimited = unlimited,
-                running = isRunning,
+                running = state.isRunning,
                 modifier = contentModifier,
-                onFps = { fps ->
-
-                },
-                onQuit = onExitClick,
+                onFps = { viewModel.onFpsUpdated(it) },
+                onQuit = { onExitClick?.invoke() },
             )
         }
     }

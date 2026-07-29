@@ -1,8 +1,10 @@
-@file:OptIn(ExperimentalWasmJsInterop::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 
 package app
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeViewport
 import frontend.*
 import kotlinx.browser.document
@@ -10,12 +12,6 @@ import kotlinx.coroutines.launch
 import nes.di.NesComponent
 import nes.di.create
 import nes.input.NesController
-import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.asList
-import org.w3c.files.File
-import org.w3c.files.FileReader
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 fun main() {
     val root = document.getElementById("app") ?: document.body ?: error("Missing document body")
@@ -33,34 +29,23 @@ private class WebEmulatorApplication {
     private val keyboardInput = PlatformKeyboardInput(machine.controller)
     private val controllerInput = PlatformControllerInput(machine.controller)
     private val input = WebCombinedInput(machine.controller, keyboardInput, controllerInput)
-    private val romLoader = RomLoader(nesComponent.inesParser, machine)
-    private val romPicker = WebRomPicker()
+    private val romPicker = FileChooser()
     private val machineLock = Any()
+    private val viewModel = MainScreenViewModel(config = Config(debug = true), machine, nesComponent.inesParser)
 
     @Composable
     fun Content() {
-        var loadedRom by remember { mutableStateOf(romLoader.currentRomName) }
-        var crt by remember { mutableStateOf(false) }
         val coroutineScope = rememberCoroutineScope()
 
         MainScreen(
             onOpenRomClick = {
                 coroutineScope.launch {
-                    audio.resume()
                     val rom = romPicker.pickRom()
-                    if (rom != null && romLoader.load(rom)) {
-                        loadedRom = romLoader.currentRomName
-                    }
+                    viewModel.onRomSelected(rom)
                 }
             },
-            onExitClick = { loadedRom = null },
-            onToggleCrt = {
-                audio.resume()
-                crt = !crt
-            },
-            isCrtEnabled = crt,
+            onTitleChanged = { document.title = it },
             unlimited = false,
-            isRunning = loadedRom != null,
             keyboardInput = keyboardInput,
             keyboardEventsEnabled = true,
             input = input,
@@ -68,6 +53,7 @@ private class WebEmulatorApplication {
             machineLock = machineLock,
             renderer = renderer,
             audio = audio,
+            viewModel = viewModel,
         )
     }
 }
@@ -95,39 +81,3 @@ private class WebCombinedInput(
     }
 }
 
-private class WebRomPicker : RomPicker {
-    private val input = document.getElementById("rom") as HTMLInputElement
-
-    override suspend fun pickRom(): RomData? = suspendCoroutine { continuation ->
-        input.value = ""
-        input.onchange = {
-            val file = input.files?.asList()?.firstOrNull()
-            if (file == null) {
-                continuation.resume(null)
-            } else {
-                file.readRomData { continuation.resume(it) }
-            }
-        }
-        input.click()
-    }
-
-    private fun File.readRomData(onLoaded: (RomData?) -> Unit) {
-        val reader = FileReader()
-        reader.onload = {
-            onLoaded(RomData(name, reader.result.toByteArray()))
-        }
-        reader.onerror = { onLoaded(null) }
-        reader.readAsArrayBuffer(this)
-    }
-}
-
-private fun JsAny?.toByteArray(): ByteArray {
-    val buffer = requireNotNull(this) { "Missing file contents" }
-    return ByteArray(arrayBufferLength(buffer)) { index -> arrayBufferGet(buffer, index).toByte() }
-}
-
-@JsFun("(buffer) => new Uint8Array(buffer).length")
-private external fun arrayBufferLength(buffer: JsAny): Int
-
-@JsFun("(buffer, index) => new Uint8Array(buffer)[index]")
-private external fun arrayBufferGet(buffer: JsAny, index: Int): Int

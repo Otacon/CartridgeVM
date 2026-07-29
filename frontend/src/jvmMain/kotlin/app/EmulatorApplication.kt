@@ -14,26 +14,22 @@ import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
-import java.nio.file.Path
-import kotlin.io.path.readBytes
 import kotlin.system.exitProcess
 
 @Inject
 class EmulatorApplication(
     private val cliArgs: CliArgsParser,
-    inesParser: InesParserComposite,
+    private val inesParser: InesParserComposite,
     private val renderer: PlatformRenderer,
     private val audio: PlatformAudioPipeline,
     private val machine: NesMachine,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
     private val machineLock = Any()
-    private val state = EmulatorApplicationState(RomLoader(inesParser, machine))
 
     fun run() {
         try {
             log.i { "Emulation started" }
-            cliArgs.rom?.let { loadRom(it.toRomData()) }
             runComposeWindow()
             log.i { "Emulation finished" }
         } catch (e: Exception) {
@@ -49,14 +45,15 @@ class EmulatorApplication(
 
     private fun runComposeWindow() {
         val keyboardInput = PlatformKeyboardInput(machine.controller)
+        val viewModel = MainScreenViewModel(
+            config = cliArgs.asConfig(),
+            machine = machine,
+            parser = inesParser,
+        )
 
         application {
-            var loadedRom by remember { mutableStateOf(state.currentRomName) }
-            val romName = loadedRom ?: "No ROM"
-            var title by remember { mutableStateOf("CartridgeVM NES [$romName]") }
             var input by remember { mutableStateOf<EmulatorInput?>(if (cliArgs.controller) null else keyboardInput) }
             var focusRequestKey by remember { mutableIntStateOf(0) }
-            var crt by remember { mutableStateOf(cliArgs.crt) }
             val coroutineScope = rememberCoroutineScope()
 
             LaunchedEffect(cliArgs.controller) {
@@ -73,39 +70,30 @@ class EmulatorApplication(
 
             Window(
                 onCloseRequest = ::exitApplication,
-                title = title,
                 state = windowState,
             ) {
-                val romPicker = remember(window) { AwtRomPicker(window) }
+                val romPicker = remember(window) { FileChooser(window) }
                 MainScreen(
                     onOpenRomClick = {
                         coroutineScope.launch {
                             val rom = romPicker.pickRom()
-                            if (rom != null && loadRom(rom)) {
-                                loadedRom = state.currentRomName
-                                title = "CartridgeVM NES [${state.currentRomName}]"
-                            }
+                            viewModel.onRomSelected(rom)
                             focusRequestKey++
                         }
                     },
                     onExitClick = ::exitApplication,
-                    onToggleCrt = { crt = !crt },
-                    isCrtEnabled = crt,
+                    onTitleChanged = { window.title = it },
                     unlimited = cliArgs.unlimited,
                     keyboardInput = keyboardInput,
                     keyboardEventsEnabled = input === keyboardInput,
                     input = input,
-                    isRunning = loadedRom != null,
                     machine = machine,
                     machineLock = machineLock,
                     renderer = renderer,
                     audio = audio,
+                    viewModel = viewModel,
                 )
             }
         }
     }
-
-    private fun loadRom(rom: RomData): Boolean = synchronized(machineLock) { state.loadRom(rom) }
-
-    private fun Path.toRomData() = RomData(fileName.toString(), readBytes())
 }
