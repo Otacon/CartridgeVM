@@ -7,17 +7,24 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import co.touchlab.kermit.Logger
-import di.FrontendComponent
-import di.ProvideFrontendComponent
 import frontend.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.tatarka.inject.annotations.Inject
+import nes.NesMachine
 import kotlin.system.exitProcess
 
+@Inject
 class EmulatorApplication(
-    private val cliArgs: CliArgsParser,
-    private val component: FrontendComponent,
+    private val keyboardInput: PlatformKeyboardInput,
+    private val runtimeInput: DelegatingEmulatorInput,
+    private val runtimeHost: EmulatorRuntimeHost,
+    private val audio: PlatformAudioPipeline,
+    private val renderer: PlatformRenderer,
+    private val viewModel: MainScreenViewModel,
+    private val nesMachine: NesMachine,
+    private val config: Config,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
 
@@ -31,27 +38,23 @@ class EmulatorApplication(
             exitProcess(1)
         } finally {
             controllerInput?.close()
-            component.audio.close()
+            audio.close()
         }
     }
 
     private var controllerInput: PlatformControllerInput? = null
 
     private fun runComposeWindow() {
-        val keyboardInput = component.keyboardInput
-        val runtimeInput = component.runtimeInput
-        val runtimeHost = component.runtimeHost
-        val viewModel = component.viewModel
-
         application {
-            var keyboardEventsEnabled by remember { mutableStateOf(!cliArgs.controller) }
+            var keyboardEventsEnabled by remember { mutableStateOf(!config.controller) }
             val coroutineScope = rememberCoroutineScope()
 
-            LaunchedEffect(cliArgs.controller) {
-                if (cliArgs.controller) {
+            LaunchedEffect(config.controller) {
+                if (config.controller) {
                     withFrameNanos { }
                     log.d { "Initializing controller input" }
-                    val initialized = withContext(Dispatchers.IO) { PlatformControllerInput(component.nesMachine.controller) }
+                    val initialized =
+                        withContext(Dispatchers.IO) { PlatformControllerInput(nesMachine.controller) }
                     controllerInput = initialized
                     runtimeInput.current = initialized
                     keyboardEventsEnabled = false
@@ -78,22 +81,21 @@ class EmulatorApplication(
                 state = windowState,
             ) {
                 val romPicker = remember(window) { FileChooser(window) }
-                ProvideFrontendComponent(component) {
-                    MainScreen(
-                        frameBuffer = runtimeHost.frameBuffer,
-                        renderer = component.renderer,
-                        keyboardInput = keyboardInput,
-                        keyboardEventsEnabled = keyboardEventsEnabled,
-                        onTitleChanged = { window.title = it },
-                        onOpenRomClick = {
-                            coroutineScope.launch {
-                                val rom = romPicker.pickRom()
-                                viewModel.onRomSelected(rom)
-                            }
-                        },
-                        onExitClick = ::exitApplication,
-                    )
-                }
+                MainScreen(
+                    viewModel = viewModel,
+                    frameBuffer = runtimeHost.frameBuffer,
+                    renderer = renderer,
+                    keyboardInput = keyboardInput,
+                    keyboardEventsEnabled = keyboardEventsEnabled,
+                    onTitleChanged = { window.title = it },
+                    onOpenRomClick = {
+                        coroutineScope.launch {
+                            val rom = romPicker.pickRom()
+                            viewModel.onRomSelected(rom)
+                        }
+                    },
+                    onExitClick = ::exitApplication,
+                )
             }
         }
     }

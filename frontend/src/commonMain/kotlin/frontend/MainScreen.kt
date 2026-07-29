@@ -3,10 +3,10 @@ package frontend
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import di.LocalFrontendComponent
 
 @Composable
 fun MainScreen(
+    viewModel: MainScreenViewModel,
     frameBuffer: SharedFrameBuffer,
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
@@ -15,7 +15,6 @@ fun MainScreen(
     onTitleChanged: (String) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
-    val viewModel = LocalFrontendComponent.current.viewModel
     var focusRequestKey by remember { mutableStateOf(true) }
     val state by viewModel.state.collectAsState()
 

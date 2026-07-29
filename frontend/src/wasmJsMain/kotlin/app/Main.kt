@@ -7,34 +7,39 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeViewport
-import di.FrontendComponent
-import di.ProvideFrontendComponent
+import di.WasmFrontendComponent
 import di.create
 import frontend.*
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
+import me.tatarka.inject.annotations.Inject
+import nes.NesMachine
 import nes.input.NesController
 
 fun main() {
+    val appComponent = WasmFrontendComponent::class.create(Config(debug = true))
     val root = document.getElementById("app") ?: document.body ?: error("Missing document body")
     ComposeViewport(root) {
-        val application = remember { WebEmulatorApplication() }
+        val application = remember { appComponent.webEmulatorApplication }
         application.Content()
     }
 }
 
-private class WebEmulatorApplication {
-    private val component = FrontendComponent::class.create(Config(debug = true))
-    private val machine = component.nesMachine
-    private val keyboardInput = component.keyboardInput
+@Inject
+class WebEmulatorApplication(
+    private val machine: NesMachine,
+    private val keyboardInput: PlatformKeyboardInput,
+    runtimeInput: DelegatingEmulatorInput,
+    private val runtimeHost: EmulatorRuntimeHost,
+    private val viewModel: MainScreenViewModel,
+    private val renderer: PlatformRenderer,
+) {
     private val controllerInput = PlatformControllerInput(machine.controller)
     private val input = WebCombinedInput(machine.controller, keyboardInput, controllerInput)
     private val romPicker = FileChooser()
-    private val runtimeHost = component.runtimeHost
-    private val viewModel = component.viewModel
 
     init {
-        component.runtimeInput.current = input
+        runtimeInput.current = input
     }
 
     @Composable
@@ -54,21 +59,20 @@ private class WebEmulatorApplication {
             onDispose(runtimeHost::close)
         }
 
-        ProvideFrontendComponent(component) {
-            MainScreen(
-                frameBuffer = runtimeHost.frameBuffer,
-                renderer = component.renderer,
-                keyboardInput = keyboardInput,
-                keyboardEventsEnabled = true,
-                onTitleChanged = { document.title = it },
-                onOpenRomClick = {
-                    coroutineScope.launch {
-                        val rom = romPicker.pickRom()
-                        viewModel.onRomSelected(rom)
-                    }
-                },
-            )
-        }
+        MainScreen(
+            viewModel = viewModel,
+            frameBuffer = runtimeHost.frameBuffer,
+            renderer = renderer,
+            keyboardInput = keyboardInput,
+            keyboardEventsEnabled = true,
+            onTitleChanged = { document.title = it },
+            onOpenRomClick = {
+                coroutineScope.launch {
+                    val rom = romPicker.pickRom()
+                    viewModel.onRomSelected(rom)
+                }
+            },
+        )
     }
 }
 
@@ -91,3 +95,4 @@ private class WebCombinedInput(
         controller.close()
     }
 }
+
