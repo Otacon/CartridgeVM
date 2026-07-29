@@ -79,10 +79,7 @@ class EmulatorApplication(
                 }
             }
 
-            val windowState = remember { WindowState(size = crtWindowSize(cliArgs.crt)) }
-            LaunchedEffect(crt) {
-                windowState.size = crtWindowSize(crt)
-            }
+            val windowState = remember { WindowState(size = DpSize(768.dp, 720.dp)) }
 
             Window(
                 onCloseRequest = ::exitApplication,
@@ -144,6 +141,3 @@ class EmulatorApplication(
 
     private fun Path.toRomData() = RomData(fileName.toString(), readBytes())
 }
-
-private fun crtWindowSize(crt: Boolean): DpSize =
-    if (crt) DpSize(1024.dp, 960.dp) else DpSize(768.dp, 720.dp)

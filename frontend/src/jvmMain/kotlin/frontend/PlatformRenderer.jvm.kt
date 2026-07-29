@@ -1,19 +1,7 @@
 package frontend
 
 import me.tatarka.inject.annotations.Inject
-import org.jetbrains.skia.Canvas
-import org.jetbrains.skia.Color
-import org.jetbrains.skia.ColorAlphaType
-import org.jetbrains.skia.ColorSpace
-import org.jetbrains.skia.ColorType
-import org.jetbrains.skia.FilterTileMode
-import org.jetbrains.skia.Image
-import org.jetbrains.skia.ImageInfo
-import org.jetbrains.skia.Paint
-import org.jetbrains.skia.Rect
-import org.jetbrains.skia.RuntimeEffect
-import org.jetbrains.skia.RuntimeShaderBuilder
-import org.jetbrains.skia.SamplingMode
+import org.jetbrains.skia.*
 
 @Inject
 actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
@@ -135,13 +123,9 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
     private fun destinationRect(): Rect {
         val width = outputWidth.toFloat()
         val height = outputHeight.toFloat()
-        val (destinationWidth, destinationHeight) = if (crtEnabled) {
-            val scale = minOf(width / FRAME_WIDTH, height / FRAME_HEIGHT)
-            FRAME_WIDTH * scale to FRAME_HEIGHT * scale
-        } else {
-            val scale = maxOf(1, minOf(outputWidth / FRAME_WIDTH, outputHeight / FRAME_HEIGHT))
-            FRAME_WIDTH * scale.toFloat() to FRAME_HEIGHT * scale.toFloat()
-        }
+        val scale = minOf(width / FRAME_WIDTH, height / FRAME_HEIGHT)
+        val destinationWidth = FRAME_WIDTH * scale
+        val destinationHeight = FRAME_HEIGHT * scale
         val left = (width - destinationWidth) * 0.5f
         val top = (height - destinationHeight) * 0.5f
         return Rect.makeLTRB(left, top, left + destinationWidth, top + destinationHeight)
