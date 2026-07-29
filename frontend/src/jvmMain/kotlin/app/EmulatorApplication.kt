@@ -1,15 +1,6 @@
 package app
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.*
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -17,14 +8,13 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import co.touchlab.kermit.Logger
 import frontend.*
-import me.tatarka.inject.annotations.Inject
-import nes.NesMachine
-import nes.Timing
-import nes.cartridge.InesParserComposite
-import java.nio.file.Path
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.tatarka.inject.annotations.Inject
+import nes.NesMachine
+import nes.cartridge.InesParserComposite
+import java.nio.file.Path
 import kotlin.io.path.readBytes
 import kotlin.system.exitProcess
 
@@ -87,8 +77,8 @@ class EmulatorApplication(
                 state = windowState,
             ) {
                 val romPicker = remember(window) { AwtRomPicker(window) }
-                ComposeMenuBar(
-                    onOpenRom = {
+                MainScreen(
+                    onOpenRomClick = {
                         coroutineScope.launch {
                             val rom = romPicker.pickRom()
                             if (rom != null && loadRom(rom)) {
@@ -98,36 +88,19 @@ class EmulatorApplication(
                             focusRequestKey++
                         }
                     },
-                    onExit = ::exitApplication,
-                    onMenuOpened = {
-                        if (input === keyboardInput) keyboardInput.releaseAll()
-                    },
-                    onMenuDismissed = { focusRequestKey++ },
-                    crtEnabled = crt,
+                    onExitClick = ::exitApplication,
                     onToggleCrt = { crt = !crt },
-                    modifier = Modifier.fillMaxSize(),
-                ) { contentModifier ->
-                    input?.let { activeInput ->
-                        ComposeSkiaScreen(
-                            machine = machine,
-                            machineLock = machineLock,
-                            renderer = renderer,
-                            audio = audio,
-                            input = activeInput,
-                            keyboardInput = keyboardInput.takeIf { activeInput === it },
-                            crt = crt,
-                            frameNanos = Timing.FRAME_NANOS,
-                            unlimited = cliArgs.unlimited,
-                            running = loadedRom != null,
-                            modifier = contentModifier,
-                            onFps = { fps ->
-                                val currentName = state.currentRomName ?: "No ROM"
-                                title = "CartridgeVM NES [$currentName | FPS: $fps]"
-                            },
-                            onQuit = ::exitApplication,
-                        )
-                    }
-                }
+                    isCrtEnabled = crt,
+                    unlimited = cliArgs.unlimited,
+                    keyboardInput = keyboardInput,
+                    keyboardEventsEnabled = input === keyboardInput,
+                    input = input,
+                    isRunning = loadedRom != null,
+                    machine = machine,
+                    machineLock = machineLock,
+                    renderer = renderer,
+                    audio = audio,
+                )
             }
         }
     }

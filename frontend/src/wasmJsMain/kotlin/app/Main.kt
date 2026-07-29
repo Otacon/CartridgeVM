@@ -2,29 +2,11 @@
 
 package app
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.*
 import androidx.compose.ui.window.ComposeViewport
-import frontend.BaseEmulatorInput
-import frontend.ComposeMenuBar
-import frontend.ComposeSkiaScreen
-import frontend.PlatformAudioPipeline
-import frontend.PlatformControllerInput
-import frontend.PlatformKeyboardInput
-import frontend.PlatformRenderer
-import frontend.RomData
-import frontend.RomLoader
-import frontend.RomPicker
+import frontend.*
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
-import nes.Timing
 import nes.di.NesComponent
 import nes.di.create
 import nes.input.NesController
@@ -61,8 +43,8 @@ private class WebEmulatorApplication {
         var crt by remember { mutableStateOf(false) }
         val coroutineScope = rememberCoroutineScope()
 
-        ComposeMenuBar(
-            onOpenRom = {
+        MainScreen(
+            onOpenRomClick = {
                 coroutineScope.launch {
                     audio.resume()
                     val rom = romPicker.pickRom()
@@ -71,33 +53,22 @@ private class WebEmulatorApplication {
                     }
                 }
             },
-            onExit = { loadedRom = null },
-            onMenuOpened = { keyboardInput.releaseAll() },
-            onMenuDismissed = {  },
-            crtEnabled = crt,
+            onExitClick = { loadedRom = null },
             onToggleCrt = {
                 audio.resume()
                 crt = !crt
             },
-            modifier = Modifier.fillMaxSize(),
-        ) { contentModifier ->
-            ComposeSkiaScreen(
-                machine = machine,
-                machineLock = machineLock,
-                renderer = renderer,
-                audio = audio,
-                input = input,
-                keyboardInput = keyboardInput,
-                crt = crt,
-                frameNanos = Timing.FRAME_NANOS,
-                unlimited = false,
-                running = loadedRom != null,
-                modifier = contentModifier,
-                onQuit = {
-                    loadedRom = null
-                },
-            )
-        }
+            isCrtEnabled = crt,
+            unlimited = false,
+            isRunning = loadedRom != null,
+            keyboardInput = keyboardInput,
+            keyboardEventsEnabled = true,
+            input = input,
+            machine = machine,
+            machineLock = machineLock,
+            renderer = renderer,
+            audio = audio,
+        )
     }
 }
 
@@ -145,9 +116,7 @@ private class WebRomPicker : RomPicker {
         reader.onload = {
             onLoaded(RomData(name, reader.result.toByteArray()))
         }
-        reader.onerror = {
-            onLoaded(null)
-        }
+        reader.onerror = { onLoaded(null) }
         reader.readAsArrayBuffer(this)
     }
 }
