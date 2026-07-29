@@ -88,21 +88,17 @@ class EmulatorApplication(
             ) {
                 val romPicker = remember(window) { AwtRomPicker(window) }
                 ComposeMenuBar(
-                    onAction = { action ->
+                    onOpenRom = {
                         coroutineScope.launch {
-                            when (action) {
-                                MenuAction.OpenRom -> {
-                                    val rom = romPicker.pickRom()
-                                    if (rom != null && loadRom(rom)) {
-                                        loadedRom = state.currentRomName
-                                        title = "CartridgeVM NES [${state.currentRomName}]"
-                                    }
-                                    focusRequestKey++
-                                }
-                                MenuAction.Exit -> exitApplication()
+                            val rom = romPicker.pickRom()
+                            if (rom != null && loadRom(rom)) {
+                                loadedRom = state.currentRomName
+                                title = "CartridgeVM NES [${state.currentRomName}]"
                             }
+                            focusRequestKey++
                         }
                     },
+                    onExit = ::exitApplication,
                     onMenuOpened = {
                         if (input === keyboardInput) keyboardInput.releaseAll()
                     },
@@ -123,7 +119,6 @@ class EmulatorApplication(
                             frameNanos = Timing.FRAME_NANOS,
                             unlimited = cliArgs.unlimited,
                             running = loadedRom != null,
-                            focusRequestKey = focusRequestKey,
                             modifier = contentModifier,
                             onFps = { fps ->
                                 val currentName = state.currentRomName ?: "No ROM"

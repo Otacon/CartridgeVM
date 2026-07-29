@@ -36,7 +36,6 @@ fun ComposeSkiaScreen(
     frameNanos: Long,
     unlimited: Boolean,
     running: Boolean,
-    focusRequestKey: Int,
     modifier: Modifier = Modifier,
     onFps: (Int) -> Unit = {},
     onQuit: () -> Unit,
@@ -56,7 +55,7 @@ fun ComposeSkiaScreen(
         runningFlag.set(running)
     }
 
-    LaunchedEffect(focusRequestKey) {
+    LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 

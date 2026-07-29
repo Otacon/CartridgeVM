@@ -15,7 +15,6 @@ import androidx.compose.ui.window.ComposeViewport
 import frontend.BaseEmulatorInput
 import frontend.ComposeMenuBar
 import frontend.ComposeSkiaScreen
-import frontend.MenuAction
 import frontend.PlatformAudioPipeline
 import frontend.PlatformControllerInput
 import frontend.PlatformKeyboardInput
@@ -59,36 +58,26 @@ private class WebEmulatorApplication {
     @Composable
     fun Content() {
         var loadedRom by remember { mutableStateOf(romLoader.currentRomName) }
-        var focusRequestKey by remember { mutableIntStateOf(0) }
         var crt by remember { mutableStateOf(false) }
         val coroutineScope = rememberCoroutineScope()
 
         ComposeMenuBar(
-            onAction = { action ->
+            onOpenRom = {
                 coroutineScope.launch {
-                    when (action) {
-                        MenuAction.OpenRom -> {
-                            audio.resume()
-                            val rom = romPicker.pickRom()
-                            if (rom != null && romLoader.load(rom)) {
-                                loadedRom = romLoader.currentRomName
-                            }
-                            focusRequestKey++
-                        }
-                        MenuAction.Exit -> {
-                            loadedRom = null
-                            focusRequestKey++
-                        }
+                    audio.resume()
+                    val rom = romPicker.pickRom()
+                    if (rom != null && romLoader.load(rom)) {
+                        loadedRom = romLoader.currentRomName
                     }
                 }
             },
+            onExit = { loadedRom = null },
             onMenuOpened = { keyboardInput.releaseAll() },
-            onMenuDismissed = { focusRequestKey++ },
+            onMenuDismissed = {  },
             crtEnabled = crt,
             onToggleCrt = {
                 audio.resume()
                 crt = !crt
-                focusRequestKey++
             },
             modifier = Modifier.fillMaxSize(),
         ) { contentModifier ->
@@ -103,11 +92,9 @@ private class WebEmulatorApplication {
                 frameNanos = Timing.FRAME_NANOS,
                 unlimited = false,
                 running = loadedRom != null,
-                focusRequestKey = focusRequestKey,
                 modifier = contentModifier,
                 onQuit = {
                     loadedRom = null
-                    focusRequestKey++
                 },
             )
         }

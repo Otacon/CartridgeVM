@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -34,7 +36,8 @@ import androidx.compose.ui.window.PopupProperties
 
 @Composable
 fun ComposeMenuBar(
-    onAction: (MenuAction) -> Unit,
+    onOpenRom: () -> Unit,
+    onExit: () -> Unit,
     onMenuOpened: () -> Unit,
     onMenuDismissed: () -> Unit,
     crtEnabled: Boolean,
@@ -42,12 +45,19 @@ fun ComposeMenuBar(
     modifier: Modifier = Modifier,
     content: @Composable (Modifier) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var expandedMenu by remember { mutableStateOf<MenuId?>(null) }
     val density = LocalDensity.current
-    val popupOffset = remember(density) {
-        with(density) { IntOffset(4.dp.roundToPx(), MENU_HEIGHT.roundToPx()) }
+    val popupOffset = remember(density, expandedMenu) {
+        with(density) {
+            IntOffset(
+                x = when (expandedMenu) {
+                    MenuId.File, null -> 4.dp.roundToPx()
+                    MenuId.Video -> (4.dp + MENU_BUTTON_WIDTH).roundToPx()
+                },
+                y = MENU_HEIGHT.roundToPx(),
+            )
+        }
     }
-
     Column(modifier.fillMaxSize().background(Color.Black)) {
         Row(
             Modifier
@@ -58,17 +68,14 @@ fun ComposeMenuBar(
                 .padding(horizontal = 4.dp),
         ) {
             MenuButton(
-                label = emulatorMainMenu.label,
-                selected = expanded,
-                onClick = {
-                    expanded = !expanded
-                    if (expanded) onMenuOpened()
-                },
+                label = "File",
+                selected = expandedMenu == MenuId.File,
+                onClick = { expandedMenu = expandedMenu.toggle(MenuId.File, onMenuOpened) },
             )
-            Box(Modifier.fillMaxHeight().width(1.dp).background(MENU_BORDER_COLOR))
-            ToggleButton(
-                selected = crtEnabled,
-                onClick = onToggleCrt,
+            MenuButton(
+                label = "Video",
+                selected = expandedMenu == MenuId.Video,
+                onClick = { expandedMenu = expandedMenu.toggle(MenuId.Video, onMenuOpened) },
             )
         }
         Box(Modifier.fillMaxWidth().weight(1f)) {
@@ -76,12 +83,12 @@ fun ComposeMenuBar(
         }
     }
 
-    if (expanded) {
+    if (expandedMenu != null) {
         Popup(
             alignment = Alignment.TopStart,
             offset = popupOffset,
             onDismissRequest = {
-                expanded = false
+                expandedMenu = null
                 onMenuDismissed()
             },
             properties = PopupProperties(focusable = true),
@@ -94,20 +101,29 @@ fun ComposeMenuBar(
                     .border(1.dp, MENU_BORDER_COLOR)
                     .padding(vertical = 4.dp),
             ) {
-                emulatorMainMenu.entries.forEach { entry ->
-                    when (entry) {
-                        is MenuEntry.Item -> MenuItem(entry.label) {
-                            expanded = false
-                            onAction(entry.action)
+                when (expandedMenu) {
+                    MenuId.File -> {
+                        MenuItem("Open ROM...") {
+                            expandedMenu = null
+                            onOpenRom()
                         }
-                        MenuEntry.Separator -> Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .height(1.dp)
-                                .background(MENU_BORDER_COLOR),
-                        )
+                        MenuSeparator()
+                        MenuItem("Exit") {
+                            expandedMenu = null
+                            onExit()
+                        }
                     }
+                    MenuId.Video -> {
+                        MenuItem(
+                            label = "CRT Effect",
+                            checked = crtEnabled,
+                            role = Role.Checkbox,
+                        ) {
+                            expandedMenu = null
+                            onToggleCrt()
+                        }
+                    }
+                    null -> Unit
                 }
             }
         }
@@ -124,7 +140,8 @@ private fun MenuButton(
     Box(
         Modifier
             .fillMaxHeight()
-            .width(48.dp)
+            .width(MENU_BUTTON_WIDTH)
+            .focusProperties { canFocus = false }
             .background(if (selected) MENU_SELECTION_COLOR else Color.Transparent)
             .clickable(
                 interactionSource = interactionSource,
@@ -139,51 +156,81 @@ private fun MenuButton(
 }
 
 @Composable
-private fun ToggleButton(
-    selected: Boolean,
+private fun MenuItem(
+    label: String,
+    checked: Boolean? = null,
+    role: Role = Role.Button,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    Box(
-        Modifier
-            .fillMaxHeight()
-            .width(48.dp)
-            .background(if (selected) MENU_SELECTION_COLOR else Color.Transparent)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        BasicText("CRT", style = MENU_TEXT_STYLE)
-    }
-}
-
-@Composable
-private fun MenuItem(label: String, onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Box(
+    Row(
         Modifier
             .fillMaxWidth()
             .height(30.dp)
+            .focusProperties { canFocus = false }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                role = Role.Button,
+                role = role,
                 onClick = onClick,
             )
             .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.CenterStart,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (checked != null) {
+            CheckboxMark(checked)
+        }
         BasicText(label, style = MENU_TEXT_STYLE)
     }
 }
 
+@Composable
+private fun MenuSeparator() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .height(1.dp)
+            .background(MENU_BORDER_COLOR),
+    )
+}
+
+@Composable
+private fun CheckboxMark(checked: Boolean) {
+    Box(
+        Modifier
+            .padding(end = 8.dp)
+            .size(14.dp)
+            .background(Color.White)
+            .border(1.dp, MENU_CHECKBOX_BORDER_COLOR),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (checked) {
+            Box(
+                Modifier
+                    .size(8.dp)
+                    .background(MENU_TEXT_COLOR),
+            )
+        }
+    }
+}
+
+private fun MenuId?.toggle(menu: MenuId, onMenuOpened: () -> Unit): MenuId? =
+    if (this == menu) {
+        null
+    } else {
+        onMenuOpened()
+        menu
+    }
+
+private enum class MenuId { File, Video }
+
 private val MENU_HEIGHT = 30.dp
+private val MENU_BUTTON_WIDTH = 56.dp
 private val MENU_BAR_COLOR = Color(0xFFF1F1F1)
 private val MENU_POPUP_COLOR = Color(0xFFF7F7F7)
 private val MENU_BORDER_COLOR = Color(0xFFB8B8B8)
+private val MENU_CHECKBOX_BORDER_COLOR = Color(0xFF6F6F6F)
 private val MENU_SELECTION_COLOR = Color(0xFFD9E8F8)
-private val MENU_TEXT_STYLE = TextStyle(color = Color(0xFF161616), fontSize = 13.sp)
+private val MENU_TEXT_COLOR = Color(0xFF161616)
+private val MENU_TEXT_STYLE = TextStyle(color = MENU_TEXT_COLOR, fontSize = 13.sp)

@@ -32,7 +32,9 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.runtime)
             implementation(compose.ui)
+            implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kermit)
+            implementation(libs.kotlinInjectMp)
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)

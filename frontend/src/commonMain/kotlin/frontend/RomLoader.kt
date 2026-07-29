@@ -27,3 +27,12 @@ class RomLoader(
         }
     }
 }
+
+class EmulatorApplicationState(
+    private val romLoader: RomLoader,
+) {
+    val currentRomName: String?
+        get() = romLoader.currentRomName
+
+    fun loadRom(rom: RomData): Boolean = romLoader.load(rom)
+}
