@@ -17,13 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.launch
 import nes.NesMachine
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
 @Composable
@@ -48,7 +46,7 @@ fun ComposeSkiaScreen(
     val runtime = remember(machine, audio, input, frameBuffer) {
         EmulatorRuntime(machine, audio, input, frameBuffer)
     }
-    val runningFlag = remember { AtomicBoolean(running) }
+    val runningFlag = remember { PlatformAtomicBoolean(running) }
     val fpsHandler by rememberUpdatedState(onFps)
     val quitHandler by rememberUpdatedState(onQuit)
     val uiScope = rememberCoroutineScope()
@@ -74,48 +72,24 @@ fun ComposeSkiaScreen(
     }
 
     DisposableEffect(runtime, machineLock, unlimited) {
-        val keepRunning = AtomicBoolean(true)
-        val thread = Thread({
-            val pacer = FramePacer(frameNanos)
-            var frames = 0
-            var fpsTime = System.nanoTime()
-
-            try {
-                while (keepRunning.get()) {
-                    val result = synchronized(machineLock) {
-                        runtime.step(runningFlag.get())
-                    }
-                    if (result.quitRequested) {
-                        keepRunning.set(false)
-                        uiScope.launch { quitHandler() }
-                        break
-                    }
-                    if (!result.frameRendered) Thread.sleep(8)
-                    if (!unlimited) pacer.waitForNextFrame()
-
-                    frames++
-                    val now = System.nanoTime()
-                    if (now - fpsTime >= 1_000_000_000L) {
-                        val measuredFps = frames
-                        uiScope.launch { fpsHandler(measuredFps) }
-                        frames = 0
-                        fpsTime = now
-                    }
+        val loop = startComposeEmulatorLoop(
+            frameNanos = frameNanos,
+            unlimited = unlimited,
+            step = {
+                platformSynchronized(machineLock) {
+                    runtime.step(runningFlag.get())
                 }
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-            } catch (error: Throwable) {
+            },
+            onFps = { fps -> uiScope.launch { fpsHandler(fps) } },
+            onQuit = { uiScope.launch { quitHandler() } },
+            onError = { error ->
                 log.e(error) { "Emulator thread failed" }
                 uiScope.launch { quitHandler() }
-            }
-        }, "compose-skiko-emulator")
-        thread.isDaemon = true
-        thread.start()
+            },
+        )
 
         onDispose {
-            keepRunning.set(false)
-            thread.interrupt()
-            thread.join()
+            loop.close()
             runtime.close()
         }
     }
@@ -134,21 +108,43 @@ fun ComposeSkiaScreen(
         val height = size.height.roundToInt()
         if (width > 0 && height > 0) {
             renderer.present(frameBuffer.snapshot(), width, height)
-            drawIntoCanvas { canvas -> renderer.draw(canvas.nativeCanvas) }
+            drawPlatformRenderer(renderer)
         }
     }
 }
 
 private class SharedFrameBuffer : VideoOutput {
     private val frame = IntArray(256 * 240)
+    private val lock = Any()
 
-    @Synchronized
     override fun submit(framebuffer: IntArray) {
-        framebuffer.copyInto(frame, endIndex = minOf(framebuffer.size, frame.size))
+        platformSynchronized(lock) {
+            framebuffer.copyInto(frame, endIndex = minOf(framebuffer.size, frame.size))
+        }
     }
 
-    @Synchronized
-    fun snapshot(): IntArray = frame.copyOf()
+    fun snapshot(): IntArray = platformSynchronized(lock) { frame.copyOf() }
 }
+
+expect fun <T> platformSynchronized(lock: Any, block: () -> T): T
+
+expect class PlatformAtomicBoolean(initial: Boolean) {
+    fun get(): Boolean
+
+    fun set(value: Boolean)
+}
+
+interface ComposeEmulatorLoop : AutoCloseable
+
+expect fun startComposeEmulatorLoop(
+    frameNanos: Long,
+    unlimited: Boolean,
+    step: () -> EmulatorStepResult,
+    onFps: (Int) -> Unit,
+    onQuit: () -> Unit,
+    onError: (Throwable) -> Unit,
+): ComposeEmulatorLoop
+
+expect fun DrawScope.drawPlatformRenderer(renderer: PlatformRenderer)
 
 private val log = Logger.withTag("ComposeSkiaScreen")

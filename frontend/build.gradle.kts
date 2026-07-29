@@ -29,7 +29,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":nes"))
+            implementation(compose.foundation)
             implementation(compose.runtime)
+            implementation(compose.ui)
             implementation(libs.kermit)
         }
         commonTest.dependencies {

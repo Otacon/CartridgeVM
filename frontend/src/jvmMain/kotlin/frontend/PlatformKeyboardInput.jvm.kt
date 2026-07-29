@@ -13,7 +13,7 @@ actual class PlatformKeyboardInput actual constructor(
     private val pressedKeys = mutableSetOf<Key>()
 
     @Synchronized
-    fun onKeyEvent(event: KeyEvent): Boolean {
+    actual fun onKeyEvent(event: KeyEvent): Boolean {
         when (event.type) {
             KeyEventType.KeyDown -> pressedKeys += event.key
             KeyEventType.KeyUp -> pressedKeys -= event.key
@@ -41,7 +41,7 @@ actual class PlatformKeyboardInput actual constructor(
     actual override fun quitRequested() = Key.Escape.isPressed()
 
     @Synchronized
-    fun releaseAll() {
+    actual fun releaseAll() {
         pressedKeys.clear()
     }
 
