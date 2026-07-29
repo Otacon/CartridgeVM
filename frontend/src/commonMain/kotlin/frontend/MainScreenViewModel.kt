@@ -13,6 +13,7 @@ class MainScreenViewModel(
     private val config: Config,
     private val machine: NesMachine,
     private val parser: InesParserComposite,
+    private val runtime: EmulatorRuntimeHost,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainWindowState())
@@ -26,7 +27,6 @@ class MainScreenViewModel(
         _state.update {
             it.copy(
                 isCrtEnabled = config.crt,
-                isFrameLimiterEnabled = !config.unlimited
             )
         }
     }
@@ -44,10 +44,16 @@ class MainScreenViewModel(
         _state.update { it.copy(isCrtEnabled = crtEnabled) }
     }
 
+    fun setRunning(running: Boolean) {
+        _state.update { it.copy(isRunning = running) }
+    }
+
     private fun loadRom(romData: RomData) {
         this.rom = romData.name
-        machine.insert(parser.parse(romData.bytes))
-        machine.reset()
+        platformSynchronized(runtime.lock) {
+            machine.insert(parser.parse(romData.bytes))
+            machine.reset()
+        }
         _state.update { it.copy(isRunning = true) }
         updateTitle()
     }
@@ -73,5 +79,4 @@ data class MainWindowState(
     val windowTitle: String = "",
     val showRomPicker: Boolean = false,
     val isCrtEnabled: Boolean = false,
-    val isFrameLimiterEnabled: Boolean = true,
 )

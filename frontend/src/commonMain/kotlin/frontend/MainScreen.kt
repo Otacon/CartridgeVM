@@ -1,59 +1,61 @@
 package frontend
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import nes.NesMachine
-import nes.Timing
 
 @Composable
 fun MainScreen(
-    onOpenRomClick: () -> Unit,
+    viewModel: MainScreenViewModel,
+    frameBuffer: SharedFrameBuffer?,
+    renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
     keyboardEventsEnabled: Boolean,
-    input: EmulatorInput?,
-    machine: NesMachine,
-    machineLock: Any,
-    renderer: PlatformRenderer,
-    audio: PlatformAudioPipeline,
+    onOpenRomClick: () -> Unit,
     onTitleChanged: (String) -> Unit,
-    viewModel: MainScreenViewModel,
+    onRunningChanged: (Boolean) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
     var focusRequestKey by remember { mutableStateOf(true) }
     val state by viewModel.state.collectAsState()
+
     LaunchedEffect(Unit) {
         viewModel.onCreate()
     }
+
     LaunchedEffect(state.windowTitle) {
         onTitleChanged(state.windowTitle)
     }
+
+    LaunchedEffect(state.isRunning) {
+        onRunningChanged(state.isRunning)
+    }
+
     ComposeMenuBar(
         onOpenRom = onOpenRomClick,
         onExit = onExitClick,
         onMenuOpened = {
-            if (input === keyboardInput) keyboardInput.releaseAll()
+            if (keyboardEventsEnabled) keyboardInput.releaseAll()
         },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
         crtEnabled = state.isCrtEnabled,
         onToggleCrt = { viewModel.setCrtEnabled(!state.isCrtEnabled) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
-        input?.let { activeInput ->
+        if (frameBuffer != null) {
             ComposeSkiaScreen(
-                machine = machine,
-                machineLock = machineLock,
+                frameBuffer = frameBuffer,
                 renderer = renderer,
-                audio = audio,
-                input = activeInput,
                 keyboardInput = keyboardInput.takeIf { keyboardEventsEnabled },
                 crt = state.isCrtEnabled,
-                frameNanos = Timing.FRAME_NANOS,
-                enableFrameLimit = state.isFrameLimiterEnabled,
-                isRunning = state.isRunning,
+                focusRequestKey = focusRequestKey,
                 modifier = contentModifier,
-                onFps = { viewModel.onFpsUpdated(it) },
-                onQuit = { onExitClick?.invoke() },
             )
         }
     }

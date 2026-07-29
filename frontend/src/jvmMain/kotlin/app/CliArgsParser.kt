@@ -17,9 +17,6 @@ class CliArgsParser : CliktCommand("cartridgevm") {
     val debug: Boolean by option(names = arrayOf("-d", "--debug"), help = "Enable debug logging")
         .flag()
 
-    val unlimited: Boolean by option(names = arrayOf("-u", "--unlimited"), help = "Allow unlimited framerate")
-        .flag()
-
     val controller: Boolean by option(
         names = arrayOf("-c", "--controller"),
         help = "Use a connected controller instead of keyboard input",
@@ -38,7 +35,6 @@ class CliArgsParser : CliktCommand("cartridgevm") {
         val romData = rom?.let { RomData(it.fileName.toString(), it.readBytes()) }
         return Config(
             debug = debug,
-            unlimited = unlimited,
             controller = controller,
             crt = crt,
             rom = romData,

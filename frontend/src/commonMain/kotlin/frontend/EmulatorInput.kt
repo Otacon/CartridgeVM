@@ -37,3 +37,22 @@ abstract class BaseEmulatorInput : EmulatorInput {
         return value
     }
 }
+
+class DelegatingEmulatorInput(initialInput: EmulatorInput? = null) : EmulatorInput {
+    var current: EmulatorInput? = initialInput
+
+    override fun poll() {
+        current?.poll()
+    }
+
+    override fun consumePause(): Boolean = current?.consumePause() == true
+
+    override fun consumeReset(): Boolean = current?.consumeReset() == true
+
+    override fun quitRequested(): Boolean = current?.quitRequested() == true
+
+    override fun close() {
+        current?.close()
+        current = null
+    }
+}

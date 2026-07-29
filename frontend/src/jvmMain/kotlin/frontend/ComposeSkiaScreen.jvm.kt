@@ -16,9 +16,8 @@ actual class PlatformAtomicBoolean actual constructor(initial: Boolean) {
 
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = synchronized(lock, block)
 
-actual fun startComposeEmulatorLoop(
+actual fun startPlatformEmulatorLoop(
     frameNanos: Long,
-    enableFrameLimit: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -39,7 +38,7 @@ actual fun startComposeEmulatorLoop(
                     break
                 }
                 if (!result.frameRendered) Thread.sleep(8)
-                if (!enableFrameLimit) pacer.waitForNextFrame()
+                pacer.waitForNextFrame()
 
                 frames++
                 val now = System.nanoTime()

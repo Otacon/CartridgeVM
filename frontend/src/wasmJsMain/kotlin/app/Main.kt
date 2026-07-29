@@ -2,9 +2,7 @@
 
 package app
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.window.ComposeViewport
 import frontend.*
 import kotlinx.browser.document
@@ -30,29 +28,50 @@ private class WebEmulatorApplication {
     private val controllerInput = PlatformControllerInput(machine.controller)
     private val input = WebCombinedInput(machine.controller, keyboardInput, controllerInput)
     private val romPicker = FileChooser()
-    private val machineLock = Any()
-    private val viewModel = MainScreenViewModel(config = Config(debug = true), machine, nesComponent.inesParser)
+    private val runtimeHost = EmulatorRuntimeHost(
+        machine = machine,
+        audio = audio,
+        input = input,
+        frameNanos = nes.Timing.FRAME_NANOS,
+    )
+    private val viewModel = MainScreenViewModel(
+        config = Config(debug = true),
+        machine = machine,
+        parser = nesComponent.inesParser,
+        runtimeHost,
+    )
 
     @Composable
     fun Content() {
         val coroutineScope = rememberCoroutineScope()
 
+        DisposableEffect(Unit) {
+            runtimeHost.start(
+                onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
+                onQuit = { coroutineScope.launch { viewModel.setRunning(false) } },
+                onError = { coroutineScope.launch { viewModel.setRunning(false) } },
+            )
+            onDispose(runtimeHost::stop)
+        }
+
+        DisposableEffect(Unit) {
+            onDispose(runtimeHost::close)
+        }
+
         MainScreen(
+            viewModel = viewModel,
+            frameBuffer = runtimeHost.frameBuffer,
+            renderer = renderer,
+            keyboardInput = keyboardInput,
+            keyboardEventsEnabled = true,
+            onTitleChanged = { document.title = it },
+            onRunningChanged = runtimeHost::setRunning,
             onOpenRomClick = {
                 coroutineScope.launch {
                     val rom = romPicker.pickRom()
                     viewModel.onRomSelected(rom)
                 }
             },
-            onTitleChanged = { document.title = it },
-            keyboardInput = keyboardInput,
-            keyboardEventsEnabled = true,
-            input = input,
-            machine = machine,
-            machineLock = machineLock,
-            renderer = renderer,
-            audio = audio,
-            viewModel = viewModel,
         )
     }
 }
@@ -79,4 +98,3 @@ private class WebCombinedInput(
         controller.close()
     }
 }
-

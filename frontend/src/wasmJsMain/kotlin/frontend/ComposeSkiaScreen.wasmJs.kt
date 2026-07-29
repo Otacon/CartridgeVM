@@ -16,9 +16,8 @@ actual class PlatformAtomicBoolean actual constructor(initial: Boolean) {
 
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = block()
 
-actual fun startComposeEmulatorLoop(
+actual fun startPlatformEmulatorLoop(
     frameNanos: Long,
-    enableFrameLimit: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -36,25 +35,15 @@ actual fun startComposeEmulatorLoop(
             if (frameStart == 0.0) frameStart = now
             if (fpsTime == 0.0) fpsTime = now
 
-            if (enableFrameLimit) {
+            while (now - frameStart >= frameMillis) {
                 val result = step()
                 if (result.quitRequested) {
                     active = false
                     onQuit()
                     return
                 }
+                frameStart += frameMillis
                 frames++
-            } else {
-                while (now - frameStart >= frameMillis) {
-                    val result = step()
-                    if (result.quitRequested) {
-                        active = false
-                        onQuit()
-                        return
-                    }
-                    frameStart += frameMillis
-                    frames++
-                }
             }
 
             if (now - fpsTime >= 1_000.0) {

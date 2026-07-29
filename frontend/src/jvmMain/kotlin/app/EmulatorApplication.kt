@@ -25,7 +25,6 @@ class EmulatorApplication(
     private val machine: NesMachine,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
-    private val machineLock = Any()
 
     fun run() {
         try {
@@ -45,15 +44,22 @@ class EmulatorApplication(
 
     private fun runComposeWindow() {
         val keyboardInput = PlatformKeyboardInput(machine.controller)
+        val runtimeInput = DelegatingEmulatorInput(if (cliArgs.controller) null else keyboardInput)
+        val runtimeHost = EmulatorRuntimeHost(
+            machine = machine,
+            audio = audio,
+            input = runtimeInput,
+            frameNanos = nes.Timing.FRAME_NANOS,
+        )
         val viewModel = MainScreenViewModel(
             config = cliArgs.asConfig(),
             machine = machine,
             parser = inesParser,
+            runtime = runtimeHost,
         )
 
         application {
-            var input by remember { mutableStateOf<EmulatorInput?>(if (cliArgs.controller) null else keyboardInput) }
-            var focusRequestKey by remember { mutableIntStateOf(0) }
+            var keyboardEventsEnabled by remember { mutableStateOf(!cliArgs.controller) }
             val coroutineScope = rememberCoroutineScope()
 
             LaunchedEffect(cliArgs.controller) {
@@ -62,11 +68,25 @@ class EmulatorApplication(
                     log.d { "Initializing controller input" }
                     val initialized = withContext(Dispatchers.IO) { PlatformControllerInput(machine.controller) }
                     controllerInput = initialized
-                    input = initialized
+                    runtimeInput.current = initialized
+                    keyboardEventsEnabled = false
                 }
             }
 
             val windowState = remember { WindowState(size = DpSize(768.dp, 720.dp)) }
+
+            DisposableEffect(Unit) {
+                runtimeHost.start(
+                    onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
+                    onQuit = { coroutineScope.launch { exitApplication() } },
+                    onError = { coroutineScope.launch { exitApplication() } },
+                )
+                onDispose(runtimeHost::stop)
+            }
+
+            DisposableEffect(Unit) {
+                onDispose(runtimeHost::close)
+            }
 
             Window(
                 onCloseRequest = ::exitApplication,
@@ -74,23 +94,20 @@ class EmulatorApplication(
             ) {
                 val romPicker = remember(window) { FileChooser(window) }
                 MainScreen(
+                    viewModel = viewModel,
+                    frameBuffer = runtimeHost.frameBuffer,
+                    renderer = renderer,
+                    keyboardInput = keyboardInput,
+                    keyboardEventsEnabled = keyboardEventsEnabled,
+                    onTitleChanged = { window.title = it },
+                    onRunningChanged = runtimeHost::setRunning,
                     onOpenRomClick = {
                         coroutineScope.launch {
                             val rom = romPicker.pickRom()
                             viewModel.onRomSelected(rom)
-                            focusRequestKey++
                         }
                     },
                     onExitClick = ::exitApplication,
-                    onTitleChanged = { window.title = it },
-                    keyboardInput = keyboardInput,
-                    keyboardEventsEnabled = input === keyboardInput,
-                    input = input,
-                    machine = machine,
-                    machineLock = machineLock,
-                    renderer = renderer,
-                    audio = audio,
-                    viewModel = viewModel,
                 )
             }
         }
