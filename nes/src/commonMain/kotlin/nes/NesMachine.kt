@@ -1,5 +1,8 @@
 package nes
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import nes.apu.NesApu
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
@@ -14,6 +17,17 @@ class NesMachine(
     val apu: NesApu,
     val cpu: Cpu6502,
 ) {
+    private val _isPoweredOn = MutableStateFlow(false)
+    val isPoweredOn: StateFlow<Boolean> = _isPoweredOn.asStateFlow()
+
+    fun powerOn() {
+        reset()
+        _isPoweredOn.value = true
+    }
+
+    fun powerOff() {
+        _isPoweredOn.value = false
+    }
 
     fun insert(cartridge: Cartridge) {
         cartridgeSocket.insert(cartridge)

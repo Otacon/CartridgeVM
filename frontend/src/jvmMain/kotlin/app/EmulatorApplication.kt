@@ -1,15 +1,6 @@
 package app
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.*
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -17,33 +8,29 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import co.touchlab.kermit.Logger
 import frontend.*
-import me.tatarka.inject.annotations.Inject
-import nes.NesMachine
-import nes.Timing
-import nes.cartridge.InesParserComposite
-import java.nio.file.Path
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.io.path.readBytes
+import me.tatarka.inject.annotations.Inject
+import nes.NesMachine
 import kotlin.system.exitProcess
 
 @Inject
 class EmulatorApplication(
-    private val cliArgs: CliArgsParser,
-    inesParser: InesParserComposite,
-    private val renderer: PlatformRenderer,
+    private val keyboardInput: PlatformKeyboardInput,
+    private val runtimeInput: DelegatingEmulatorInput,
+    private val runtimeHost: EmulatorRuntimeHost,
     private val audio: PlatformAudioPipeline,
-    private val machine: NesMachine,
+    private val renderer: PlatformRenderer,
+    private val viewModel: MainScreenViewModel,
+    private val nesMachine: NesMachine,
+    private val config: Config,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
-    private val machineLock = Any()
-    private val state = EmulatorApplicationState(RomLoader(inesParser, machine))
 
     fun run() {
         try {
             log.i { "Emulation started" }
-            cliArgs.rom?.let { loadRom(it.toRomData()) }
             runComposeWindow()
             log.i { "Emulation finished" }
         } catch (e: Exception) {
@@ -58,92 +45,58 @@ class EmulatorApplication(
     private var controllerInput: PlatformControllerInput? = null
 
     private fun runComposeWindow() {
-        val keyboardInput = PlatformKeyboardInput(machine.controller)
-
         application {
-            var loadedRom by remember { mutableStateOf(state.currentRomName) }
-            val romName = loadedRom ?: "No ROM"
-            var title by remember { mutableStateOf("CartridgeVM NES [$romName]") }
-            var input by remember { mutableStateOf<EmulatorInput?>(if (cliArgs.controller) null else keyboardInput) }
-            var focusRequestKey by remember { mutableIntStateOf(0) }
-            var crt by remember { mutableStateOf(cliArgs.crt) }
+            var keyboardEventsEnabled by remember { mutableStateOf(!config.controller) }
             val coroutineScope = rememberCoroutineScope()
 
-            LaunchedEffect(cliArgs.controller) {
-                if (cliArgs.controller) {
+            LaunchedEffect(config.controller) {
+                if (config.controller) {
                     withFrameNanos { }
                     log.d { "Initializing controller input" }
-                    val initialized = withContext(Dispatchers.IO) { PlatformControllerInput(machine.controller) }
+                    val initialized =
+                        withContext(Dispatchers.IO) { PlatformControllerInput(nesMachine.controller) }
                     controllerInput = initialized
-                    input = initialized
+                    runtimeInput.current = initialized
+                    keyboardEventsEnabled = false
                 }
             }
 
-            val windowState = remember { WindowState(size = crtWindowSize(cliArgs.crt)) }
-            LaunchedEffect(crt) {
-                windowState.size = crtWindowSize(crt)
+            val windowState = remember { WindowState(size = DpSize(768.dp, 720.dp)) }
+
+            DisposableEffect(Unit) {
+                runtimeHost.start(
+                    onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
+                    onQuit = { coroutineScope.launch { exitApplication() } },
+                    onError = { coroutineScope.launch { exitApplication() } },
+                )
+                onDispose(runtimeHost::stop)
+            }
+
+            DisposableEffect(Unit) {
+                onDispose(runtimeHost::close)
             }
 
             Window(
                 onCloseRequest = ::exitApplication,
-                title = title,
                 state = windowState,
             ) {
-                val romPicker = remember(window) { AwtRomPicker(window) }
-                ComposeMenuBar(
-                    onAction = { action ->
+                val romPicker = remember(window) { FileChooser(window) }
+                MainScreen(
+                    viewModel = viewModel,
+                    frameBuffer = runtimeHost.frameBuffer,
+                    renderer = renderer,
+                    keyboardInput = keyboardInput,
+                    keyboardEventsEnabled = keyboardEventsEnabled,
+                    onTitleChanged = { window.title = it },
+                    onOpenRomClick = {
                         coroutineScope.launch {
-                            when (action) {
-                                MenuAction.OpenRom -> {
-                                    val rom = romPicker.pickRom()
-                                    if (rom != null && loadRom(rom)) {
-                                        loadedRom = state.currentRomName
-                                        title = "CartridgeVM NES [${state.currentRomName}]"
-                                    }
-                                    focusRequestKey++
-                                }
-                                MenuAction.Exit -> exitApplication()
-                            }
+                            val rom = romPicker.pickRom()
+                            viewModel.onRomSelected(rom)
                         }
                     },
-                    onMenuOpened = {
-                        if (input === keyboardInput) keyboardInput.releaseAll()
-                    },
-                    onMenuDismissed = { focusRequestKey++ },
-                    crtEnabled = crt,
-                    onToggleCrt = { crt = !crt },
-                    modifier = Modifier.fillMaxSize(),
-                ) { contentModifier ->
-                    input?.let { activeInput ->
-                        ComposeSkiaScreen(
-                            machine = machine,
-                            machineLock = machineLock,
-                            renderer = renderer,
-                            audio = audio,
-                            input = activeInput,
-                            keyboardInput = keyboardInput.takeIf { activeInput === it },
-                            crt = crt,
-                            frameNanos = Timing.FRAME_NANOS,
-                            unlimited = cliArgs.unlimited,
-                            running = loadedRom != null,
-                            focusRequestKey = focusRequestKey,
-                            modifier = contentModifier,
-                            onFps = { fps ->
-                                val currentName = state.currentRomName ?: "No ROM"
-                                title = "CartridgeVM NES [$currentName | FPS: $fps]"
-                            },
-                            onQuit = ::exitApplication,
-                        )
-                    }
-                }
+                    onExitClick = ::exitApplication,
+                )
             }
         }
     }
-
-    private fun loadRom(rom: RomData): Boolean = synchronized(machineLock) { state.loadRom(rom) }
-
-    private fun Path.toRomData() = RomData(fileName.toString(), readBytes())
 }
-
-private fun crtWindowSize(crt: Boolean): DpSize =
-    if (crt) DpSize(1024.dp, 960.dp) else DpSize(768.dp, 720.dp)

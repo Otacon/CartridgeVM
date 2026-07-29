@@ -4,21 +4,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import kotlinx.browser.window
 
-actual class PlatformAtomicBoolean actual constructor(initial: Boolean) {
-    private var value = initial
-
-    actual fun get(): Boolean = value
-
-    actual fun set(value: Boolean) {
-        this.value = value
-    }
-}
-
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = block()
 
-actual fun startComposeEmulatorLoop(
+actual fun startPlatformEmulatorLoop(
     frameNanos: Long,
-    unlimited: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -36,25 +25,15 @@ actual fun startComposeEmulatorLoop(
             if (frameStart == 0.0) frameStart = now
             if (fpsTime == 0.0) fpsTime = now
 
-            if (unlimited) {
+            while (now - frameStart >= frameMillis) {
                 val result = step()
                 if (result.quitRequested) {
                     active = false
                     onQuit()
                     return
                 }
+                frameStart += frameMillis
                 frames++
-            } else {
-                while (now - frameStart >= frameMillis) {
-                    val result = step()
-                    if (result.quitRequested) {
-                        active = false
-                        onQuit()
-                        return
-                    }
-                    frameStart += frameMillis
-                    frames++
-                }
             }
 
             if (now - fpsTime >= 1_000.0) {

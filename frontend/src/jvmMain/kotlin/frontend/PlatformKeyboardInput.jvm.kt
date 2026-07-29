@@ -34,7 +34,7 @@ actual class PlatformKeyboardInput actual constructor(
         if (Key.DirectionLeft.isPressed()) buttons = buttons or (1 shl NesController.LEFT)
         if (Key.DirectionRight.isPressed()) buttons = buttons or (1 shl NesController.RIGHT)
         controller.setButtons(buttons)
-        updateControlEdges(Key.P.isPressed(), Key.R.isPressed())
+        updateControlEdges(Key.R.isPressed())
     }
 
     @Synchronized

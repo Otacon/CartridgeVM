@@ -1,116 +1,78 @@
-@file:OptIn(ExperimentalWasmJsInterop::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 
 package app
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
-import frontend.BaseEmulatorInput
-import frontend.ComposeMenuBar
-import frontend.ComposeSkiaScreen
-import frontend.MenuAction
-import frontend.PlatformAudioPipeline
-import frontend.PlatformControllerInput
-import frontend.PlatformKeyboardInput
-import frontend.PlatformRenderer
-import frontend.RomData
-import frontend.RomLoader
-import frontend.RomPicker
+import di.WasmFrontendComponent
+import di.create
+import frontend.*
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
-import nes.Timing
-import nes.di.NesComponent
-import nes.di.create
+import me.tatarka.inject.annotations.Inject
+import nes.NesMachine
 import nes.input.NesController
-import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.asList
-import org.w3c.files.File
-import org.w3c.files.FileReader
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 fun main() {
+    val appComponent = WasmFrontendComponent::class.create(Config(debug = true))
     val root = document.getElementById("app") ?: document.body ?: error("Missing document body")
     ComposeViewport(root) {
-        val application = remember { WebEmulatorApplication() }
+        val application = remember { appComponent.webEmulatorApplication }
         application.Content()
     }
 }
 
-private class WebEmulatorApplication {
-    private val nesComponent = NesComponent::class.create()
-    private val renderer = PlatformRenderer()
-    private val audio = PlatformAudioPipeline()
-    private val machine = nesComponent.nesMachine
-    private val keyboardInput = PlatformKeyboardInput(machine.controller)
+@Inject
+class WebEmulatorApplication(
+    private val machine: NesMachine,
+    private val keyboardInput: PlatformKeyboardInput,
+    runtimeInput: DelegatingEmulatorInput,
+    private val runtimeHost: EmulatorRuntimeHost,
+    private val viewModel: MainScreenViewModel,
+    private val renderer: PlatformRenderer,
+) {
     private val controllerInput = PlatformControllerInput(machine.controller)
     private val input = WebCombinedInput(machine.controller, keyboardInput, controllerInput)
-    private val romLoader = RomLoader(nesComponent.inesParser, machine)
-    private val romPicker = WebRomPicker()
-    private val machineLock = Any()
+    private val romPicker = FileChooser()
+
+    init {
+        runtimeInput.current = input
+    }
 
     @Composable
     fun Content() {
-        var loadedRom by remember { mutableStateOf(romLoader.currentRomName) }
-        var focusRequestKey by remember { mutableIntStateOf(0) }
-        var crt by remember { mutableStateOf(false) }
         val coroutineScope = rememberCoroutineScope()
 
-        ComposeMenuBar(
-            onAction = { action ->
+        DisposableEffect(Unit) {
+            runtimeHost.start(
+                onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
+                onQuit = { coroutineScope.launch { machine.powerOff() } },
+                onError = { coroutineScope.launch { machine.powerOff() } },
+            )
+            onDispose(runtimeHost::stop)
+        }
+
+        DisposableEffect(Unit) {
+            onDispose(runtimeHost::close)
+        }
+
+        MainScreen(
+            viewModel = viewModel,
+            frameBuffer = runtimeHost.frameBuffer,
+            renderer = renderer,
+            keyboardInput = keyboardInput,
+            keyboardEventsEnabled = true,
+            onTitleChanged = { document.title = it },
+            onOpenRomClick = {
                 coroutineScope.launch {
-                    when (action) {
-                        MenuAction.OpenRom -> {
-                            audio.resume()
-                            val rom = romPicker.pickRom()
-                            if (rom != null && romLoader.load(rom)) {
-                                loadedRom = romLoader.currentRomName
-                            }
-                            focusRequestKey++
-                        }
-                        MenuAction.Exit -> {
-                            loadedRom = null
-                            focusRequestKey++
-                        }
-                    }
+                    val rom = romPicker.pickRom()
+                    viewModel.onRomSelected(rom)
                 }
             },
-            onMenuOpened = { keyboardInput.releaseAll() },
-            onMenuDismissed = { focusRequestKey++ },
-            crtEnabled = crt,
-            onToggleCrt = {
-                audio.resume()
-                crt = !crt
-                focusRequestKey++
-            },
-            modifier = Modifier.fillMaxSize(),
-        ) { contentModifier ->
-            ComposeSkiaScreen(
-                machine = machine,
-                machineLock = machineLock,
-                renderer = renderer,
-                audio = audio,
-                input = input,
-                keyboardInput = keyboardInput,
-                crt = crt,
-                frameNanos = Timing.FRAME_NANOS,
-                unlimited = false,
-                running = loadedRom != null,
-                focusRequestKey = focusRequestKey,
-                modifier = contentModifier,
-                onQuit = {
-                    loadedRom = null
-                    focusRequestKey++
-                },
-            )
-        }
+        )
     }
 }
 
@@ -123,10 +85,7 @@ private class WebCombinedInput(
         keyboard.poll()
         controller.poll()
         nesController.setButtons(keyboard.buttonMask() or controller.buttonMask())
-        updateControlEdges(
-            keyboard.consumePause() || controller.consumePause(),
-            keyboard.consumeReset() || controller.consumeReset(),
-        )
+        updateControlEdges(keyboard.consumeReset() || controller.consumeReset())
     }
 
     override fun quitRequested(): Boolean = false
@@ -137,41 +96,3 @@ private class WebCombinedInput(
     }
 }
 
-private class WebRomPicker : RomPicker {
-    private val input = document.getElementById("rom") as HTMLInputElement
-
-    override suspend fun pickRom(): RomData? = suspendCoroutine { continuation ->
-        input.value = ""
-        input.onchange = {
-            val file = input.files?.asList()?.firstOrNull()
-            if (file == null) {
-                continuation.resume(null)
-            } else {
-                file.readRomData { continuation.resume(it) }
-            }
-        }
-        input.click()
-    }
-
-    private fun File.readRomData(onLoaded: (RomData?) -> Unit) {
-        val reader = FileReader()
-        reader.onload = {
-            onLoaded(RomData(name, reader.result.toByteArray()))
-        }
-        reader.onerror = {
-            onLoaded(null)
-        }
-        reader.readAsArrayBuffer(this)
-    }
-}
-
-private fun JsAny?.toByteArray(): ByteArray {
-    val buffer = requireNotNull(this) { "Missing file contents" }
-    return ByteArray(arrayBufferLength(buffer)) { index -> arrayBufferGet(buffer, index).toByte() }
-}
-
-@JsFun("(buffer) => new Uint8Array(buffer).length")
-private external fun arrayBufferLength(buffer: JsAny): Int
-
-@JsFun("(buffer, index) => new Uint8Array(buffer)[index]")
-private external fun arrayBufferGet(buffer: JsAny, index: Int): Int

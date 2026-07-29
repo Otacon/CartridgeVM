@@ -8,20 +8,15 @@ class EmulatorRuntime(
     private val input: EmulatorInput,
     private val video: VideoOutput,
 ) {
-    private var runState = EmulatorRunState.Running
 
-    fun step(running: Boolean): EmulatorStepResult {
+    fun step(): EmulatorStepResult {
         input.poll()
-        if (input.consumePause()) {
-            runState = if (runState == EmulatorRunState.Running) EmulatorRunState.Paused else EmulatorRunState.Running
-        }
         if (input.consumeReset()) {
             machine.reset()
-            runState = EmulatorRunState.Running
         }
 
         var frameRendered = false
-        if (running && runState == EmulatorRunState.Running) {
+        if (machine.isPoweredOn.value) {
             machine.runUntilFrame(input::poll)
             audio.submit(machine.apu.samples, machine.apu.sampleCount)
             video.submit(machine.ppu.framebuffer)
@@ -39,5 +34,3 @@ data class EmulatorStepResult(
     val frameRendered: Boolean,
     val quitRequested: Boolean,
 )
-
-private enum class EmulatorRunState { Running, Paused }

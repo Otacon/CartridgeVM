@@ -46,8 +46,8 @@ float3 phosphorMask(float2 fragCoord) {
 float4 main(float2 devicePoint) {
     float2 textureCoordinate = (devicePoint - destinationOrigin) / destinationSize;
     float2 fragCoord = float2(devicePoint.x, outputSize.y - devicePoint.y);
-    float2 glassPoint = textureCoordinate * 2.0 - 1.0;
-    float2 sampleCoordinate = glassPoint * 0.965 * 0.5 + 0.5;
+    float2 sampleCoordinate = textureCoordinate;
+    float2 glassPoint = sampleCoordinate * 2.0 - 1.0;
 
     float3 color = analogSignal(sampleCoordinate);
     float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));

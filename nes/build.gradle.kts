@@ -19,6 +19,7 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kermit)
             implementation(libs.kotlinInjectRuntime)
+            implementation(libs.kotlinxCoroutinesCore)
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)

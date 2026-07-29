@@ -2,29 +2,14 @@
 
 package frontend
 
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
-import kotlinx.browser.window
+import androidx.compose.ui.input.key.*
 import nes.input.NesController
-import org.w3c.dom.HTMLCanvasElement
-import org.w3c.dom.events.Event
-import org.w3c.dom.events.KeyboardEvent
 
 actual class PlatformKeyboardInput actual constructor(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
     private val pressedKeys = mutableSetOf<String>()
     private var currentButtons = 0
-
-    fun attach(canvas: HTMLCanvasElement) {
-        canvas.onkeydown = { event -> onKey(event) }
-        canvas.onkeyup = { event -> onKey(event) }
-        window.onkeydown = { event -> onKey(event) }
-        window.onkeyup = { event -> onKey(event) }
-    }
 
     actual fun onKeyEvent(event: KeyEvent): Boolean {
         val code = event.key.toCode() ?: return false
@@ -52,7 +37,7 @@ actual class PlatformKeyboardInput actual constructor(
         if ("ArrowRight".isPressed()) buttons = buttons or (1 shl NesController.RIGHT)
         currentButtons = buttons
         controller.setButtons(currentButtons)
-        updateControlEdges("KeyP".isPressed(), "KeyR".isPressed())
+        updateControlEdges("KeyR".isPressed())
     }
 
     fun buttonMask(): Int = currentButtons
@@ -63,15 +48,6 @@ actual class PlatformKeyboardInput actual constructor(
         pressedKeys.clear()
         currentButtons = 0
         controller.setButtons(0)
-    }
-
-    private fun onKey(event: Event): Any? {
-        val keyEvent = event as KeyboardEvent
-        if (keyEvent.code in handledKeys) {
-            if (keyEvent.type == "keydown") pressedKeys.add(keyEvent.code) else pressedKeys.remove(keyEvent.code)
-            keyEvent.preventDefault()
-        }
-        return null
     }
 
     private fun String.isPressed(): Boolean = this in pressedKeys
@@ -90,22 +66,6 @@ actual class PlatformKeyboardInput actual constructor(
         Key.R -> "KeyR"
         else -> null
     }
-
-    private companion object {
-        val handledKeys = setOf(
-            "KeyZ",
-            "KeyX",
-            "ShiftLeft",
-            "ShiftRight",
-            "Enter",
-            "ArrowUp",
-            "ArrowDown",
-            "ArrowLeft",
-            "ArrowRight",
-            "KeyP",
-            "KeyR",
-        )
-    }
 }
 
 actual class PlatformControllerInput actual constructor(
@@ -118,7 +78,7 @@ actual class PlatformControllerInput actual constructor(
         if (gamepad == null) {
             currentButtons = 0
             controller.setButtons(0)
-            updateControlEdges(pause = false, reset = false)
+            updateControlEdges(reset = false)
             return
         }
         var buttons = 0
@@ -127,12 +87,15 @@ actual class PlatformControllerInput actual constructor(
         if (gamepadButton(gamepad, 8)) buttons = buttons or (1 shl NesController.SELECT)
         if (gamepadButton(gamepad, 9)) buttons = buttons or (1 shl NesController.START)
         if (gamepadButton(gamepad, 12) || gamepadAxis(gamepad, 1) < -0.45) buttons = buttons or (1 shl NesController.UP)
-        if (gamepadButton(gamepad, 13) || gamepadAxis(gamepad, 1) > 0.45) buttons = buttons or (1 shl NesController.DOWN)
-        if (gamepadButton(gamepad, 14) || gamepadAxis(gamepad, 0) < -0.45) buttons = buttons or (1 shl NesController.LEFT)
-        if (gamepadButton(gamepad, 15) || gamepadAxis(gamepad, 0) > 0.45) buttons = buttons or (1 shl NesController.RIGHT)
+        if (gamepadButton(gamepad, 13) || gamepadAxis(gamepad, 1) > 0.45) buttons =
+            buttons or (1 shl NesController.DOWN)
+        if (gamepadButton(gamepad, 14) || gamepadAxis(gamepad, 0) < -0.45) buttons =
+            buttons or (1 shl NesController.LEFT)
+        if (gamepadButton(gamepad, 15) || gamepadAxis(gamepad, 0) > 0.45) buttons =
+            buttons or (1 shl NesController.RIGHT)
         currentButtons = buttons
         controller.setButtons(currentButtons)
-        updateControlEdges(gamepadButton(gamepad, 5), gamepadButton(gamepad, 4))
+        updateControlEdges(gamepadButton(gamepad, 5))
     }
 
     fun buttonMask(): Int = currentButtons

@@ -4,21 +4,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import java.util.concurrent.atomic.AtomicBoolean
 
-actual class PlatformAtomicBoolean actual constructor(initial: Boolean) {
-    private val value = AtomicBoolean(initial)
-
-    actual fun get(): Boolean = value.get()
-
-    actual fun set(value: Boolean) {
-        this.value.set(value)
-    }
-}
-
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = synchronized(lock, block)
 
-actual fun startComposeEmulatorLoop(
+actual fun startPlatformEmulatorLoop(
     frameNanos: Long,
-    unlimited: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -39,7 +28,7 @@ actual fun startComposeEmulatorLoop(
                     break
                 }
                 if (!result.frameRendered) Thread.sleep(8)
-                if (!unlimited) pacer.waitForNextFrame()
+                pacer.waitForNextFrame()
 
                 frames++
                 val now = System.nanoTime()
