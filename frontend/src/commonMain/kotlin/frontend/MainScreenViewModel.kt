@@ -23,7 +23,12 @@ class MainScreenViewModel(
 
     fun onCreate() {
         config.rom?.let { loadRom(it) }
-        _state.update { it.copy(isCrtEnabled = config.crt) }
+        _state.update {
+            it.copy(
+                isCrtEnabled = config.crt,
+                isFrameLimiterEnabled = !config.unlimited
+            )
+        }
     }
 
     fun onRomSelected(romData: RomData?) {
@@ -68,4 +73,5 @@ data class MainWindowState(
     val windowTitle: String = "",
     val showRomPicker: Boolean = false,
     val isCrtEnabled: Boolean = false,
+    val isFrameLimiterEnabled: Boolean = true,
 )

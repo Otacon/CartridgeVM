@@ -45,7 +45,6 @@ private class WebEmulatorApplication {
                 }
             },
             onTitleChanged = { document.title = it },
-            unlimited = false,
             keyboardInput = keyboardInput,
             keyboardEventsEnabled = true,
             input = input,

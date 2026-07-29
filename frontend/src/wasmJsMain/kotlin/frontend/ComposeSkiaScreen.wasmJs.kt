@@ -18,7 +18,7 @@ actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = block()
 
 actual fun startComposeEmulatorLoop(
     frameNanos: Long,
-    unlimited: Boolean,
+    enableFrameLimit: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -36,7 +36,7 @@ actual fun startComposeEmulatorLoop(
             if (frameStart == 0.0) frameStart = now
             if (fpsTime == 0.0) fpsTime = now
 
-            if (unlimited) {
+            if (enableFrameLimit) {
                 val result = step()
                 if (result.quitRequested) {
                     active = false

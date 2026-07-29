@@ -34,8 +34,8 @@ fun ComposeSkiaScreen(
     keyboardInput: PlatformKeyboardInput?,
     crt: Boolean,
     frameNanos: Long,
-    unlimited: Boolean,
-    running: Boolean,
+    enableFrameLimit: Boolean,
+    isRunning: Boolean,
     modifier: Modifier = Modifier,
     onFps: (Int) -> Unit = {},
     onQuit: () -> Unit,
@@ -45,14 +45,14 @@ fun ComposeSkiaScreen(
     val runtime = remember(machine, audio, input, frameBuffer) {
         EmulatorRuntime(machine, audio, input, frameBuffer)
     }
-    val runningFlag = remember { PlatformAtomicBoolean(running) }
+    val runningFlag = remember { PlatformAtomicBoolean(isRunning) }
     val fpsHandler by rememberUpdatedState(onFps)
     val quitHandler by rememberUpdatedState(onQuit)
     val uiScope = rememberCoroutineScope()
     var drawTick by remember { mutableLongStateOf(0L) }
 
     SideEffect {
-        runningFlag.set(running)
+        runningFlag.set(isRunning)
     }
 
     LaunchedEffect(Unit) {
@@ -70,10 +70,10 @@ fun ComposeSkiaScreen(
         onDispose(renderer::close)
     }
 
-    DisposableEffect(runtime, machineLock, unlimited) {
+    DisposableEffect(runtime, machineLock, enableFrameLimit) {
         val loop = startComposeEmulatorLoop(
             frameNanos = frameNanos,
-            unlimited = unlimited,
+            enableFrameLimit = !enableFrameLimit,
             step = {
                 platformSynchronized(machineLock) {
                     runtime.step(runningFlag.get())
@@ -137,7 +137,7 @@ interface ComposeEmulatorLoop : AutoCloseable
 
 expect fun startComposeEmulatorLoop(
     frameNanos: Long,
-    unlimited: Boolean,
+    enableFrameLimit: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,

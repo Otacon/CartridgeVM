@@ -9,7 +9,6 @@ import nes.Timing
 @Composable
 fun MainScreen(
     onOpenRomClick: () -> Unit,
-    unlimited: Boolean,
     keyboardInput: PlatformKeyboardInput,
     keyboardEventsEnabled: Boolean,
     input: EmulatorInput?,
@@ -50,8 +49,8 @@ fun MainScreen(
                 keyboardInput = keyboardInput.takeIf { keyboardEventsEnabled },
                 crt = state.isCrtEnabled,
                 frameNanos = Timing.FRAME_NANOS,
-                unlimited = unlimited,
-                running = state.isRunning,
+                enableFrameLimit = state.isFrameLimiterEnabled,
+                isRunning = state.isRunning,
                 modifier = contentModifier,
                 onFps = { viewModel.onFpsUpdated(it) },
                 onQuit = { onExitClick?.invoke() },

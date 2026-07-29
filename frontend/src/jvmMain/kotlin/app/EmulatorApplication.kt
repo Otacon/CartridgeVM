@@ -83,7 +83,6 @@ class EmulatorApplication(
                     },
                     onExitClick = ::exitApplication,
                     onTitleChanged = { window.title = it },
-                    unlimited = cliArgs.unlimited,
                     keyboardInput = keyboardInput,
                     keyboardEventsEnabled = input === keyboardInput,
                     input = input,

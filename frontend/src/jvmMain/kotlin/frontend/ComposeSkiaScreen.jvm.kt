@@ -18,7 +18,7 @@ actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = synchronized
 
 actual fun startComposeEmulatorLoop(
     frameNanos: Long,
-    unlimited: Boolean,
+    enableFrameLimit: Boolean,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -39,7 +39,7 @@ actual fun startComposeEmulatorLoop(
                     break
                 }
                 if (!result.frameRendered) Thread.sleep(8)
-                if (!unlimited) pacer.waitForNextFrame()
+                if (!enableFrameLimit) pacer.waitForNextFrame()
 
                 frames++
                 val now = System.nanoTime()
