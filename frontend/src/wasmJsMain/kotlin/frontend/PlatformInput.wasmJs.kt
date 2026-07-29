@@ -3,24 +3,13 @@
 package frontend
 
 import androidx.compose.ui.input.key.*
-import kotlinx.browser.window
 import nes.input.NesController
-import org.w3c.dom.HTMLCanvasElement
-import org.w3c.dom.events.Event
-import org.w3c.dom.events.KeyboardEvent
 
 actual class PlatformKeyboardInput actual constructor(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
     private val pressedKeys = mutableSetOf<String>()
     private var currentButtons = 0
-
-    fun attach(canvas: HTMLCanvasElement) {
-        canvas.onkeydown = { event -> onKey(event) }
-        canvas.onkeyup = { event -> onKey(event) }
-        window.onkeydown = { event -> onKey(event) }
-        window.onkeyup = { event -> onKey(event) }
-    }
 
     actual fun onKeyEvent(event: KeyEvent): Boolean {
         val code = event.key.toCode() ?: return false
@@ -61,15 +50,6 @@ actual class PlatformKeyboardInput actual constructor(
         controller.setButtons(0)
     }
 
-    private fun onKey(event: Event): Any? {
-        val keyEvent = event as KeyboardEvent
-        if (keyEvent.code in handledKeys) {
-            if (keyEvent.type == "keydown") pressedKeys.add(keyEvent.code) else pressedKeys.remove(keyEvent.code)
-            keyEvent.preventDefault()
-        }
-        return null
-    }
-
     private fun String.isPressed(): Boolean = this in pressedKeys
 
     private fun Key.toCode(): String? = when (this) {
@@ -85,22 +65,6 @@ actual class PlatformKeyboardInput actual constructor(
         Key.P -> "KeyP"
         Key.R -> "KeyR"
         else -> null
-    }
-
-    private companion object {
-        val handledKeys = setOf(
-            "KeyZ",
-            "KeyX",
-            "ShiftLeft",
-            "ShiftRight",
-            "Enter",
-            "ArrowUp",
-            "ArrowDown",
-            "ArrowLeft",
-            "ArrowRight",
-            "KeyP",
-            "KeyR",
-        )
     }
 }
 
