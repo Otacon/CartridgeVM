@@ -1,0 +1,72 @@
+package frontend
+
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
+import java.util.concurrent.atomic.AtomicBoolean
+
+actual class PlatformAtomicBoolean actual constructor(initial: Boolean) {
+    private val value = AtomicBoolean(initial)
+
+    actual fun get(): Boolean = value.get()
+
+    actual fun set(value: Boolean) {
+        this.value.set(value)
+    }
+}
+
+actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = synchronized(lock, block)
+
+actual fun startComposeEmulatorLoop(
+    frameNanos: Long,
+    unlimited: Boolean,
+    step: () -> EmulatorStepResult,
+    onFps: (Int) -> Unit,
+    onQuit: () -> Unit,
+    onError: (Throwable) -> Unit,
+): ComposeEmulatorLoop {
+    val keepRunning = AtomicBoolean(true)
+    val thread = Thread({
+        val pacer = FramePacer(frameNanos)
+        var frames = 0
+        var fpsTime = System.nanoTime()
+
+        try {
+            while (keepRunning.get()) {
+                val result = step()
+                if (result.quitRequested) {
+                    keepRunning.set(false)
+                    onQuit()
+                    break
+                }
+                if (!result.frameRendered) Thread.sleep(8)
+                if (!unlimited) pacer.waitForNextFrame()
+
+                frames++
+                val now = System.nanoTime()
+                if (now - fpsTime >= 1_000_000_000L) {
+                    onFps(frames)
+                    frames = 0
+                    fpsTime = now
+                }
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (error: Throwable) {
+            onError(error)
+        }
+    }, "compose-skiko-emulator")
+    thread.isDaemon = true
+    thread.start()
+
+    return object : ComposeEmulatorLoop {
+        override fun close() {
+            keepRunning.set(false)
+            thread.interrupt()
+            thread.join()
+        }
+    }
+}
+
+actual fun DrawScope.drawPlatformRenderer(renderer: PlatformRenderer) {
+    renderer.draw(drawContext.canvas.nativeCanvas)
+}

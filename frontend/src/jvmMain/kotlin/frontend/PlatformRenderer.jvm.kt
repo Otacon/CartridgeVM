@@ -1,129 +1,172 @@
 package frontend
 
 import me.tatarka.inject.annotations.Inject
-import nes.util.low8Bits
-import org.lwjgl.opengl.GL11.*
-import org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE
-import org.lwjgl.opengl.GL20.*
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorSpace
+import org.jetbrains.skia.ColorType
+import org.jetbrains.skia.FilterTileMode
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.RuntimeEffect
+import org.jetbrains.skia.RuntimeShaderBuilder
+import org.jetbrains.skia.SamplingMode
 
 @Inject
 actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
-    private var texture = 0
-    private var crtProgram = 0
+    private val upload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
+    private val imageInfo = ImageInfo(
+        FRAME_WIDTH,
+        FRAME_HEIGHT,
+        ColorType.RGBA_8888,
+        ColorAlphaType.OPAQUE,
+        ColorSpace.sRGB,
+    )
+    private var frameImage: Image? = null
+    private var backgroundPaint: Paint? = null
+    private var framePaint: Paint? = null
+    private var crtEffect: RuntimeEffect? = null
+    private var crtBuilder: RuntimeShaderBuilder? = null
     private var crtEnabled = false
-    private var outputSizeUniform = -1
-    private var timeUniform = -1
+    private var initialized = false
+    private var outputWidth = 0
+    private var outputHeight = 0
     private var presentedFrames = 0L
-    private val upload: ByteBuffer = ByteBuffer.allocateDirect(256 * 240 * 4).order(ByteOrder.nativeOrder())
 
     actual override fun init(crt: Boolean) {
-        crtEnabled = crt
-        texture = glGenTextures()
-        if (texture == 0) throw IllegalStateException("OpenGL initialization failure")
-        glBindTexture(GL_TEXTURE_2D, texture)
-        val filtering = if (crt) GL_LINEAR else GL_NEAREST
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, upload)
-        if (crt) initCrtProgram()
+        release()
+        try {
+            crtEnabled = crt
+            backgroundPaint = Paint().apply { color = Color.BLACK }
+            framePaint = Paint().apply { isAntiAlias = false }
+            if (crt) {
+                val source = checkNotNull(javaClass.getResourceAsStream(CRT_SHADER_RESOURCE)) {
+                    "Missing shader resource: $CRT_SHADER_RESOURCE"
+                }.bufferedReader().use { it.readText() }
+                crtEffect = RuntimeEffect.makeForShader(source)
+                crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
+            }
+            presentedFrames = 0L
+            initialized = true
+        } catch (error: Throwable) {
+            release()
+            throw error
+        }
     }
 
     actual override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
-        upload.clear()
-        var i = 0
-        while (i < framebuffer.size) {
-            val c = framebuffer[i]
-            upload.put((c shr 16).low8Bits().toByte())
-            upload.put((c shr 8).low8Bits().toByte())
-            upload.put(c.low8Bits().toByte())
-            upload.put(0xFF.toByte())
-            i++
+        check(initialized) { "Skiko renderer is not initialized" }
+        require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES framebuffer" }
+
+        var src = 0
+        var dst = 0
+        while (src < FRAME_WIDTH * FRAME_HEIGHT) {
+            val color = framebuffer[src++]
+            upload[dst++] = (color shr 16).toByte()
+            upload[dst++] = (color shr 8).toByte()
+            upload[dst++] = color.toByte()
+            upload[dst++] = 0xFF.toByte()
         }
-        upload.flip()
-        glBindTexture(GL_TEXTURE_2D, texture)
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 240, GL_RGBA, GL_UNSIGNED_BYTE, upload)
-        glViewport(0, 0, windowWidth, windowHeight)
-        glClearColor(0f, 0f, 0f, 1f)
-        glClear(GL_COLOR_BUFFER_BIT)
-        val (w, h) = if (crtEnabled) {
-            fitAspect(windowWidth, windowHeight, 256f / 240f, 1f)
-        } else {
-            val scale = maxOf(1, minOf(windowWidth / 256, windowHeight / 240))
-            256f * scale / windowWidth.toFloat() to 240f * scale / windowHeight.toFloat()
-        }
+
+        frameImage?.close()
+        frameImage = Image.makeRaster(imageInfo, upload, FRAME_WIDTH * BYTES_PER_PIXEL)
+        outputWidth = windowWidth
+        outputHeight = windowHeight
+    }
+
+    fun draw(canvas: Canvas) {
+        val image = frameImage ?: return
+        if (outputWidth <= 0 || outputHeight <= 0) return
+
+        val output = Rect.makeWH(outputWidth.toFloat(), outputHeight.toFloat())
+        canvas.drawRect(output, requireNotNull(backgroundPaint))
+        val destination = destinationRect()
         if (crtEnabled) {
-            glUseProgram(crtProgram)
-            glUniform2f(outputSizeUniform, windowWidth.toFloat(), windowHeight.toFloat())
-            glUniform1f(timeUniform, presentedFrames / 60f)
+            drawCrt(canvas, image, destination)
+        } else {
+            canvas.drawImageRect(
+                image,
+                SOURCE_RECT,
+                destination,
+                SamplingMode.DEFAULT,
+                null,
+                true,
+            )
         }
-        glEnable(GL_TEXTURE_2D)
-        glBegin(GL_QUADS)
-        glTexCoord2f(0f, 1f); glVertex2f(-w, -h)
-        glTexCoord2f(1f, 1f); glVertex2f(w, -h)
-        glTexCoord2f(1f, 0f); glVertex2f(w, h)
-        glTexCoord2f(0f, 0f); glVertex2f(-w, h)
-        glEnd()
-        if (crtEnabled) glUseProgram(0)
         presentedFrames++
     }
 
     actual override fun close() {
-        if (crtProgram != 0) glDeleteProgram(crtProgram)
-        if (texture != 0) glDeleteTextures(texture)
-        crtProgram = 0
-        texture = 0
+        release()
     }
 
-    private fun initCrtProgram() {
-        val vertexShader = compileShader(GL_VERTEX_SHADER, "/shaders/crt.vert")
-        val fragmentShader = compileShader(GL_FRAGMENT_SHADER, "/shaders/crt.frag")
-        crtProgram = glCreateProgram()
-        glAttachShader(crtProgram, vertexShader)
-        glAttachShader(crtProgram, fragmentShader)
-        glLinkProgram(crtProgram)
-        glDeleteShader(vertexShader)
-        glDeleteShader(fragmentShader)
-        if (glGetProgrami(crtProgram, GL_LINK_STATUS) == GL_FALSE) {
-            throw IllegalStateException("CRT shader link failure: ${programInfoLog(crtProgram)}")
+    private fun drawCrt(canvas: Canvas, image: Image, destination: Rect) {
+        val frameShader = image.makeShader(
+            FilterTileMode.CLAMP,
+            FilterTileMode.CLAMP,
+            SamplingMode.LINEAR,
+            null,
+        )
+        val builder = requireNotNull(crtBuilder)
+        try {
+            builder.child("frameTexture", frameShader)
+            builder.uniform("outputSize", outputWidth.toFloat(), outputHeight.toFloat())
+            builder.uniform("destinationOrigin", destination.left, destination.top)
+            builder.uniform("destinationSize", destination.width, destination.height)
+            builder.uniform("time", presentedFrames / 60f)
+
+            val shader = builder.makeShader()
+            val paint = requireNotNull(framePaint)
+            try {
+                paint.shader = shader
+                canvas.drawRect(destination, paint)
+            } finally {
+                paint.shader = null
+                shader.close()
+            }
+        } finally {
+            frameShader.close()
         }
-        glUseProgram(crtProgram)
-        glUniform1i(glGetUniformLocation(crtProgram, "frameTexture"), 0)
-        outputSizeUniform = glGetUniformLocation(crtProgram, "outputSize")
-        timeUniform = glGetUniformLocation(crtProgram, "time")
-        glUseProgram(0)
     }
 
-    private fun compileShader(type: Int, resource: String): Int {
-        val source = checkNotNull(javaClass.getResource(resource)) { "Missing shader resource: $resource" }.readText()
-        val shader = glCreateShader(type)
-        glShaderSource(shader, source)
-        glCompileShader(shader)
-        if (glGetShaderi(shader, GL_COMPILE_STATUS) == GL_FALSE) {
-            val error = shaderInfoLog(shader)
-            glDeleteShader(shader)
-            throw IllegalStateException("CRT shader compile failure ($resource): $error")
-        }
-        return shader
-    }
-
-    private fun shaderInfoLog(shader: Int): String {
-        return glGetShaderInfoLog(shader)
-    }
-
-    private fun programInfoLog(program: Int): String {
-        return glGetProgramInfoLog(program)
-    }
-
-    private fun fitAspect(windowWidth: Int, windowHeight: Int, aspect: Float, fill: Float): Pair<Float, Float> {
-        val windowAspect = windowWidth.toFloat() / windowHeight
-        return if (windowAspect > aspect) {
-            fill * aspect / windowAspect to fill
+    private fun destinationRect(): Rect {
+        val width = outputWidth.toFloat()
+        val height = outputHeight.toFloat()
+        val (destinationWidth, destinationHeight) = if (crtEnabled) {
+            val scale = minOf(width / FRAME_WIDTH, height / FRAME_HEIGHT)
+            FRAME_WIDTH * scale to FRAME_HEIGHT * scale
         } else {
-            fill to fill * windowAspect / aspect
+            val scale = maxOf(1, minOf(outputWidth / FRAME_WIDTH, outputHeight / FRAME_HEIGHT))
+            FRAME_WIDTH * scale.toFloat() to FRAME_HEIGHT * scale.toFloat()
         }
+        val left = (width - destinationWidth) * 0.5f
+        val top = (height - destinationHeight) * 0.5f
+        return Rect.makeLTRB(left, top, left + destinationWidth, top + destinationHeight)
+    }
+
+    private fun release() {
+        framePaint?.shader = null
+        frameImage?.close()
+        crtBuilder?.close()
+        crtEffect?.close()
+        framePaint?.close()
+        backgroundPaint?.close()
+        frameImage = null
+        crtBuilder = null
+        crtEffect = null
+        framePaint = null
+        backgroundPaint = null
+        initialized = false
+    }
+
+    private companion object {
+        const val FRAME_WIDTH = 256
+        const val FRAME_HEIGHT = 240
+        const val BYTES_PER_PIXEL = 4
+        const val CRT_SHADER_RESOURCE = "/shaders/crt.sksl"
+        val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())
     }
 }

@@ -29,7 +29,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":nes"))
+            implementation(compose.foundation)
             implementation(compose.runtime)
+            implementation(compose.ui)
             implementation(libs.kermit)
         }
         commonTest.dependencies {
@@ -44,27 +46,17 @@ kotlin {
             implementation(libs.kotlinInjectRuntime)
             implementation(libs.jinput)
             implementation(libs.lwjgl)
-            implementation(libs.lwjglJawt)
-            implementation(libs.lwjglOpenGl)
             implementation(libs.lwjglOpenal)
-            implementation("org.lwjglx:lwjgl3-awt:${libs.versions.lwjgl3Awt.get()}") {
-                exclude(group = "org.lwjgl")
-            }
             runtimeOnly("net.java.jinput:jinput:${libs.versions.jinput.get()}:natives-all")
             runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-macos")
-            runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-macos")
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-macos")
             runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-macos-arm64")
-            runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-macos-arm64")
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-macos-arm64")
             runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-linux")
-            runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-linux")
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-linux")
             runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-linux-arm64")
-            runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-linux-arm64")
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-linux-arm64")
             runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-windows")
-            runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-windows")
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-windows")
         }
     }

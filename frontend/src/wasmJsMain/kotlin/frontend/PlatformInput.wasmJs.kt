@@ -2,6 +2,11 @@
 
 package frontend
 
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import kotlinx.browser.window
 import nes.input.NesController
 import org.w3c.dom.HTMLCanvasElement
@@ -19,6 +24,20 @@ actual class PlatformKeyboardInput actual constructor(
         canvas.onkeyup = { event -> onKey(event) }
         window.onkeydown = { event -> onKey(event) }
         window.onkeyup = { event -> onKey(event) }
+    }
+
+    actual fun onKeyEvent(event: KeyEvent): Boolean {
+        val code = event.key.toCode() ?: return false
+        when (event.type) {
+            KeyEventType.KeyDown -> pressedKeys += code
+            KeyEventType.KeyUp -> pressedKeys -= code
+            else -> return false
+        }
+        return true
+    }
+
+    actual fun releaseAll() {
+        pressedKeys.clear()
     }
 
     actual override fun poll() {
@@ -56,6 +75,21 @@ actual class PlatformKeyboardInput actual constructor(
     }
 
     private fun String.isPressed(): Boolean = this in pressedKeys
+
+    private fun Key.toCode(): String? = when (this) {
+        Key.Z -> "KeyZ"
+        Key.X -> "KeyX"
+        Key.ShiftLeft -> "ShiftLeft"
+        Key.ShiftRight -> "ShiftRight"
+        Key.Enter -> "Enter"
+        Key.DirectionUp -> "ArrowUp"
+        Key.DirectionDown -> "ArrowDown"
+        Key.DirectionLeft -> "ArrowLeft"
+        Key.DirectionRight -> "ArrowRight"
+        Key.P -> "KeyP"
+        Key.R -> "KeyR"
+        else -> null
+    }
 
     private companion object {
         val handledKeys = setOf(

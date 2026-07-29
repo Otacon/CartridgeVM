@@ -1,5 +1,6 @@
 package frontend
 
+import androidx.compose.ui.input.key.KeyEvent
 import nes.input.NesController
 
 interface Renderer {
@@ -23,6 +24,10 @@ expect class PlatformAudioPipeline() : AudioPipeline {
 }
 
 expect class PlatformKeyboardInput(controller: NesController) : BaseEmulatorInput {
+    fun onKeyEvent(event: KeyEvent): Boolean
+
+    fun releaseAll()
+
     override fun poll()
 
     override fun quitRequested(): Boolean

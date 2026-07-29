@@ -6,7 +6,7 @@ No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassem
 
 ## Requirements
 
-Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin Multiplatform, Kotlin/JVM, Kotlin/Wasm, LWJGL, OpenGL/WebGL, OpenAL/WebAudio, and Kotlin Test/JUnit 5.
+Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin Multiplatform, Kotlin/JVM, Kotlin/Wasm, Compose/Skiko, WebGL, OpenAL/WebAudio, and Kotlin Test/JUnit 5.
 
 ## Build
 
@@ -17,7 +17,7 @@ Use JDK 21 or newer. The project uses Gradle with Kotlin DSL, Kotlin Multiplatfo
 Run tests only:
 
 ```bash
-./gradlew test
+./gradlew :nes:jvmTest :frontend:jvmTest
 ```
 
 ## Run
@@ -39,9 +39,9 @@ Optional flags:
 ./gradlew run --args="--crt /path/to/game.nes"
 ```
 
-Running without a ROM path prints usage information and exits non-zero.
+Running without a ROM opens the desktop application so a ROM can be selected from the File menu.
 
-Use `--crt` to enable a stable 4:3 consumer CRT simulation with overscan, scanline beam shaping, phosphor slot masking, analog color bleed, halation, and edge falloff. The default renderer remains pixel-sharp when the flag is omitted.
+Use `--crt` to enable a SkSL consumer CRT simulation with overscan, scanline beam shaping, phosphor slot masking, analog color bleed, halation, and edge falloff. The default renderer remains pixel-sharp when the flag is omitted.
 
 ### Web
 
@@ -116,7 +116,7 @@ Implemented:
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
 * SMB-focused APU audio with pulse, triangle, noise, and approximate DMC channels
 * One standard NES controller via `$4016` serial protocol
-* Desktop Compose window, OpenGL texture presentation of a software framebuffer, and OpenAL audio playback
+* Desktop Compose/Skiko presentation of a software framebuffer, an optional SkSL CRT effect, and OpenAL audio playback
 * Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API controller input
 * NTSC-oriented frame pacing with `--unlimited` for debugging
 * Pause, reset, and quit controls
@@ -130,7 +130,7 @@ This is an MVP, not a cycle-perfect emulator.
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
 * NTSC timing only
-* No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, shaders, downloading, or patching
+* No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, downloading, or patching
 * PPU rendering is approximate in several edge cases
 * Sprite overflow behavior is not cycle-accurate
 * The steady-state CPU path avoids collections in dispatch, but address helper objects remain and should be removed before claiming strict allocation-free operation
@@ -139,7 +139,7 @@ Super Mario Bros. compatibility has not been claimed unless tested locally with 
 
 ## Architecture
 
-Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLFW or OpenGL.
+Core emulator code is under `nes/src/commonMain/kotlin/nes` and does not depend on frontend graphics or audio APIs.
 
 * `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7
 * `nes.cpu`: CPU core and CPU bus memory map
@@ -150,16 +150,16 @@ Core emulator code is under `app/src/main/kotlin/nes` and does not depend on GLF
 
 The CPU bus and PPU bus do not depend on mapper classes directly. They communicate with `CartridgeSocket`, which delegates to the mapper stored by the currently inserted `Cartridge`. Parsed iNES ROMs are validated in `InesParser`; unsupported mapper numbers are rejected there before a cartridge is created.
 
-Frontend code is under `app/src/main/kotlin/frontend`.
+Frontend code is under `frontend/src`.
 
-* `GlfwWindow`: window/context lifecycle
-* `KeyboardInput`: fixed keyboard bindings
-* `ControllerInput`: GLFW gamepad bindings enabled with `--controller`
-* `OpenAlAudio`: queues generated mono PCM samples to OpenAL
-* `OpenGlRenderer`: presents the 256x240 framebuffer with nearest-neighbor scaling or the optional GLSL CRT pipeline
+* `ComposeSkiaScreen`: desktop Compose drawing and emulator thread lifecycle
+* `PlatformKeyboardInput`: fixed keyboard bindings
+* `PlatformControllerInput`: JInput gamepad bindings enabled with `--controller`
+* `PlatformAudioPipeline`: queues generated mono PCM samples to OpenAL or WebAudio
+* `PlatformRenderer`: presents the 256x240 framebuffer through Skiko/SkSL on desktop or WebGL on Web
 * `FramePacer`: monotonic accumulated-deadline frame limiter
 
-CLI code is under `app/src/main/kotlin/app`.
+Desktop CLI code is under `frontend/src/jvmMain/kotlin/app`.
 
 ## Legal Notice
 

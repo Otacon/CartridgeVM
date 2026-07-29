@@ -2,201 +2,181 @@
 
 package frontend
 
-import nes.util.low8Bits
-import org.khronos.webgl.Uint8Array
-import org.khronos.webgl.WebGLBuffer
-import org.khronos.webgl.WebGLProgram
-import org.khronos.webgl.WebGLRenderingContext
-import org.khronos.webgl.WebGLShader
-import org.khronos.webgl.WebGLTexture
-import org.w3c.dom.HTMLCanvasElement
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorSpace
+import org.jetbrains.skia.ColorType
+import org.jetbrains.skia.FilterTileMode
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.RuntimeEffect
+import org.jetbrains.skia.RuntimeShaderBuilder
+import org.jetbrains.skia.SamplingMode
 
-actual class PlatformRenderer actual constructor() : Renderer {
-    private var canvas: HTMLCanvasElement? = null
-    private var gl: WebGLRenderingContext? = null
-    private var texture: WebGLTexture? = null
-    private var program: WebGLProgram? = null
-    private var vertexBuffer: WebGLBuffer? = null
+actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
+    private val upload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
+    private val imageInfo = ImageInfo(
+        FRAME_WIDTH,
+        FRAME_HEIGHT,
+        ColorType.RGBA_8888,
+        ColorAlphaType.OPAQUE,
+        ColorSpace.sRGB,
+    )
+    private var frameImage: Image? = null
+    private var backgroundPaint: Paint? = null
+    private var framePaint: Paint? = null
+    private var crtEffect: RuntimeEffect? = null
+    private var crtBuilder: RuntimeShaderBuilder? = null
     private var crtEnabled = false
+    private var initialized = false
+    private var outputWidth = 0
+    private var outputHeight = 0
     private var presentedFrames = 0L
-    private var vertexShaderSource: String? = null
-    private var fragmentShaderSource: String? = null
-    private var crtFragmentShaderSource: String? = null
-    private val upload = Uint8Array(256 * 240 * 4)
-
-    fun attach(canvas: HTMLCanvasElement) {
-        this.canvas = canvas
-    }
-
-    fun setShaderSources(vertex: String, fragment: String) {
-        vertexShaderSource = vertex
-        fragmentShaderSource = fragment
-    }
-
-    fun setCrtShaderSource(fragment: String) {
-        crtFragmentShaderSource = fragment
-    }
 
     actual override fun init(crt: Boolean) {
-        close()
-        crtEnabled = crt
-        val target = requireNotNull(canvas) { "Web renderer requires a canvas" }
-        val context = target.getContext("webgl") as? WebGLRenderingContext
-            ?: target.getContext("experimental-webgl") as? WebGLRenderingContext
-            ?: throw IllegalStateException("WebGL is not available")
-        gl = context
-        program = createProgram(context, crt)
-        vertexBuffer = context.createBuffer()
-        texture = context.createTexture()
-
-        context.bindTexture(WebGLRenderingContext.TEXTURE_2D, texture)
-        context.texParameteri(WebGLRenderingContext.TEXTURE_2D, WebGLRenderingContext.TEXTURE_MIN_FILTER, WebGLRenderingContext.NEAREST)
-        context.texParameteri(WebGLRenderingContext.TEXTURE_2D, WebGLRenderingContext.TEXTURE_MAG_FILTER, WebGLRenderingContext.NEAREST)
-        context.texParameteri(WebGLRenderingContext.TEXTURE_2D, WebGLRenderingContext.TEXTURE_WRAP_S, WebGLRenderingContext.CLAMP_TO_EDGE)
-        context.texParameteri(WebGLRenderingContext.TEXTURE_2D, WebGLRenderingContext.TEXTURE_WRAP_T, WebGLRenderingContext.CLAMP_TO_EDGE)
-        context.texImage2D(
-            WebGLRenderingContext.TEXTURE_2D,
-            0,
-            WebGLRenderingContext.RGBA,
-            256,
-            240,
-            0,
-            WebGLRenderingContext.RGBA,
-            WebGLRenderingContext.UNSIGNED_BYTE,
-            upload,
-        )
-
-        context.bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, vertexBuffer)
-        context.bufferData(
-            WebGLRenderingContext.ARRAY_BUFFER,
-            jsFloatArrayOf(
-                -1f, -1f, 0f, 1f,
-                1f, -1f, 1f, 1f,
-                -1f, 1f, 0f, 0f,
-                1f, 1f, 1f, 0f,
-            ),
-            WebGLRenderingContext.STATIC_DRAW,
-        )
+        release()
+        try {
+            crtEnabled = crt
+            backgroundPaint = Paint().apply { color = Color.BLACK }
+            framePaint = Paint().apply { isAntiAlias = false }
+            if (crt) {
+                crtEffect = RuntimeEffect.makeForShader(loadTextResource(CRT_SHADER_RESOURCE))
+                crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
+            }
+            presentedFrames = 0L
+            initialized = true
+        } catch (error: Throwable) {
+            release()
+            throw error
+        }
     }
 
     actual override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
-        val context = requireNotNull(gl)
-        val target = requireNotNull(canvas)
-        val devicePixelRatio = jsDevicePixelRatio()
-        val width = maxOf(1, (target.clientWidth * devicePixelRatio).toInt())
-        val height = maxOf(1, (target.clientHeight * devicePixelRatio).toInt())
-        if (target.width != width || target.height != height) {
-            target.width = width
-            target.height = height
-        }
+        check(initialized) { "Skiko renderer is not initialized" }
+        require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES framebuffer" }
 
         var src = 0
         var dst = 0
-        while (src < framebuffer.size && dst + 3 < upload.length) {
-            val c = framebuffer[src]
-            setUint8(upload, dst++, (c shr 16).low8Bits())
-            setUint8(upload, dst++, (c shr 8).low8Bits())
-            setUint8(upload, dst++, c.low8Bits())
-            setUint8(upload, dst++, 255)
-            src++
+        while (src < FRAME_WIDTH * FRAME_HEIGHT) {
+            val color = framebuffer[src++]
+            upload[dst++] = (color shr 16).toByte()
+            upload[dst++] = (color shr 8).toByte()
+            upload[dst++] = color.toByte()
+            upload[dst++] = 0xFF.toByte()
         }
 
-        context.viewport(0, 0, width, height)
-        context.clearColor(0f, 0f, 0f, 1f)
-        context.clear(WebGLRenderingContext.COLOR_BUFFER_BIT)
-        context.useProgram(program)
+        frameImage?.close()
+        frameImage = Image.makeRaster(imageInfo, upload, FRAME_WIDTH * BYTES_PER_PIXEL)
+        outputWidth = windowWidth
+        outputHeight = windowHeight
+    }
+
+    fun draw(canvas: Canvas) {
+        val image = frameImage ?: return
+        if (outputWidth <= 0 || outputHeight <= 0) return
+
+        val output = Rect.makeWH(outputWidth.toFloat(), outputHeight.toFloat())
+        canvas.drawRect(output, requireNotNull(backgroundPaint))
+        val destination = destinationRect()
         if (crtEnabled) {
-            context.uniform2f(context.getUniformLocation(program, "outputSize"), width.toFloat(), height.toFloat())
-            context.uniform1f(context.getUniformLocation(program, "time"), presentedFrames / 60f)
+            drawCrt(canvas, image, destination)
+        } else {
+            canvas.drawImageRect(
+                image,
+                SOURCE_RECT,
+                destination,
+                SamplingMode.DEFAULT,
+                null,
+                true,
+            )
         }
-        context.bindTexture(WebGLRenderingContext.TEXTURE_2D, texture)
-        context.texSubImage2D(
-            WebGLRenderingContext.TEXTURE_2D,
-            0,
-            0,
-            0,
-            256,
-            240,
-            WebGLRenderingContext.RGBA,
-            WebGLRenderingContext.UNSIGNED_BYTE,
-            upload,
-        )
-        context.bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, vertexBuffer)
-        val position = context.getAttribLocation(program, "position")
-        val texCoord = context.getAttribLocation(program, "texCoord")
-        context.enableVertexAttribArray(position)
-        context.vertexAttribPointer(position, 2, WebGLRenderingContext.FLOAT, false, 16, 0)
-        context.enableVertexAttribArray(texCoord)
-        context.vertexAttribPointer(texCoord, 2, WebGLRenderingContext.FLOAT, false, 16, 8)
-        context.drawArrays(WebGLRenderingContext.TRIANGLE_STRIP, 0, 4)
         presentedFrames++
     }
 
     actual override fun close() {
-        val context = gl ?: return
-        texture?.let(context::deleteTexture)
-        vertexBuffer?.let(context::deleteBuffer)
-        program?.let(context::deleteProgram)
-        texture = null
-        vertexBuffer = null
-        program = null
-        gl = null
+        release()
     }
 
-    private fun createProgram(context: WebGLRenderingContext, crt: Boolean): WebGLProgram {
-        val vertexSource = requireNotNull(vertexShaderSource) { "Missing WebGL vertex shader" }
-        val fragmentSource = if (crt) {
-            requireNotNull(crtFragmentShaderSource) { "Missing WebGL CRT fragment shader" }
+    private fun drawCrt(canvas: Canvas, image: Image, destination: Rect) {
+        val frameShader = image.makeShader(
+            FilterTileMode.CLAMP,
+            FilterTileMode.CLAMP,
+            SamplingMode.LINEAR,
+            null,
+        )
+        val builder = requireNotNull(crtBuilder)
+        try {
+            builder.child("frameTexture", frameShader)
+            builder.uniform("outputSize", outputWidth.toFloat(), outputHeight.toFloat())
+            builder.uniform("destinationOrigin", destination.left, destination.top)
+            builder.uniform("destinationSize", destination.width, destination.height)
+            builder.uniform("time", presentedFrames / 60f)
+
+            val shader = builder.makeShader()
+            val paint = requireNotNull(framePaint)
+            try {
+                paint.shader = shader
+                canvas.drawRect(destination, paint)
+            } finally {
+                paint.shader = null
+                shader.close()
+            }
+        } finally {
+            frameShader.close()
+        }
+    }
+
+    private fun destinationRect(): Rect {
+        val width = outputWidth.toFloat()
+        val height = outputHeight.toFloat()
+        val (destinationWidth, destinationHeight) = if (crtEnabled) {
+            val scale = minOf(width / FRAME_WIDTH, height / FRAME_HEIGHT)
+            FRAME_WIDTH * scale to FRAME_HEIGHT * scale
         } else {
-            requireNotNull(fragmentShaderSource) { "Missing WebGL fragment shader" }
+            val scale = maxOf(1, minOf(outputWidth / FRAME_WIDTH, outputHeight / FRAME_HEIGHT))
+            FRAME_WIDTH * scale.toFloat() to FRAME_HEIGHT * scale.toFloat()
         }
-        val vertex = compileShader(context, WebGLRenderingContext.VERTEX_SHADER, vertexSource)
-        val fragment = compileShader(context, WebGLRenderingContext.FRAGMENT_SHADER, fragmentSource)
-        val linked = context.createProgram() ?: throw IllegalStateException("Unable to create WebGL program")
-        context.attachShader(linked, vertex)
-        context.attachShader(linked, fragment)
-        context.linkProgram(linked)
-        if (!webGlProgramParameter(context, linked, WebGLRenderingContext.LINK_STATUS)) {
-            throw IllegalStateException("WebGL link failure: ${context.getProgramInfoLog(linked)}")
-        }
-        context.deleteShader(vertex)
-        context.deleteShader(fragment)
-        context.useProgram(linked)
-        context.uniform1i(context.getUniformLocation(linked, "frameTexture"), 0)
-        return linked
+        val left = (width - destinationWidth) * 0.5f
+        val top = (height - destinationHeight) * 0.5f
+        return Rect.makeLTRB(left, top, left + destinationWidth, top + destinationHeight)
     }
 
-    private fun compileShader(context: WebGLRenderingContext, type: Int, source: String): WebGLShader {
-        val shader = context.createShader(type) ?: throw IllegalStateException("Unable to create WebGL shader")
-        context.shaderSource(shader, source)
-        context.compileShader(shader)
-        if (!webGlShaderParameter(context, shader, WebGLRenderingContext.COMPILE_STATUS)) {
-            throw IllegalStateException("WebGL shader failure: ${context.getShaderInfoLog(shader)}")
-        }
-        return shader
+    private fun release() {
+        framePaint?.shader = null
+        frameImage?.close()
+        crtBuilder?.close()
+        crtEffect?.close()
+        framePaint?.close()
+        backgroundPaint?.close()
+        frameImage = null
+        crtBuilder = null
+        crtEffect = null
+        framePaint = null
+        backgroundPaint = null
+        initialized = false
     }
 
+    private companion object {
+        const val FRAME_WIDTH = 256
+        const val FRAME_HEIGHT = 240
+        const val BYTES_PER_PIXEL = 4
+        const val CRT_SHADER_RESOURCE = "shaders/crt.sksl"
+        val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())
+    }
 }
 
-@JsFun("(values) => new Float32Array(values)")
-private external fun jsFloatArrayOf(values: JsArray<JsNumber>): org.khronos.webgl.Float32Array
-
-private fun jsFloatArrayOf(vararg values: Float): org.khronos.webgl.Float32Array {
-    val array = JsArray<JsNumber>()
-    values.forEachIndexed { index, value ->
-        array[index] = value.toDouble().toJsNumber()
+@JsFun(
+    """
+    (path) => {
+        const request = new XMLHttpRequest();
+        request.open('GET', path, false);
+        request.send();
+        if ((request.status >= 200 && request.status < 300) || request.status === 0) return request.responseText;
+        throw new Error('Unable to load resource ' + path + ': ' + request.status + ' ' + request.statusText);
     }
-    return jsFloatArrayOf(array)
-}
-
-@JsFun("() => window.devicePixelRatio || 1")
-private external fun jsDevicePixelRatio(): Double
-
-@JsFun("(array, index, value) => { array[index] = value; }")
-private external fun setUint8(array: Uint8Array, index: Int, value: Int)
-
-@JsFun("(gl, target, parameter) => !!gl.getProgramParameter(target, parameter)")
-private external fun webGlProgramParameter(gl: WebGLRenderingContext, program: WebGLProgram, parameter: Int): Boolean
-
-@JsFun("(gl, target, parameter) => !!gl.getShaderParameter(target, parameter)")
-private external fun webGlShaderParameter(gl: WebGLRenderingContext, shader: WebGLShader, parameter: Int): Boolean
+    """
+)
+private external fun loadTextResource(path: String): String
