@@ -1,5 +1,6 @@
 package frontend
 
+import io.readTextResource
 import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
 
@@ -31,10 +32,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
             backgroundPaint = Paint().apply { color = Color.BLACK }
             framePaint = Paint().apply { isAntiAlias = false }
             if (crt) {
-                val source = checkNotNull(javaClass.getResourceAsStream(CRT_SHADER_RESOURCE)) {
-                    "Missing shader resource: $CRT_SHADER_RESOURCE"
-                }.bufferedReader().use { it.readText() }
-                crtEffect = RuntimeEffect.makeForShader(source)
+                crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))
                 crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
             }
             presentedFrames = 0L
@@ -150,7 +148,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         const val FRAME_WIDTH = 256
         const val FRAME_HEIGHT = 240
         const val BYTES_PER_PIXEL = 4
-        const val CRT_SHADER_RESOURCE = "/shaders/crt.sksl"
+        const val CRT_SHADER_RESOURCE = "shaders/crt.sksl"
         val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())
     }
 }
