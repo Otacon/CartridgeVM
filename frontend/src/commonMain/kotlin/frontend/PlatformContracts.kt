@@ -3,6 +3,8 @@ package frontend
 interface AudioPipeline {
     fun submit(samples: ShortArray, count: Int)
 
+    fun pause() = Unit
+
     fun close() = Unit
 }
 

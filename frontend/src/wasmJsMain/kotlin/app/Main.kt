@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, ExperimentalWasmJsInterop::class)
 
 package app
 
@@ -47,12 +47,18 @@ class WebEmulatorApplication(
         val coroutineScope = rememberCoroutineScope()
 
         DisposableEffect(Unit) {
+            val activityListener = addPageActivityListener {
+                if (isPageActive()) runtimeHost.resume() else runtimeHost.pause()
+            }
             runtimeHost.start(
                 onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
                 onQuit = { coroutineScope.launch { machine.powerOff() } },
                 onError = { coroutineScope.launch { machine.powerOff() } },
             )
-            onDispose(runtimeHost::stop)
+            onDispose {
+                removePageActivityListener(activityListener)
+                runtimeHost.stop()
+            }
         }
 
         DisposableEffect(Unit) {
@@ -90,9 +96,14 @@ private class WebCombinedInput(
 
     override fun quitRequested(): Boolean = false
 
+    override fun pause() {
+        keyboard.pause()
+        controller.pause()
+        nesController.setButtons(0)
+    }
+
     override fun close() {
         keyboard.close()
         controller.close()
     }
 }
-

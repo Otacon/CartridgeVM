@@ -7,6 +7,8 @@ interface EmulatorInput {
 
     fun quitRequested(): Boolean
 
+    fun pause() = Unit
+
     fun close() = Unit
 }
 
@@ -36,6 +38,10 @@ class DelegatingEmulatorInput(initialInput: EmulatorInput? = null) : EmulatorInp
     override fun consumeReset(): Boolean = current?.consumeReset() == true
 
     override fun quitRequested(): Boolean = current?.quitRequested() == true
+
+    override fun pause() {
+        current?.pause()
+    }
 
     override fun close() {
         current?.close()

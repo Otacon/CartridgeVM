@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import kotlin.system.exitProcess
 
 @Inject
@@ -80,6 +82,20 @@ class EmulatorApplication(
                 onCloseRequest = ::exitApplication,
                 state = windowState,
             ) {
+                DisposableEffect(window) {
+                    val listener = object : WindowAdapter() {
+                        override fun windowActivated(event: WindowEvent) {
+                            runtimeHost.resume()
+                        }
+
+                        override fun windowDeactivated(event: WindowEvent) {
+                            runtimeHost.pause()
+                        }
+                    }
+                    window.addWindowListener(listener)
+                    onDispose { window.removeWindowListener(listener) }
+                }
+
                 val romPicker = remember(window) { FileChooser(window) }
                 MainScreen(
                     viewModel = viewModel,

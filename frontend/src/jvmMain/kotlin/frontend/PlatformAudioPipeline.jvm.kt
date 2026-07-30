@@ -60,10 +60,25 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoClo
         }
     }
 
+    override fun pause() {
+        alcMakeContextCurrent(context)
+        alSourceStop(source)
+        unqueueAll()
+    }
+
+    private fun unqueueAll() {
+        var queued = alGetSourcei(source, AL_BUFFERS_QUEUED)
+        while (queued > 0) {
+            if (freeCount < freeBuffers.size) freeBuffers[freeCount++] =
+                alSourceUnqueueBuffers(source) else alSourceUnqueueBuffers(source)
+            queued--
+        }
+    }
+
     override fun close() {
         alcMakeContextCurrent(context)
         alSourceStop(source)
-        unqueueProcessed()
+        unqueueAll()
         alDeleteSources(source)
         alDeleteBuffers(buffers)
         alcMakeContextCurrent(0)

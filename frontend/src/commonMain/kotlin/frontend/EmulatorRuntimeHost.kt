@@ -13,6 +13,7 @@ class EmulatorRuntimeHost(
 
     private val runtime = EmulatorRuntime(machine, audio, input, frameBuffer)
     private var loop: ComposeEmulatorLoop? = null
+    private var paused = false
 
     fun start(
         onFps: (Int) -> Unit,
@@ -28,7 +29,7 @@ class EmulatorRuntimeHost(
             },
             step = {
                 platformSynchronized(lock) {
-                    runtime.step()
+                    if (paused) EmulatorStepResult(frameRendered = false, quitRequested = false) else runtime.step()
                 }
             },
             onFps = onFps,
@@ -40,6 +41,21 @@ class EmulatorRuntimeHost(
     fun stop() {
         loop?.close()
         loop = null
+    }
+
+    fun pause() {
+        platformSynchronized(lock) {
+            if (!paused) {
+                paused = true
+                runtime.pause()
+            }
+        }
+    }
+
+    fun resume() {
+        platformSynchronized(lock) {
+            paused = false
+        }
     }
 
     override fun close() {

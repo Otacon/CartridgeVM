@@ -43,6 +43,12 @@ actual class PlatformKeyboardInput actual constructor(
     @Synchronized
     actual fun releaseAll() {
         pressedKeys.clear()
+        controller.setButtons(0)
+    }
+
+    @Synchronized
+    override fun pause() {
+        releaseAll()
     }
 
     @Synchronized

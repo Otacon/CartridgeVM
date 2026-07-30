@@ -25,6 +25,11 @@ class EmulatorRuntime(
         return EmulatorStepResult(frameRendered, input.quitRequested())
     }
 
+    fun pause() {
+        input.pause()
+        audio.pause()
+    }
+
     fun close() {
         input.close()
     }

@@ -59,6 +59,12 @@ actual class PlatformControllerInput actual constructor(
 
     actual override fun quitRequested() = stateAvailable && quitPressed
 
+    override fun pause() {
+        stateAvailable = false
+        quitPressed = false
+        controller.setButtons(0)
+    }
+
     override fun close() {
         controller.setButtons(0)
     }
