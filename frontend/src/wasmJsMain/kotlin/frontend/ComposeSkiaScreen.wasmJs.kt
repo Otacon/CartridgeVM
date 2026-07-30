@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package frontend
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -18,10 +20,45 @@ actual fun startPlatformEmulatorLoop(
     var frames = 0
     var fpsTime = 0.0
     var frameMillis = frameNanos() / 1_000_000.0
+    var paused = !isPageActive()
+    var pauseNotified = false
+
+    val activityListener = addPageActivityListener {
+        paused = !isPageActive()
+        if (paused) {
+            frames = 0
+            frameStart = 0.0
+            fpsTime = 0.0
+            if (!pauseNotified) {
+                pauseNotified = true
+                onFps(0)
+            }
+        }
+    }
 
     fun frame(now: Double) {
         if (!active) return
         try {
+            if (paused || !isPageActive()) {
+                paused = true
+                frames = 0
+                frameStart = 0.0
+                fpsTime = 0.0
+                if (!pauseNotified) {
+                    pauseNotified = true
+                    onFps(0)
+                }
+                window.requestAnimationFrame(::frame)
+                return
+            }
+
+            if (pauseNotified) {
+                pauseNotified = false
+                frameStart = now
+                fpsTime = now
+                frames = 0
+            }
+
             if (frameStart == 0.0) frameStart = now
             if (fpsTime == 0.0) fpsTime = now
 
@@ -54,6 +91,7 @@ actual fun startPlatformEmulatorLoop(
     return object : ComposeEmulatorLoop {
         override fun close() {
             active = false
+            removePageActivityListener(activityListener)
         }
     }
 }

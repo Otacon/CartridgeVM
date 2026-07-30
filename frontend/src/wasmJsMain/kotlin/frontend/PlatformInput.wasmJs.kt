@@ -8,6 +8,9 @@ import nes.input.NesController
 actual class PlatformKeyboardInput actual constructor(
     private val controller: NesController,
 ) : BaseEmulatorInput() {
+    private var activityListener: JsAny? = addPageActivityListener {
+        if (!isPageActive()) releaseAll()
+    }
     private val pressedKeys = mutableSetOf<String>()
     private var currentButtons = 0
 
@@ -23,6 +26,8 @@ actual class PlatformKeyboardInput actual constructor(
 
     actual fun releaseAll() {
         pressedKeys.clear()
+        currentButtons = 0
+        controller.setButtons(0)
     }
 
     actual override fun poll() {
@@ -45,6 +50,8 @@ actual class PlatformKeyboardInput actual constructor(
     actual override fun quitRequested(): Boolean = false
 
     override fun close() {
+        activityListener?.let(::removePageActivityListener)
+        activityListener = null
         pressedKeys.clear()
         currentButtons = 0
         controller.setButtons(0)

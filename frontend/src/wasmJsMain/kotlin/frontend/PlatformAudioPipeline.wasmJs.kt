@@ -6,15 +6,20 @@ import nes.apu.NesApu
 
 actual class PlatformAudioPipeline actual constructor() : AudioPipeline {
     private var context: JsAny? = null
+    private var activityListener: JsAny? = addPageActivityListener {
+        if (!isPageActive()) closeAudioContext()
+    }
     private var nextStartTime = 0.0
 
     fun resume() {
+        if (!isPageActive()) return
         val audio = ensureContext()
         audioResume(audio)
     }
 
     actual override fun submit(samples: ShortArray, count: Int) {
         if (count <= 0) return
+        if (!isPageActive()) return
         val audio = ensureContext()
         val now = audioCurrentTime(audio)
         if (nextStartTime < now) nextStartTime = now + 0.02
@@ -31,8 +36,15 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline {
     }
 
     override fun close() {
+        activityListener?.let(::removePageActivityListener)
+        activityListener = null
+        closeAudioContext()
+    }
+
+    private fun closeAudioContext() {
         context?.let(::audioClose)
         context = null
+        nextStartTime = 0.0
     }
 
     private fun ensureContext(): JsAny {
