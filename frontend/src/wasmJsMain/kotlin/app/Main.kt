@@ -14,7 +14,6 @@ import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
-import nes.input.NesController
 
 fun main() {
     val appComponent = WasmFrontendComponent::class.create(Config(debug = true))
@@ -29,18 +28,11 @@ fun main() {
 class WebEmulatorApplication(
     private val machine: NesMachine,
     private val keyboardInput: PlatformKeyboardInput,
-    runtimeInput: DelegatingEmulatorInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val viewModel: MainScreenViewModel,
     private val renderer: PlatformRenderer,
 ) {
-    private val controllerInput = PlatformControllerInput(machine.controller)
-    private val input = WebCombinedInput(machine.controller, keyboardInput, controllerInput)
     private val romPicker = FileChooser()
-
-    init {
-        runtimeInput.current = input
-    }
 
     @Composable
     fun Content() {
@@ -52,7 +44,6 @@ class WebEmulatorApplication(
             }
             runtimeHost.start(
                 onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },
-                onQuit = { coroutineScope.launch { machine.powerOff() } },
                 onError = { coroutineScope.launch { machine.powerOff() } },
             )
             onDispose {
@@ -70,7 +61,6 @@ class WebEmulatorApplication(
             frameBuffer = runtimeHost.frameBuffer,
             renderer = renderer,
             keyboardInput = keyboardInput,
-            keyboardEventsEnabled = true,
             onTitleChanged = { document.title = it },
             onOpenRomClick = {
                 coroutineScope.launch {
@@ -79,31 +69,5 @@ class WebEmulatorApplication(
                 }
             },
         )
-    }
-}
-
-private class WebCombinedInput(
-    private val nesController: NesController,
-    private val keyboard: PlatformKeyboardInput,
-    private val controller: PlatformControllerInput,
-) : BaseEmulatorInput() {
-    override fun poll() {
-        keyboard.poll()
-        controller.poll()
-        nesController.setButtons(keyboard.buttonMask() or controller.buttonMask())
-        updateControlEdges(keyboard.consumeReset() || controller.consumeReset())
-    }
-
-    override fun quitRequested(): Boolean = false
-
-    override fun pause() {
-        keyboard.pause()
-        controller.pause()
-        nesController.setButtons(0)
-    }
-
-    override fun close() {
-        keyboard.close()
-        controller.close()
     }
 }

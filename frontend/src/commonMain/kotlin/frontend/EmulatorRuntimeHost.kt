@@ -17,7 +17,6 @@ class EmulatorRuntimeHost(
 
     fun start(
         onFps: (Int) -> Unit,
-        onQuit: () -> Unit,
         onError: (Throwable) -> Unit = { error -> log.e(error) { "Emulator loop failed" } },
     ) {
         check(loop == null) { "Emulator runtime host is already started" }
@@ -29,11 +28,10 @@ class EmulatorRuntimeHost(
             },
             step = {
                 platformSynchronized(lock) {
-                    if (paused) EmulatorStepResult(frameRendered = false, quitRequested = false) else runtime.step()
+                    if (paused) EmulatorStepResult(frameRendered = false) else runtime.step()
                 }
             },
             onFps = onFps,
-            onQuit = onQuit,
             onError = onError,
         )
     }
@@ -72,7 +70,6 @@ expect fun startPlatformEmulatorLoop(
     frameNanos: () -> Long,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
-    onQuit: () -> Unit,
     onError: (Throwable) -> Unit,
 ): ComposeEmulatorLoop
 

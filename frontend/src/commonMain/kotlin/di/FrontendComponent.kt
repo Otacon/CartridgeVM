@@ -24,6 +24,7 @@ abstract class FrontendComponent(
     abstract val renderer: PlatformRenderer
     abstract val audio: PlatformAudioPipeline
     abstract val keyboardInput: PlatformKeyboardInput
+    abstract val controllerInput: PlatformControllerInput
     abstract val runtimeInput: DelegatingEmulatorInput
     abstract val runtimeHost: EmulatorRuntimeHost
     abstract val viewModel: MainScreenViewModel
@@ -81,10 +82,16 @@ abstract class FrontendComponent(
 
     @AppScope
     @Provides
+    fun controllerInput(
+        machine: NesMachine,
+    ): PlatformControllerInput = PlatformControllerInput(machine.controller)
+
+    @AppScope
+    @Provides
     fun runtimeInput(
-        config: Config,
         keyboardInput: PlatformKeyboardInput,
-    ): DelegatingEmulatorInput = DelegatingEmulatorInput(keyboardInput.takeUnless { config.controller })
+        controllerInput: PlatformControllerInput,
+    ): DelegatingEmulatorInput = DelegatingEmulatorInput(CombinedEmulatorInput(keyboardInput, controllerInput))
 
     @AppScope
     @Provides

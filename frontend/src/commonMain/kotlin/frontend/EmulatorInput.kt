@@ -3,28 +3,24 @@ package frontend
 interface EmulatorInput {
     fun poll()
 
-    fun consumeReset(): Boolean
-
-    fun quitRequested(): Boolean
-
     fun pause() = Unit
 
     fun close() = Unit
 }
 
-abstract class BaseEmulatorInput : EmulatorInput {
-    private var prevReset = false
-    private var resetEdge = false
-
-    protected fun updateControlEdges(reset: Boolean) {
-        resetEdge = resetEdge || (reset && !prevReset)
-        prevReset = reset
+class CombinedEmulatorInput(
+    private vararg val inputs: EmulatorInput,
+) : EmulatorInput {
+    override fun poll() {
+        inputs.forEach { it.poll() }
     }
 
-    override fun consumeReset(): Boolean {
-        val value = resetEdge
-        resetEdge = false
-        return value
+    override fun pause() {
+        inputs.forEach { it.pause() }
+    }
+
+    override fun close() {
+        inputs.forEach { it.close() }
     }
 }
 
@@ -34,10 +30,6 @@ class DelegatingEmulatorInput(initialInput: EmulatorInput? = null) : EmulatorInp
     override fun poll() {
         current?.poll()
     }
-
-    override fun consumeReset(): Boolean = current?.consumeReset() == true
-
-    override fun quitRequested(): Boolean = current?.quitRequested() == true
 
     override fun pause() {
         current?.pause()

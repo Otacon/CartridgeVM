@@ -14,6 +14,17 @@ import nes.ppu.PpuBus
 import nes.util.toUnsignedInt
 
 class BusTest {
+    private fun NesController.readButtons(): Int {
+        write(1)
+        write(0)
+
+        var buttons = 0
+        repeat(8) { index ->
+            buttons = buttons or ((read() and 1) shl index)
+        }
+        return buttons
+    }
+
     private fun cartridge(
         mirroring: Mirroring = Mirroring.HORIZONTAL,
         prgRom: ByteArray = ByteArray(16 * 1024),
@@ -63,7 +74,8 @@ class BusTest {
     @Test
     fun `controller reads shift button state`() {
         val controller = NesController()
-        controller.setButton(NesController.A, true)
+        controller.press(NesController.BUTTON_A)
+        controller.poll()
 
         controller.write(1)
         controller.write(0)
@@ -73,17 +85,38 @@ class BusTest {
     }
 
     @Test
-    fun `controller accepts a complete button snapshot and filters opposite directions`() {
+    fun `controller filters opposite directions`() {
         val controller = NesController()
-        val buttons = (1 shl NesController.A) or
-                (1 shl NesController.LEFT) or
-                (1 shl NesController.RIGHT)
 
-        controller.setButtons(buttons)
+        controller.press(NesController.BUTTON_A)
+        controller.press(NesController.BUTTON_LEFT)
+        controller.press(NesController.BUTTON_RIGHT)
+        controller.poll()
 
-        assertTrue((controller.snapshot() and (1 shl NesController.A)) != 0)
-        assertTrue((controller.snapshot() and (1 shl NesController.LEFT)) != 0)
-        assertFalse((controller.snapshot() and (1 shl NesController.RIGHT)) != 0)
+        val buttons = controller.readButtons()
+
+        assertTrue((buttons and (1 shl NesController.BUTTON_A)) != 0)
+        assertTrue((buttons and (1 shl NesController.BUTTON_LEFT)) != 0)
+        assertFalse((buttons and (1 shl NesController.BUTTON_RIGHT)) != 0)
+    }
+
+    @Test
+    fun `controller polls button presses for one frame`() {
+        val controller = NesController()
+
+        controller.press(NesController.BUTTON_A)
+        controller.press(NesController.BUTTON_LEFT)
+        controller.poll()
+
+        var buttons = controller.readButtons()
+
+        assertTrue((buttons and (1 shl NesController.BUTTON_A)) != 0)
+        assertTrue((buttons and (1 shl NesController.BUTTON_LEFT)) != 0)
+
+        controller.poll()
+        buttons = controller.readButtons()
+
+        assertEquals(0, buttons)
     }
 
     @Test

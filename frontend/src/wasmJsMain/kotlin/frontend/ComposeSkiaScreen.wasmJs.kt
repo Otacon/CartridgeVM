@@ -12,7 +12,6 @@ actual fun startPlatformEmulatorLoop(
     frameNanos: () -> Long,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
-    onQuit: () -> Unit,
     onError: (Throwable) -> Unit,
 ): ComposeEmulatorLoop {
     var active = true
@@ -64,11 +63,6 @@ actual fun startPlatformEmulatorLoop(
 
             while (now - frameStart >= frameMillis) {
                 val result = step()
-                if (result.quitRequested) {
-                    active = false
-                    onQuit()
-                    return
-                }
                 frameMillis = frameNanos() / 1_000_000.0
                 frameStart += frameMillis
                 if (result.frameRendered) frames++

@@ -10,7 +10,6 @@ fun MainScreen(
     frameBuffer: SharedFrameBuffer,
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
-    keyboardEventsEnabled: Boolean,
     onOpenRomClick: () -> Unit,
     onTitleChanged: (String) -> Unit,
     onExitClick: (() -> Unit)? = null,
@@ -29,9 +28,7 @@ fun MainScreen(
     ComposeMenuBar(
         onOpenRom = onOpenRomClick,
         onExit = onExitClick,
-        onMenuOpened = {
-            if (keyboardEventsEnabled) keyboardInput.releaseAll()
-        },
+        onMenuOpened = { keyboardInput.releaseAll() },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
         crtEnabled = state.isCrtEnabled,
         onToggleCrt = { viewModel.setCrtEnabled(!state.isCrtEnabled) },
@@ -40,7 +37,7 @@ fun MainScreen(
         ComposeSkiaScreen(
             frameBuffer = frameBuffer,
             renderer = renderer,
-            keyboardInput = keyboardInput.takeIf { keyboardEventsEnabled },
+            keyboardInput = keyboardInput,
             crt = state.isCrtEnabled,
             focusRequestKey = focusRequestKey,
             modifier = contentModifier,

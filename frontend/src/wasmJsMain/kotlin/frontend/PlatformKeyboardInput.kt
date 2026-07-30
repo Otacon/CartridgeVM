@@ -12,19 +12,21 @@ actual class PlatformKeyboardInput actual constructor(
 ) : EmulatorInput {
     private var pressedButtons = 0
 
-    @Synchronized
     actual fun onKeyEvent(event: KeyEvent): Boolean {
         val button = event.key.toButton() ?: return false
         val mask = 1 shl button
-        pressedButtons = when (event.type) {
-            KeyEventType.KeyDown -> pressedButtons or mask
-            KeyEventType.KeyUp -> pressedButtons and mask.inv()
+        when (event.type) {
+            KeyEventType.KeyDown -> pressedButtons = pressedButtons or mask
+            KeyEventType.KeyUp -> pressedButtons = pressedButtons and mask.inv()
             else -> return false
         }
         return true
     }
 
-    @Synchronized
+    actual fun releaseAll() {
+        pressedButtons = 0
+    }
+
     actual override fun poll() {
         if (NesController.BUTTON_A.isPressed()) controller.press(NesController.BUTTON_A)
         if (NesController.BUTTON_B.isPressed()) controller.press(NesController.BUTTON_B)
@@ -36,17 +38,10 @@ actual class PlatformKeyboardInput actual constructor(
         if (NesController.BUTTON_RIGHT.isPressed()) controller.press(NesController.BUTTON_RIGHT)
     }
 
-    @Synchronized
-    actual fun releaseAll() {
-        pressedButtons = 0
-    }
-
-    @Synchronized
     override fun pause() {
         releaseAll()
     }
 
-    @Synchronized
     override fun close() {
         pressedButtons = 0
     }

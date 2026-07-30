@@ -4,41 +4,38 @@ import co.touchlab.kermit.Logger
 
 class NesController {
     companion object {
-        const val A = 0
-        const val B = 1
-        const val SELECT = 2
-        const val START = 3
-        const val UP = 4
-        const val DOWN = 5
-        const val LEFT = 6
-        const val RIGHT = 7
+        const val BUTTON_A = 0
+        const val BUTTON_B = 1
+        const val BUTTON_SELECT = 2
+        const val BUTTON_START = 3
+        const val BUTTON_UP = 4
+        const val BUTTON_DOWN = 5
+        const val BUTTON_LEFT = 6
+        const val BUTTON_RIGHT = 7
     }
 
     private var live = 0
     private var latched = 0
     private var index = 0
     private var strobe = false
+    private var buffered = 0
     private val log = Logger.withTag("NesController")
 
     fun reset() {
         latched = live
         index = 0
         strobe = false
+        buffered = 0
     }
 
-    fun setButton(button: Int, pressed: Boolean) {
-        require(button in A..RIGHT) { "Invalid controller button: $button" }
-        val buttonMask = 1 shl button
-        setButtons(if (pressed) live or buttonMask else live and buttonMask.inv())
+    fun poll() {
+        commit(buffered)
+        buffered = 0
     }
 
-    fun setButtons(buttons: Int) {
-        val previous = live
-        live = buttons and 0xFF
-        if ((live and (1 shl LEFT)) != 0 && (live and (1 shl RIGHT)) != 0) live = live and (1 shl RIGHT).inv()
-        if ((live and (1 shl UP)) != 0 && (live and (1 shl DOWN)) != 0) live = live and (1 shl DOWN).inv()
-        logButtonEdges(previous, live)
-        if (strobe) latched = live
+    fun press(button: Int) {
+        require(button in BUTTON_A..BUTTON_RIGHT) { "Invalid controller button: $button" }
+        buffered = buffered or (1 shl button)
     }
 
     fun write(value: Int) {
@@ -55,7 +52,18 @@ class NesController {
         return 0x40 or bit
     }
 
-    fun snapshot(): Int = live
+    private fun commit(buttons: Int) {
+        val previous = live
+        live = buttons and 0xFF
+        if ((live and (1 shl BUTTON_LEFT)) != 0 && (live and (1 shl BUTTON_RIGHT)) != 0) {
+            live = live and (1 shl BUTTON_RIGHT).inv()
+        }
+        if ((live and (1 shl BUTTON_UP)) != 0 && (live and (1 shl BUTTON_DOWN)) != 0) {
+            live = live and (1 shl BUTTON_DOWN).inv()
+        }
+        logButtonEdges(previous, live)
+        if (strobe) latched = live
+    }
 
     private fun logButtonEdges(previous: Int, current: Int) {
         val pressed = current and previous.inv()
@@ -65,13 +73,13 @@ class NesController {
     }
 
     private fun logEdges(buttons: Int, action: String) {
-        if ((buttons and (1 shl START)) != 0) log.d { "START $action" }
-        if ((buttons and (1 shl A)) != 0) log.d { "A $action" }
-        if ((buttons and (1 shl B)) != 0) log.d { "B $action" }
-        if ((buttons and (1 shl SELECT)) != 0) log.d { "SELECT $action" }
-        if ((buttons and (1 shl UP)) != 0) log.d { "UP $action" }
-        if ((buttons and (1 shl DOWN)) != 0) log.d { "DOWN $action" }
-        if ((buttons and (1 shl LEFT)) != 0) log.d { "LEFT $action" }
-        if ((buttons and (1 shl RIGHT)) != 0) log.d { "RIGHT $action" }
+        if ((buttons and (1 shl BUTTON_START)) != 0) log.d { "START $action" }
+        if ((buttons and (1 shl BUTTON_A)) != 0) log.d { "A $action" }
+        if ((buttons and (1 shl BUTTON_B)) != 0) log.d { "B $action" }
+        if ((buttons and (1 shl BUTTON_SELECT)) != 0) log.d { "SELECT $action" }
+        if ((buttons and (1 shl BUTTON_UP)) != 0) log.d { "UP $action" }
+        if ((buttons and (1 shl BUTTON_DOWN)) != 0) log.d { "DOWN $action" }
+        if ((buttons and (1 shl BUTTON_LEFT)) != 0) log.d { "LEFT $action" }
+        if ((buttons and (1 shl BUTTON_RIGHT)) != 0) log.d { "RIGHT $action" }
     }
 }

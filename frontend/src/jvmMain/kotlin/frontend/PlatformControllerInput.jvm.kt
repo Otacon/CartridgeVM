@@ -11,65 +11,53 @@ import java.util.logging.Level
 
 actual class PlatformControllerInput actual constructor(
     private val controller: NesController,
-) : BaseEmulatorInput() {
+) : EmulatorInput {
     private val log = Logger.withTag("PlatformControllerInput")
     private val gamepad = controllers()
         .onEach { log.d { "Input device: ${it.name} type=${it.type}" } }
         .firstOrNull { it.type == Controller.Type.GAMEPAD || it.type == Controller.Type.STICK }
-        ?: throw IllegalStateException("--controller was requested, but no gamepad was detected")
-    private val components = gamepad.components.associateBy { it.identifier.name }
-    private var stateAvailable = false
-    private var quitPressed = false
+    private val buttons = arrayOfNulls<Component>(16)
+    private val pov = gamepad?.components?.firstOrNull { it.identifier == Component.Identifier.Axis.POV }
 
     init {
-        log.i { "Using gamepad: ${gamepad.name}" }
-        gamepad.components.forEach { component ->
-            log.d { "Gamepad component: ${component.name} id=${component.identifier.name}" }
+        if (gamepad == null) {
+            log.i { "No gamepad detected" }
+        } else {
+            log.i { "Using gamepad: ${gamepad.name}" }
+            gamepad.components.forEach { component ->
+                log.d { "Gamepad component: ${component.name} id=${component.identifier.name}" }
+                component.identifier.name.toIntOrNull()?.takeIf { it in buttons.indices }?.let { index ->
+                    buttons[index] = component
+                }
+            }
         }
     }
 
     actual override fun poll() {
-        stateAvailable = gamepad.poll()
-        if (!stateAvailable) {
-            controller.setButtons(0)
-            quitPressed = false
-            return
-        }
+        val gamepad = gamepad ?: return
+        if (!gamepad.poll()) return
 
-        var buttons = 0
-        if (button(0)) buttons = buttons or (1 shl NesController.B)
-        if (button(1)) buttons = buttons or (1 shl NesController.A)
-        if (button(9)) buttons = buttons or (1 shl NesController.SELECT)
-        if (button(8)) buttons = buttons or (1 shl NesController.START)
+        if (button(0)) controller.press(NesController.BUTTON_B)
+        if (button(1)) controller.press(NesController.BUTTON_A)
+        if (button(9)) controller.press(NesController.BUTTON_SELECT)
+        if (button(8)) controller.press(NesController.BUTTON_START)
 
-        val pov = components[Component.Identifier.Axis.POV.name]?.pollData
+        val pov = pov?.pollData
         val up = button(11) || pov == Component.POV.UP || pov == Component.POV.UP_LEFT || pov == Component.POV.UP_RIGHT
         val down = button(12) || pov == Component.POV.DOWN || pov == Component.POV.DOWN_LEFT || pov == Component.POV.DOWN_RIGHT
         val left = button(13) || pov == Component.POV.LEFT || pov == Component.POV.UP_LEFT || pov == Component.POV.DOWN_LEFT
         val right = button(14) || pov == Component.POV.RIGHT || pov == Component.POV.UP_RIGHT || pov == Component.POV.DOWN_RIGHT
-        if (up) buttons = buttons or (1 shl NesController.UP)
-        if (down) buttons = buttons or (1 shl NesController.DOWN)
-        if (left) buttons = buttons or (1 shl NesController.LEFT)
-        if (right) buttons = buttons or (1 shl NesController.RIGHT)
-
-        controller.setButtons(buttons)
-        updateControlEdges(button(5))
-        quitPressed = button(10)
+        if (up) controller.press(NesController.BUTTON_UP)
+        if (down) controller.press(NesController.BUTTON_DOWN)
+        if (left) controller.press(NesController.BUTTON_LEFT)
+        if (right) controller.press(NesController.BUTTON_RIGHT)
     }
 
-    actual override fun quitRequested() = stateAvailable && quitPressed
+    override fun pause() = Unit
 
-    override fun pause() {
-        stateAvailable = false
-        quitPressed = false
-        controller.setButtons(0)
-    }
+    override fun close() = Unit
 
-    override fun close() {
-        controller.setButtons(0)
-    }
-
-    private fun button(index: Int): Boolean = components[index.toString()]?.pollData == 1f
+    private fun button(index: Int): Boolean = buttons[index]?.pollData == 1f
 
     private companion object {
         fun controllers(): Array<Controller> {

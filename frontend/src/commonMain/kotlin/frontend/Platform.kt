@@ -23,18 +23,14 @@ expect class PlatformAudioPipeline() : AudioPipeline {
     override fun submit(samples: ShortArray, count: Int)
 }
 
-expect class PlatformKeyboardInput(controller: NesController) : BaseEmulatorInput {
+expect class PlatformKeyboardInput(controller: NesController) : EmulatorInput {
     fun onKeyEvent(event: KeyEvent): Boolean
 
     fun releaseAll()
 
     override fun poll()
-
-    override fun quitRequested(): Boolean
 }
 
-expect class PlatformControllerInput(controller: NesController) : BaseEmulatorInput {
+expect class PlatformControllerInput(controller: NesController) : EmulatorInput {
     override fun poll()
-
-    override fun quitRequested(): Boolean
 }

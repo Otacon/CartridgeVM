@@ -11,31 +11,33 @@ class EmulatorRuntime(
 
     fun step(): EmulatorStepResult {
         input.poll()
-        if (input.consumeReset()) {
-            machine.reset()
-        }
+        machine.controller.poll()
 
         var frameRendered = false
         if (machine.isPoweredOn.value) {
-            machine.runUntilFrame(input::poll)
+            machine.runUntilFrame {
+                input.poll()
+                machine.controller.poll()
+            }
             audio.submit(machine.apu.samples, machine.apu.sampleCount)
             video.submit(machine.ppu.framebuffer)
             frameRendered = true
         }
-        return EmulatorStepResult(frameRendered, input.quitRequested())
+        return EmulatorStepResult(frameRendered)
     }
 
     fun pause() {
         input.pause()
+        machine.controller.poll()
         audio.pause()
     }
 
     fun close() {
         input.close()
+        machine.controller.poll()
     }
 }
 
 data class EmulatorStepResult(
     val frameRendered: Boolean,
-    val quitRequested: Boolean,
 )

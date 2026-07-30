@@ -10,7 +10,6 @@ actual fun startPlatformEmulatorLoop(
     frameNanos: () -> Long,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
-    onQuit: () -> Unit,
     onError: (Throwable) -> Unit,
 ): ComposeEmulatorLoop {
     val keepRunning = AtomicBoolean(true)
@@ -22,11 +21,6 @@ actual fun startPlatformEmulatorLoop(
         try {
             while (keepRunning.get()) {
                 val result = step()
-                if (result.quitRequested) {
-                    keepRunning.set(false)
-                    onQuit()
-                    break
-                }
                 if (!result.frameRendered) Thread.sleep(8)
                 pacer.setFrameNanos(frameNanos())
                 pacer.waitForNextFrame()
