@@ -35,6 +35,7 @@ class InesParserV2(
         val sizeMsb = bytes[9].toUnsignedInt()
         val prgRomSize = decodeRomSize(prgLsb, sizeMsb and 0x0F, InesParserUtils.PRG_BANK_SIZE, "PRG ROM")
         val chrRomSize = decodeRomSize(chrLsb, sizeMsb shr 4, InesParserUtils.CHR_BANK_SIZE, "CHR ROM")
+        val prgRamSize = decodePrgRamSize(bytes[10].toUnsignedInt())
         val ramSizes = bytes[11].toUnsignedInt()
         val chrRamSize = decodeRamSize(ramSizes and 0x0F) + decodeRamSize(ramSizes shr 4)
         if (chrRomSize != 0L && chrRamSize != 0) {
@@ -48,6 +49,7 @@ class InesParserV2(
             prgSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,
+            prgRamSize = prgRamSize,
         )
         return utils.createCartridge(
             bytes = bytes,
@@ -56,6 +58,7 @@ class InesParserV2(
             prgRomSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,
+            prgRamSize = prgRamSize,
             region = region,
         )
     }
@@ -95,4 +98,6 @@ class InesParserV2(
     }
 
     private fun decodeRamSize(shift: Int): Int = if (shift == 0) 0 else 64 shl shift
+
+    private fun decodePrgRamSize(sizes: Int): Int = decodeRamSize(sizes and 0x0F) + decodeRamSize(sizes shr 4)
 }

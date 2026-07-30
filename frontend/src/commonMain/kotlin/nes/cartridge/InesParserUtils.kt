@@ -61,6 +61,7 @@ class InesParserUtils {
         prgRomSize: Long,
         chrRomSize: Long,
         chrRamSize: Int,
+        prgRamSize: Int,
         region: ConsoleRegion,
     ): Cartridge {
         val trainer = (flags6 and 0x04) != 0
@@ -98,11 +99,11 @@ class InesParserUtils {
             isChrRam = isChrRam,
             trainerPresent = trainer,
             region = region,
-            mapper = createMapper(mapper, prg, chr, isChrRam),
+            mapper = createMapper(mapper, prg, chr, isChrRam, prgRamSize),
         )
     }
 
-    fun validateMapperSizes(mapper: Int, submapper: Int, prgSize: Long, chrRomSize: Long, chrRamSize: Int) {
+    fun validateMapperSizes(mapper: Int, submapper: Int, prgSize: Long, chrRomSize: Long, chrRamSize: Int, prgRamSize: Int) {
         if (submapper != 0) {
             throw RomFormatException("Unsupported submapper $submapper for Mapper $mapper")
         }
@@ -134,6 +135,7 @@ class InesParserUtils {
             4 -> {
                 if (prgSize !in (2L * PRG_BANK_SIZE)..(32L * PRG_BANK_SIZE) || prgSize % MMC3_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
                 if (chrSize !in CHR_BANK_SIZE.toLong()..(32L * CHR_BANK_SIZE) || chrSize % MMC3_CHR_BANK_SIZE != 0L) invalidSize(if (chrRomSize == 0L) "CHR RAM" else "CHR ROM", mapper, chrSize)
+                if (prgRamSize != 0 && prgRamSize != 8 * 1024) invalidSize("PRG RAM", mapper, prgRamSize.toLong())
             }
             7 -> {
                 if (prgSize !in AXROM_PRG_BANK_SIZE.toLong()..(8L * AXROM_PRG_BANK_SIZE) ||
@@ -152,12 +154,12 @@ class InesParserUtils {
         }
     }
 
-    fun createMapper(mapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean): Mapper = when (mapper) {
+    fun createMapper(mapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean, prgRamSize: Int): Mapper = when (mapper) {
         0 -> Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
         1 -> Mapper1(prgRom = prg, chr = chr, isChrRam = isChrRam)
         2 -> Mapper2(prgRom = prg, chrRam = chr)
         3 -> Mapper3(prgRom = prg, chrRom = chr)
-        4 -> Mapper4(prgRom = prg, chr = chr, isChrRam = isChrRam)
+        4 -> Mapper4(prgRom = prg, chr = chr, isChrRam = isChrRam, prgRamSize = prgRamSize)
         7 -> Mapper7(prgRom = prg, chrRam = chr)
         else -> error("Unsupported mapper $mapper")
     }

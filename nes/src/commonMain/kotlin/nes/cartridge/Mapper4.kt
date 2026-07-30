@@ -8,10 +8,11 @@ class Mapper4(
     private val prgRom: ByteArray,
     private val chr: ByteArray,
     private val isChrRam: Boolean,
+    prgRamSize: Int,
 ) : Mapper {
     private val prgBankCount = prgRom.size / PRG_BANK_SIZE
     private val chrBankCount = chr.size / CHR_BANK_SIZE
-    private val prgRam = ByteArray(8 * 1024)
+    private val prgRam = ByteArray(prgRamSize)
     private val registers = IntArray(8)
     private val prgBankOffsets = IntArray(4)
     private val chrBankOffsets = IntArray(8)
@@ -25,14 +26,23 @@ class Mapper4(
     private var irqEnabled = false
     private var irqRequested = false
     private var mirroring: Mirroring? = null
+    private var prgRamEnabled = prgRam.isNotEmpty()
+    private var prgRamWriteProtected = false
 
     init {
         rebuildBankOffsets()
     }
 
     override fun cpuRead(address: Int): Int {
+        return cpuRead(address, 0)
+    }
+
+    override fun cpuRead(address: Int, openBus: Int): Int {
         val a = address.low16Bits()
-        if (a in 0x6000..0x7FFF) return prgRam[a and 0x1FFF].toUnsignedInt()
+        if (a in 0x6000..0x7FFF) {
+            if (prgRam.isEmpty() || !prgRamEnabled) return openBus.low8Bits()
+            return prgRam[(a - 0x6000) % prgRam.size].toUnsignedInt()
+        }
         if (a < 0x8000) return 0
         val page = (a - 0x8000) shr 13
         val index = prgBankOffsets[page] + (a and 0x1FFF)
@@ -43,7 +53,9 @@ class Mapper4(
         val a = address.low16Bits()
         val v = value.low8Bits()
         when (a) {
-            in 0x6000..0x7FFF -> prgRam[a and 0x1FFF] = v.toByte()
+            in 0x6000..0x7FFF -> if (prgRam.isNotEmpty() && prgRamEnabled && !prgRamWriteProtected) {
+                prgRam[(a - 0x6000) % prgRam.size] = v.toByte()
+            }
             in 0x8000..0x9FFF -> if ((a and 1) == 0) {
                 selectedRegister = v and 7
                 prgMode = (v and 0x40) != 0
@@ -55,6 +67,9 @@ class Mapper4(
             }
             in 0xA000..0xBFFF -> if ((a and 1) == 0) {
                 mirroring = if ((v and 1) == 0) Mirroring.VERTICAL else Mirroring.HORIZONTAL
+            } else {
+                prgRamEnabled = (v and 0x80) != 0
+                prgRamWriteProtected = (v and 0x40) != 0
             }
             in 0xC000..0xDFFF -> if ((a and 1) == 0) {
                 irqLatch = v
@@ -91,6 +106,8 @@ class Mapper4(
         irqEnabled = false
         irqRequested = false
         mirroring = null
+        prgRamEnabled = prgRam.isNotEmpty()
+        prgRamWriteProtected = false
         rebuildBankOffsets()
     }
 

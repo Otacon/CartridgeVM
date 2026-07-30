@@ -9,7 +9,7 @@ class Mapper4Test {
     @Test
     fun `CPU reads use MMC3 PRG mode zero`() {
         val prg = prgBanks(4)
-        val mapper = Mapper4(prgRom = prg, chr = ByteArray(8192), isChrRam = false)
+        val mapper = Mapper4(prgRom = prg, chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0x8000, 6)
         mapper.cpuWrite(0x8001, 1)
@@ -25,7 +25,7 @@ class Mapper4Test {
     @Test
     fun `CPU reads use MMC3 PRG mode one`() {
         val prg = prgBanks(4)
-        val mapper = Mapper4(prgRom = prg, chr = ByteArray(8192), isChrRam = false)
+        val mapper = Mapper4(prgRom = prg, chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0x8000, 0x46)
         mapper.cpuWrite(0x8001, 1)
@@ -41,7 +41,7 @@ class Mapper4Test {
     @Test
     fun `PPU reads use MMC3 CHR mode zero`() {
         val chr = chrBanks(8)
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = chr, isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = chr, isChrRam = false, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0x8000, 0)
         mapper.cpuWrite(0x8001, 2)
@@ -56,7 +56,7 @@ class Mapper4Test {
     @Test
     fun `PPU reads use MMC3 CHR mode one`() {
         val chr = chrBanks(8)
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = chr, isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = chr, isChrRam = false, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0x8000, 0x80)
         mapper.cpuWrite(0x8001, 2)
@@ -70,7 +70,7 @@ class Mapper4Test {
 
     @Test
     fun `PPU writes modify CHR RAM when present`() {
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = true)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = true, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0x8000, 2)
         mapper.cpuWrite(0x8001, 3)
@@ -81,7 +81,7 @@ class Mapper4Test {
 
     @Test
     fun `CPU reads and writes PRG RAM`() {
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0x6000, 0x66)
         mapper.cpuWrite(0x7FFF, 0x77)
@@ -91,8 +91,26 @@ class Mapper4Test {
     }
 
     @Test
+    fun `CPU reads disabled PRG RAM as open bus`() {
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
+
+        mapper.cpuWrite(0xA001, 0)
+
+        assertEquals(0xAB, mapper.cpuRead(0x6000, 0xAB))
+    }
+
+    @Test
+    fun `CPU reads absent PRG RAM as open bus`() {
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 0)
+
+        mapper.cpuWrite(0x6000, 0x66)
+
+        assertEquals(0xCD, mapper.cpuRead(0x6000, 0xCD))
+    }
+
+    @Test
     fun `mirroring register overrides cartridge mirroring`() {
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
 
         mapper.cpuWrite(0xA000, 0)
 
@@ -105,7 +123,7 @@ class Mapper4Test {
 
     @Test
     fun `IRQ counter requests interrupt when enabled and counter reaches zero`() {
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
         mapper.cpuWrite(0xC000, 2)
         mapper.cpuWrite(0xDFFF, 0)
         mapper.cpuWrite(0xE001, 0)
@@ -122,7 +140,7 @@ class Mapper4Test {
 
     @Test
     fun `IRQ disable clears pending interrupt`() {
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
         mapper.cpuWrite(0xC000, 1)
         mapper.cpuWrite(0xC001, 0)
         mapper.cpuWrite(0xE001, 0)
@@ -138,7 +156,7 @@ class Mapper4Test {
 
     @Test
     fun `reset restores initial banking mirroring and IRQ state`() {
-        val mapper = Mapper4(prgRom = prgBanks(4), chr = chrBanks(8), isChrRam = false)
+        val mapper = Mapper4(prgRom = prgBanks(4), chr = chrBanks(8), isChrRam = false, prgRamSize = 8 * 1024)
         mapper.cpuWrite(0x8000, 6)
         mapper.cpuWrite(0x8001, 1)
         mapper.cpuWrite(0xA000, 1)
