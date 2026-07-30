@@ -1,7 +1,6 @@
 # Agent Handoff
 
-CartridgeVM is a Kotlin/JVM NES emulator MVP. The near-term objective is practical compatibility with the original NTSC
-Super Mario Bros. from a user-supplied Mapper 0 `.nes` ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
+CartridgeVM is a Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. The near-term objective is practical compatibility with user-supplied `.nes` ROMs, with Super Mario Bros. as the primary Mapper 0 reference. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
 
 Do not add ROMs, BIOS files, Nintendo assets, screenshots, extracted data, disassemblies, or ROM patches.
 
@@ -29,39 +28,42 @@ Main commands:
 
 ```bash
 ./gradlew build
-./gradlew test
+./gradlew :nes:jvmTest :frontend:jvmTest
 ./gradlew run --args="/path/to/game.nes"
 ./gradlew run --args="--debug /path/to/game.nes"
-./gradlew run --args="--debug --unlimited /path/to/game.nes"
+./gradlew run --args="--controller /path/to/game.nes"
+./gradlew run --args="--crt /path/to/game.nes"
+./gradlew :frontend:wasmJsBrowserDevelopmentRun
 ```
 
-Use `--unlimited` only for debugging speed. Normal play should run with the frame limiter enabled at about NTSC `60.099`
-FPS.
-
-macOS GLFW requires `-XstartOnFirstThread`; this is configured in `build.gradle.kts` for Gradle `run` and generated
-application scripts.
+Desktop play uses region-aware frame pacing derived from cartridge timing. There is no current `--unlimited` flag.
 
 ## Project Layout
 
-Core emulator code is under `app/src/main/kotlin/nes` and should not depend on GLFW, OpenGL, or OpenAL.
+Core emulator code is under `nes/src/commonMain/kotlin/nes` and should not depend on frontend graphics, input, or audio APIs.
 
 Key packages:
 
 ```text
-app/src/main/kotlin/app/          CLI entry point and argument parsing
-app/src/main/kotlin/frontend/     GLFW, OpenGL presentation, OpenAL audio, keyboard input, pacing
-app/src/main/kotlin/nes/          Machine orchestration and timing
-app/src/main/kotlin/nes/apu/      APU audio generation
-app/src/main/kotlin/nes/cartridge/iNES parser, cartridge socket, Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7
-app/src/main/kotlin/nes/cpu/      6502 CPU and CPU bus
-app/src/main/kotlin/nes/input/    NES controller protocol
-app/src/main/kotlin/nes/ppu/      PPU registers, memory, timing, and software rendering
+nes/src/commonMain/kotlin/nes/                 Machine orchestration and timing
+nes/src/commonMain/kotlin/nes/apu/             APU audio generation
+nes/src/commonMain/kotlin/nes/cartridge/       Cartridge socket and Mapper 0, 1, 2, 3, 4, and 7
+nes/src/commonMain/kotlin/nes/cpu/             6502 CPU and CPU bus
+nes/src/commonMain/kotlin/nes/input/           NES controller protocol
+nes/src/commonMain/kotlin/nes/ppu/             PPU registers, memory, timing, and software rendering
+frontend/src/commonMain/kotlin/frontend/       Shared Compose UI, runtime host, parser, and platform contracts
+frontend/src/jvmMain/kotlin/app/               Desktop CLI entry point and argument parsing
+frontend/src/jvmMain/kotlin/frontend/          Desktop Compose/Skiko, OpenAL audio, JInput controller, keyboard, pacing
+frontend/src/wasmJsMain/kotlin/app/            Browser app entry point
+frontend/src/wasmJsMain/kotlin/frontend/       Browser WebGL, WebAudio, File API, keyboard, Gamepad API
 ```
 
 Tests are in:
 
 ```text
-app/src/test/kotlin/
+nes/src/commonTest/kotlin/
+frontend/src/commonTest/kotlin/
+frontend/src/jvmTest/kotlin/
 ```
 
 ## Implemented Scope
@@ -69,6 +71,8 @@ app/src/test/kotlin/
 ROM/cartridge:
 
 * iNES 1.0 and NES 2.0 parsing.
+* nes20db SHA-1 metadata overrides for known ROM region, mapper, submapper, and mirroring.
+* Filename region fallback for common USA/Japan/Europe/PAL markers when header metadata is missing or ambiguous.
 * Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM.
 * NROM-128 and NROM-256.
 * MMC1 with serial register loading, PRG/CHR banking, PRG RAM, and runtime one-screen/horizontal/vertical mirroring.
@@ -78,6 +82,7 @@ ROM/cartridge:
 * AxROM with switchable 32 KiB PRG banks, CHR RAM, and mapper-controlled one-screen mirroring.
 * CHR ROM and CHR RAM.
 * Horizontal and vertical mirroring.
+* PAL, NTSC, Dendy, and multi-region timing metadata; multi-region currently maps to NTSC timing.
 * `Cartridge` stores ROM metadata/data plus a generic `Mapper` instance.
 * `CartridgeSocket` simulates cartridge insertion/removal and is the only cartridge access point for CPU/PPU buses.
 * Clear rejection for invalid headers, truncated ROMs, unsupported mappers/submappers, unsupported NES 2.0 hardware,
@@ -111,36 +116,38 @@ APU/audio:
 * SMB-focused mono PCM generation at 44.1 kHz.
 * Pulse 1, pulse 2, triangle, and noise channels.
 * Length counters, envelopes, approximate sweep, triangle linear counter, frame counter clocks.
-* OpenAL frontend playback.
+* OpenAL desktop playback and WebAudio browser playback.
 * Approximate DMC sample playback with CPU-memory sample reads, IRQ state, and four-cycle CPU stalls.
 
 Input/frontend:
 
-* LWJGL GLFW window.
-* OpenGL presents one nearest-neighbor texture from the software framebuffer.
-* OpenAL queues generated audio samples.
+* Desktop Compose/Skiko window and browser Compose viewport.
+* Desktop renderer presents the software framebuffer through Skiko/SkSL; browser renderer uses WebGL.
+* Optional CRT shader/effect via `--crt` on desktop or the menu toggle in the UI.
+* OpenAL queues generated audio samples on desktop; WebAudio queues PCM buffers in the browser.
 * Keyboard controls:
     * Arrow keys: D-pad.
     * `Z`: A.
     * `X`: B.
-    * Enter and keypad Enter: Start.
+    * Enter: Start.
     * Right Shift: Select.
-    * `P`: Pause.
     * `R`: Reset.
     * Escape: Quit.
+* Desktop controller support is available through `--controller` using JInput.
+* Browser controller support polls the first connected Gamepad API device automatically.
 * Controller is exposed through `$4016` strobe/serial reads.
 * Opposite directions are filtered.
-* GLFW events and controller state are sampled before each frame and approximately every 2 ms during frame emulation
-  to reduce input-to-emulation latency. Pause/reset edges must remain latched across repeated within-frame polls.
+* Input state is sampled before each frame and approximately every 2 ms during frame emulation to reduce input-to-emulation latency. Reset edges must remain latched across repeated within-frame polls.
 
 Diagnostics:
 
-* `--debug` prints ROM metadata, frame limiter state, target FPS, FPS, and input edge logs.
-* `--unlimited` disables frame limiting.
+* `--debug` enables debug-level Kermit logging.
+* Runtime window title includes ROM name, selected region, and measured FPS.
 
 Architecture notes:
 
 * `NesMachine` starts without a constructor cartridge argument; call `insert(cartridge)` before reset/run for normal use.
+* `InesParserComposite` hashes ROM data excluding the iNES header/trainer payload, consults nes20db, routes to iNES 1.0 or NES 2.0 parsing, and applies database metadata when present.
 * `InesParser` validates iNES mapper numbers and creates the concrete mapper instance for parsed cartridges.
 * CPU, PPU, APU, and bus packages should not depend on concrete mapper classes.
 * NMI is edge-latched; IRQ is a level sampled at CPU instruction boundaries from mapper and APU sources.
@@ -158,13 +165,13 @@ Architecture notes:
 * No mappers beyond Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7.
 * Mapper 1 does not support SUROM/SOROM/SXROM-style extended banking variants.
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing.
-* NTSC/PAL/Dendy timing is supported from ROM header metadata; timing remains approximate.
+* NTSC/PAL/Dendy timing is supported from nes20db, ROM header metadata, and filename fallback; timing remains approximate.
 * PPU is approximate, not cycle-perfect.
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
 * APU is approximate and SMB-focused.
 * DMC sample playback is approximate.
-* No save states, rewind, cheats, debugger UI, gamepad support, two-player input, ZIP loading, networking, shaders, ROM
+* No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, networking, ROM
   downloading, or ROM patching.
 * PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are approximate.
 * OAM DMA uses a fixed 513-cycle stall; exact 513/514 parity requires intra-instruction CPU bus-cycle timing.
@@ -178,6 +185,12 @@ Run at least:
 
 ```bash
 ./gradlew test
+```
+
+For faster focused checks, run:
+
+```bash
+./gradlew :nes:jvmTest :frontend:jvmTest
 ```
 
 Run full build before considering work complete:
