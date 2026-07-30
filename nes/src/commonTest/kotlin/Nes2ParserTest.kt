@@ -1,3 +1,4 @@
+import nes.ConsoleRegion
 import nes.cartridge.*
 import kotlin.test.*
 
@@ -106,12 +107,22 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 PAL timing throws ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
-            parser.parse(nes2(timingMode = 1))
-        }
+    fun `NES 2 timing modes parse region`() {
+        assertEquals(ConsoleRegion.NTSC, parser.parse(nes2(timingMode = 0)).region)
+        assertEquals(ConsoleRegion.PAL, parser.parse(nes2(timingMode = 1)).region)
+        assertEquals(ConsoleRegion.MULTI_REGION, parser.parse(nes2(timingMode = 2)).region)
+        assertEquals(ConsoleRegion.DENDY, parser.parse(nes2(timingMode = 3)).region)
+    }
 
-        assertContains(exception.message.orEmpty(), "PAL")
+    @Test
+    fun `NES 2 multi-region timing can be disambiguated by filename`() {
+        assertEquals(ConsoleRegion.PAL, parser.parse(nes2(timingMode = 2), "Game (Europe).nes").region)
+        assertEquals(ConsoleRegion.NTSC, parser.parse(nes2(timingMode = 2), "Game (USA).nes").region)
+    }
+
+    @Test
+    fun `NES 2 explicit timing ignores filename region marker`() {
+        assertEquals(ConsoleRegion.PAL, parser.parse(nes2(timingMode = 1), "Game (USA).nes").region)
     }
 
     @Test

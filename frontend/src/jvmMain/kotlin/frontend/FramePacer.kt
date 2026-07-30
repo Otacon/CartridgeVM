@@ -2,8 +2,14 @@ package frontend
 
 import java.util.concurrent.locks.LockSupport
 
-class FramePacer(private val frameNanos: Long) {
+class FramePacer(private var frameNanos: Long) {
     private var nextDeadline = System.nanoTime() + frameNanos
+
+    fun setFrameNanos(value: Long) {
+        if (value == frameNanos) return
+        frameNanos = value
+        nextDeadline = System.nanoTime() + frameNanos
+    }
 
     fun waitForNextFrame() {
         var now = System.nanoTime()

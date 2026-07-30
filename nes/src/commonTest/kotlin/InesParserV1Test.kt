@@ -1,3 +1,4 @@
+import nes.ConsoleRegion
 import nes.cartridge.*
 import nes.util.toUnsignedInt
 import kotlin.test.*
@@ -96,6 +97,50 @@ class InesParserV1Test {
     @Test
     fun `vertical mirroring flag parses as vertical`() {
         assertEquals(Mirroring.VERTICAL, parser.parse(ines(flags6 = 1)).mirroring)
+    }
+
+    @Test
+    fun `PAL TV system flag parses PAL region`() {
+        val rom = ines().also { it[9] = 1 }
+
+        assertEquals(ConsoleRegion.PAL, parser.parse(rom).region)
+    }
+
+    @Test
+    fun `dual-compatible TV system flag parses multi-region`() {
+        val rom = ines().also { it[10] = 1 }
+
+        assertEquals(ConsoleRegion.MULTI_REGION, parser.parse(rom).region)
+    }
+
+    @Test
+    fun `extended PAL TV system flag parses PAL region`() {
+        val rom = ines().also { it[10] = 2 }
+
+        assertEquals(ConsoleRegion.PAL, parser.parse(rom).region)
+    }
+
+    @Test
+    fun `PAL TV system flag takes precedence over extended dual-compatible flag`() {
+        val rom = ines().also {
+            it[9] = 1
+            it[10] = 1
+        }
+
+        assertEquals(ConsoleRegion.PAL, parser.parse(rom).region)
+    }
+
+    @Test
+    fun `PAL filename marker overrides missing iNES region metadata`() {
+        assertEquals(ConsoleRegion.PAL, parser.parse(ines(), "Game (Europe).nes").region)
+        assertEquals(ConsoleRegion.PAL, parser.parse(ines(), "Game [E].nes").region)
+        assertEquals(ConsoleRegion.PAL, parser.parse(ines(), "Game (PAL).nes").region)
+    }
+
+    @Test
+    fun `USA and Japan filename markers parse as NTSC`() {
+        assertEquals(ConsoleRegion.NTSC, parser.parse(ines().also { it[9] = 1 }, "Game (USA).nes").region)
+        assertEquals(ConsoleRegion.NTSC, parser.parse(ines().also { it[9] = 1 }, "Game (Japan).nes").region)
     }
 
     @Test

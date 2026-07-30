@@ -1,6 +1,7 @@
 package nes.cartridge
 
 import co.touchlab.kermit.Logger
+import nes.ConsoleRegion
 import nes.util.toUnsignedInt
 
 class InesParserV2(
@@ -8,7 +9,8 @@ class InesParserV2(
 ) : InesParser {
     private val log = Logger.withTag("InesParserV2")
 
-    override fun parse(bytes: ByteArray): Cartridge {
+    override fun parse(romData: RomData): Cartridge {
+        val bytes = romData.bytes
         utils.validateHeader(bytes)
         if (!utils.isNes2(bytes)) {
             throw RomFormatException("Expected NES 2.0 ROM, found iNES 1.0 header")
@@ -21,7 +23,12 @@ class InesParserV2(
             log.e { "Unsupported mirroring mode: four-screen mirroring" }
             throw RomFormatException("Unsupported mirroring mode: four-screen mirroring")
         }
-        validateNes2Header(bytes, flags7)
+        val headerRegion = validateNes2Header(bytes, flags7)
+        val region = if (headerRegion == ConsoleRegion.MULTI_REGION) {
+            utils.regionFromFilename(romData.name) ?: headerRegion
+        } else {
+            headerRegion
+        }
 
         val mapper = (flags6 shr 4) or (flags7 and 0xF0) or ((bytes[8].toUnsignedInt() and 0x0F) shl 8)
         val submapper = bytes[8].toUnsignedInt() shr 4
@@ -49,22 +56,26 @@ class InesParserV2(
             prgRomSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,
+            region = region,
         )
     }
 
-    private fun validateNes2Header(bytes: ByteArray, flags7: Int) {
+    private fun validateNes2Header(bytes: ByteArray, flags7: Int): ConsoleRegion {
         val consoleType = flags7 and 0x03
         if (consoleType != 0) {
             throw RomFormatException("Unsupported NES 2.0 console type: $consoleType; only standard NES/Famicom ROMs are supported")
         }
         val timingMode = bytes[12].toUnsignedInt() and 0x03
-        if (timingMode == 1 || timingMode == 3) {
-            val name = if (timingMode == 1) "PAL" else "Dendy"
-            throw RomFormatException("Unsupported NES 2.0 timing mode: $name; only NTSC-compatible ROMs are supported")
-        }
         val miscRomCount = bytes[14].toUnsignedInt() and 0x03
         if (miscRomCount != 0) {
             throw RomFormatException("Unsupported NES 2.0 ROM with $miscRomCount miscellaneous ROM area(s)")
+        }
+        return when (timingMode) {
+            0 -> ConsoleRegion.NTSC
+            1 -> ConsoleRegion.PAL
+            2 -> ConsoleRegion.MULTI_REGION
+            3 -> ConsoleRegion.DENDY
+            else -> error("Invalid NES 2.0 timing mode $timingMode")
         }
     }
 

@@ -9,14 +9,15 @@ class InesParserComposite(
 ) : InesParser {
     private val log = Logger.withTag("InesParserComposite")
 
-    override fun parse(bytes: ByteArray): Cartridge {
+    override fun parse(romData: RomData): Cartridge {
+        val bytes = romData.bytes
         utils.validateHeader(bytes)
         return if (utils.isNes2(bytes)) {
             log.d { "ROM format: NES 2.0" }
-            inesParserV2.parse(bytes)
+            inesParserV2.parse(romData)
         } else {
             log.d { "ROM format: iNES 1.0" }
-            inesParserV1.parse(bytes)
+            inesParserV1.parse(romData)
         }
     }
 }

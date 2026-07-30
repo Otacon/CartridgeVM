@@ -1,19 +1,26 @@
 package nes.cartridge
 
+import nes.ConsoleRegion
+
 class CartridgeSocket {
     private var cartridge: Cartridge? = null
 
     var mirroring: Mirroring? = null
         private set
 
+    var region: ConsoleRegion = ConsoleRegion.NTSC
+        private set
+
     fun insert(cartridge: Cartridge) {
         this.cartridge = cartridge
         mirroring = cartridge.mapper.mirroring() ?: cartridge.mirroring
+        region = cartridge.region
     }
 
     fun remove() {
         cartridge = null
         mirroring = null
+        region = ConsoleRegion.NTSC
     }
 
     fun reset() {

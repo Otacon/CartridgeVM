@@ -4,10 +4,9 @@ import co.touchlab.kermit.Logger
 import nes.NesMachine
 
 class EmulatorRuntimeHost(
-    machine: NesMachine,
+    private val machine: NesMachine,
     audio: AudioPipeline,
     input: EmulatorInput,
-    private val frameNanos: Long,
 ) : AutoCloseable {
     val frameBuffer = SharedFrameBuffer()
     val lock = Any()
@@ -22,7 +21,11 @@ class EmulatorRuntimeHost(
     ) {
         check(loop == null) { "Emulator runtime host is already started" }
         loop = startPlatformEmulatorLoop(
-            frameNanos = frameNanos,
+            frameNanos = {
+                platformSynchronized(lock) {
+                    machine.timing.frameNanos
+                }
+            },
             step = {
                 platformSynchronized(lock) {
                     runtime.step()
@@ -50,7 +53,7 @@ expect fun <T> platformSynchronized(lock: Any, block: () -> T): T
 interface ComposeEmulatorLoop : AutoCloseable
 
 expect fun startPlatformEmulatorLoop(
-    frameNanos: Long,
+    frameNanos: () -> Long,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,

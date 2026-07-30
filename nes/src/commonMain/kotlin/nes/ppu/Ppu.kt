@@ -1,5 +1,6 @@
 package nes.ppu
 
+import nes.PpuTiming
 import nes.Timing
 import nes.util.low8Bits
 import nes.util.toUnsignedInt
@@ -36,6 +37,8 @@ class Ppu(
         private set
     var nmiRequested = false
         private set
+
+    var timing: Timing = Timing.DEFAULT
 
     private var readBuffer = 0
     private var pendingSpriteZeroHitCycle = -1
@@ -74,29 +77,30 @@ class Ppu(
     fun step() {
         val rendering = renderingEnabled()
         val visibleScanline = scanline in 0 until SCREEN_HEIGHT
+        val preRenderScanline = timing.scanlinesPerFrame - 1
         if (visibleScanline && cycle == FIRST_VISIBLE_DOT) renderScanline(scanline)
         if (visibleScanline && cycle == pendingSpriteZeroHitCycle) status = status or STATUS_SPRITE_ZERO_HIT
         if (scanline == VBLANK_SCANLINE && cycle == FIRST_VISIBLE_DOT) {
             status = status or STATUS_VBLANK
             if ((ctrl and 0x80) != 0) nmiRequested = true
         }
-        if (scanline == PRE_RENDER_SCANLINE && cycle == FIRST_VISIBLE_DOT) status = status and 0x1F
-        if (rendering && (visibleScanline || scanline == PRE_RENDER_SCANLINE)) {
+        if (scanline == preRenderScanline && cycle == FIRST_VISIBLE_DOT) status = status and 0x1F
+        if (rendering && (visibleScanline || scanline == preRenderScanline)) {
             if (cycle in FIRST_VISIBLE_DOT..LAST_VISIBLE_DOT && (cycle and 7) == 0) incrementCoarseX()
             if (cycle == LAST_VISIBLE_DOT) incrementY()
             if (cycle == HORIZONTAL_TRANSFER_DOT) transferHorizontalAddress()
             if (cycle == MAPPER_SCANLINE_DOT && visibleScanline) bus.clockScanline()
-            if (scanline == PRE_RENDER_SCANLINE && cycle in 280..304) transferVerticalAddress()
+            if (scanline == preRenderScanline && cycle in 280..304) transferVerticalAddress()
         }
-        if (rendering && oddFrame && scanline == PRE_RENDER_SCANLINE && cycle == ODD_FRAME_LAST_DOT) {
+        if (timing.skipsOddFrameDot && rendering && oddFrame && scanline == preRenderScanline && cycle == ODD_FRAME_LAST_DOT) {
             finishFrame()
             return
         }
         cycle++
-        if (cycle >= Timing.PPU_CYCLES_PER_SCANLINE) {
+        if (cycle >= PpuTiming.PPU_CYCLES_PER_SCANLINE) {
             cycle = 0
             scanline++
-            if (scanline >= Timing.SCANLINES_PER_FRAME) finishFrame()
+            if (scanline >= timing.scanlinesPerFrame) finishFrame()
         }
     }
 
@@ -365,7 +369,6 @@ class Ppu(
         private const val SCREEN_WIDTH = 256
         private const val SCREEN_HEIGHT = 240
         private const val VBLANK_SCANLINE = 241
-        private const val PRE_RENDER_SCANLINE = 261
         private const val FIRST_VISIBLE_DOT = 1
         private const val LAST_VISIBLE_DOT = 256
         private const val HORIZONTAL_TRANSFER_DOT = 257

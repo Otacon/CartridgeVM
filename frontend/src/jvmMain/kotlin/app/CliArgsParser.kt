@@ -7,8 +7,8 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import frontend.Config
-import frontend.RomData
 import me.tatarka.inject.annotations.Inject
+import nes.cartridge.RomData
 import java.nio.file.Path
 import kotlin.io.path.readBytes
 

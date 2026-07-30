@@ -1,6 +1,7 @@
 package nes.cartridge
 
 import co.touchlab.kermit.Logger
+import nes.ConsoleRegion
 import nes.util.toUnsignedInt
 
 class InesParserUtils {
@@ -23,6 +24,27 @@ class InesParserUtils {
 
     fun isNes2(bytes: ByteArray): Boolean = (bytes[7].toUnsignedInt() and 0x0C) == 0x08
 
+    fun regionFromFilename(name: String): ConsoleRegion? {
+        val normalized = name.uppercase()
+        return when {
+            normalized.contains("(E)") ||
+                    normalized.contains("[E]") ||
+                    normalized.contains("(EUROPE)") ||
+                    normalized.contains("[EUROPE]") ||
+                    normalized.contains("(PAL)") ||
+                    normalized.contains("[PAL]") -> ConsoleRegion.PAL
+            normalized.contains("(U)") ||
+                    normalized.contains("[U]") ||
+                    normalized.contains("(USA)") ||
+                    normalized.contains("[USA]") ||
+                    normalized.contains("(J)") ||
+                    normalized.contains("[J]") ||
+                    normalized.contains("(JAPAN)") ||
+                    normalized.contains("[JAPAN]") -> ConsoleRegion.NTSC
+            else -> null
+        }
+    }
+
     fun createCartridge(
         bytes: ByteArray,
         flags6: Int,
@@ -30,6 +52,7 @@ class InesParserUtils {
         prgRomSize: Long,
         chrRomSize: Long,
         chrRamSize: Int,
+        region: ConsoleRegion,
     ): Cartridge {
         val trainer = (flags6 and 0x04) != 0
         var offset = HEADER_SIZE + if (trainer) TRAINER_SIZE else 0
@@ -65,6 +88,7 @@ class InesParserUtils {
             chr = chr,
             isChrRam = isChrRam,
             trainerPresent = trainer,
+            region = region,
             mapper = createMapper(mapper, prg, chr, isChrRam),
         )
     }

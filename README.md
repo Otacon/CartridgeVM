@@ -98,9 +98,9 @@ The loader supports iNES 1.0 and NES 2.0 ROMs using Mapper 0 / NROM, Mapper 1 / 
 * MMC3 with 32 KiB to 512 KiB PRG ROM, 8 KiB PRG bank switching, CHR ROM/RAM banking, PRG RAM, runtime mirroring control, and scanline IRQs
 * AxROM with 32 KiB to 256 KiB PRG ROM, switchable 32 KiB PRG banks, 8 KiB CHR RAM, and mapper-controlled one-screen mirroring
 * Horizontal and vertical nametable mirroring
-* NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, and explicit CHR RAM/NVRAM sizes
+* NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, explicit CHR RAM/NVRAM sizes, and NTSC/PAL/Dendy timing modes
 
-Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, four-screen mirroring, PAL/Dendy-only NES 2.0 ROMs, nonstandard console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
+Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, four-screen mirroring, nonstandard console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
 
 ## Current Emulator Scope
 
@@ -118,7 +118,7 @@ Implemented:
 * One standard NES controller via `$4016` serial protocol
 * Desktop Compose/Skiko presentation of a software framebuffer, an optional SkSL CRT effect, and OpenAL audio playback
 * Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API controller input
-* NTSC-oriented frame pacing with `--unlimited` for debugging
+* Region-aware frame pacing for NTSC, PAL, Dendy, multi-region, and Japan/Famicom-timed cartridges with `--unlimited` for debugging
 * Pause, reset, and quit controls
 
 ## Known Limitations
@@ -129,7 +129,7 @@ This is an MVP, not a cycle-perfect emulator.
 * Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7 only
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
-* NTSC timing only
+* Region timing is approximate and selected from ROM header metadata; multi-region software defaults to NTSC timing
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, downloading, or patching
 * PPU rendering is approximate in several edge cases
 * Sprite overflow behavior is not cycle-accurate

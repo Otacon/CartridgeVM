@@ -1,6 +1,7 @@
 package nes.cartridge
 
 import co.touchlab.kermit.Logger
+import nes.ConsoleRegion
 import nes.util.toUnsignedInt
 
 class InesParserV1(
@@ -8,7 +9,8 @@ class InesParserV1(
 ) : InesParser {
     private val log = Logger.withTag("InesParserV1")
 
-    override fun parse(bytes: ByteArray): Cartridge {
+    override fun parse(romData: RomData): Cartridge {
+        val bytes = romData.bytes
         utils.validateHeader(bytes)
         if (utils.isNes2(bytes)) {
             throw RomFormatException("Expected iNES 1.0 ROM, found NES 2.0 header")
@@ -17,6 +19,8 @@ class InesParserV1(
         val chrBanks = bytes[5].toUnsignedInt()
         val flags6 = bytes[6].toUnsignedInt()
         val flags7 = bytes[7].toUnsignedInt()
+        val region = utils.regionFromFilename(romData.name) ?: decodeRegion(bytes)
+        log.d { "Region: $region" }
         if ((flags6 and 0x08) != 0) {
             log.e { "Unsupported mirroring mode: four-screen mirroring" }
             throw RomFormatException("Unsupported mirroring mode: four-screen mirroring")
@@ -42,6 +46,21 @@ class InesParserV1(
             prgRomSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,
+            region = region,
         )
     }
+
+    private fun decodeRegion(bytes: ByteArray): ConsoleRegion {
+        require(bytes.size >= 16) { "Invalid NES header" }
+        val byte9Region = bytes[9].toUnsignedInt() and 0x01
+        val byte10Region = bytes[10].toUnsignedInt() and 0x03
+
+        if (byte9Region == 1) return ConsoleRegion.PAL
+        return when (byte10Region) {
+            2 -> ConsoleRegion.PAL
+            1, 3 -> ConsoleRegion.MULTI_REGION
+            else -> ConsoleRegion.NTSC
+        }
+    }
+
 }

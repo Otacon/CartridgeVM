@@ -1,8 +1,5 @@
 package di
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
 import frontend.Config
 import frontend.DelegatingEmulatorInput
 import frontend.EmulatorRuntimeHost
@@ -14,7 +11,6 @@ import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Provides
 import me.tatarka.inject.annotations.Scope
 import nes.NesMachine
-import nes.Timing
 import nes.cartridge.InesParserComposite
 import nes.di.NesComponent
 import nes.di.create
@@ -80,23 +76,8 @@ abstract class FrontendComponent(
         machine = machine,
         audio = audio,
         input = input,
-        frameNanos = Timing.FRAME_NANOS,
     )
 }
 
 @Scope
 annotation class AppScope
-
-val LocalFrontendComponent = staticCompositionLocalOf<FrontendComponent> {
-    error("FrontendComponent was not provided")
-}
-
-@Composable
-fun ProvideFrontendComponent(
-    component: FrontendComponent,
-    content: @Composable () -> Unit,
-) {
-    CompositionLocalProvider(LocalFrontendComponent provides component) {
-        content()
-    }
-}

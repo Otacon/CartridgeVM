@@ -158,7 +158,7 @@ Architecture notes:
 * No mappers beyond Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7.
 * Mapper 1 does not support SUROM/SOROM/SXROM-style extended banking variants.
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing.
-* NTSC only.
+* NTSC/PAL/Dendy timing is supported from ROM header metadata; timing remains approximate.
 * PPU is approximate, not cycle-perfect.
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.

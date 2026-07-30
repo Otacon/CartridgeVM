@@ -1,7 +1,9 @@
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
+import nes.cartridge.InesParser
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
+import nes.cartridge.RomData
 import nes.apu.DmcDma
 import nes.apu.NesApu
 import nes.cpu.Cpu6502
@@ -26,6 +28,10 @@ fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean
     val chr = ByteArray(chrBanks * 8 * 1024)
     return header + trainerBytes + prg + chr
 }
+
+fun InesParser.parse(bytes: ByteArray) = parse(RomData("test.nes", bytes))
+
+fun InesParser.parse(bytes: ByteArray, name: String) = parse(RomData(name, bytes))
 
 fun cpuWithProgram(program: ByteArray, start: Int = 0x8000): Triple<Cpu6502, CpuBus, Ppu> {
     val prg = ByteArray(16 * 1024)

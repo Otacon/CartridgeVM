@@ -19,6 +19,10 @@ class NesMachine(
 ) {
     private val _isPoweredOn = MutableStateFlow(false)
     val isPoweredOn: StateFlow<Boolean> = _isPoweredOn.asStateFlow()
+    val timing: Timing
+        get() = cartridgeSocket.region.timing
+
+    private var ppuCycleRemainder = 0
 
     fun powerOn() {
         reset()
@@ -31,10 +35,12 @@ class NesMachine(
 
     fun insert(cartridge: Cartridge) {
         cartridgeSocket.insert(cartridge)
+        applyCartridgeTiming()
     }
 
     fun reset() {
         cartridgeSocket.reset()
+        applyCartridgeTiming()
         controller.reset()
         ppu.reset()
         apu.reset()
@@ -44,7 +50,8 @@ class NesMachine(
     fun runUntilFrame(onInputPoll: (() -> Unit)? = null) {
         ppu.clearFrameComplete()
         apu.beginFrame()
-        var cyclesUntilInputPoll = CPU_CYCLES_PER_INPUT_POLL
+        val cpuCyclesPerInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        var cyclesUntilInputPoll = cpuCyclesPerInputPoll
         while (!ppu.frameComplete) {
             latchInterrupts()
             val cycles = cpu.step()
@@ -52,10 +59,12 @@ class NesMachine(
             cyclesUntilInputPoll -= cycles
             if (onInputPoll != null && cyclesUntilInputPoll <= 0) {
                 onInputPoll()
-                cyclesUntilInputPoll += CPU_CYCLES_PER_INPUT_POLL
+                cyclesUntilInputPoll += cpuCyclesPerInputPoll
             }
             var i = 0
-            val ppuCycles = cycles * Timing.PPU_PER_CPU
+            val ppuCyclesNumerator = cycles * timing.ppuCyclesPerCpuNumerator + ppuCycleRemainder
+            val ppuCycles = ppuCyclesNumerator / timing.ppuCyclesPerCpuDenominator
+            ppuCycleRemainder = ppuCyclesNumerator % timing.ppuCyclesPerCpuDenominator
             while (i < ppuCycles) {
                 ppu.step()
                 i++
@@ -68,8 +77,14 @@ class NesMachine(
         cpu.setIrqLine(cartridgeSocket.irqPending() || apu.irqPending())
     }
 
+    private fun applyCartridgeTiming() {
+        val cartridgeTiming = timing
+        ppu.timing = cartridgeTiming
+        apu.timing = cartridgeTiming
+        ppuCycleRemainder = 0
+    }
+
     companion object {
         private const val INPUT_POLLS_PER_SECOND = 500
-        private const val CPU_CYCLES_PER_INPUT_POLL = Timing.CPU_HZ / INPUT_POLLS_PER_SECOND
     }
 }
