@@ -1,7 +1,7 @@
 package nes.cartridge
 
 interface InesParser {
-    fun parse(romData: RomData): Cartridge
+    suspend fun parse(romData: RomData): Cartridge
 }
 
 data class RomData(

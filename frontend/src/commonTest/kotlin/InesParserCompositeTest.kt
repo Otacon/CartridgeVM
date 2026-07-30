@@ -1,5 +1,7 @@
 import io.Nes20Db
 import io.Nes20DbEntry
+import kotlinx.coroutines.test.runTest
+import nes.ConsoleRegion
 import nes.cartridge.*
 import kotlin.test.*
 
@@ -15,7 +17,7 @@ class InesParserCompositeTest {
 
 
     @Test
-    fun `routes iNES 1 ROMs to V1 parser`() {
+    fun `routes iNES 1 ROMs to V1 parser`() = runTest {
         val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
 
         assertEquals(64 * 1024, cartridge.prgRom.size)
@@ -23,7 +25,7 @@ class InesParserCompositeTest {
     }
 
     @Test
-    fun `routes NES 2 ROMs to V2 parser`() {
+    fun `routes NES 2 ROMs to V2 parser`() = runTest {
         val cartridge = parser.parse(nes2(prgLsb = 1, chrLsb = 1))
 
         assertEquals(16 * 1024, cartridge.prgRom.size)
@@ -31,8 +33,40 @@ class InesParserCompositeTest {
     }
 
     @Test
-    fun `invalid magic throws before routing`() {
-        assertFailsWith<RomFormatException> {
+    fun `keeps ROM metadata when Nes20Db has no match`() = runTest {
+        val cartridge = parser.parse(ines(prgBanks = 1, chrBanks = 1, flags6 = 0))
+
+        assertEquals(ConsoleRegion.NTSC, cartridge.region)
+        assertEquals(Mirroring.HORIZONTAL, cartridge.mirroring)
+        assertTrue(cartridge.mapper is Mapper0)
+    }
+
+    @Test
+    fun `overrides ROM metadata from Nes20Db match`() = runTest {
+        val dbEntry = Nes20DbEntry(
+            sha1 = "0000000000000000000000000000000000000000",
+            region = ConsoleRegion.PAL,
+            mapper = 3,
+            submapper = 0,
+            mirroring = Mirroring.VERTICAL,
+        )
+        val parser = InesParserComposite(
+            nes20Db = SingleEntryNes20Db(dbEntry),
+            inesParserV1 = InesParserV1(utils),
+            inesParserV2 = InesParserV2(utils),
+            utils = utils,
+        )
+
+        val cartridge = parser.parse(ines(prgBanks = 1, chrBanks = 1, flags6 = 0))
+
+        assertEquals(ConsoleRegion.PAL, cartridge.region)
+        assertEquals(Mirroring.VERTICAL, cartridge.mirroring)
+        assertTrue(cartridge.mapper is Mapper3)
+    }
+
+    @Test
+    fun `invalid magic throws before routing`() = runTest {
+        assertFailsWithSuspend<RomFormatException> {
             parser.parse(ByteArray(16))
         }
     }
@@ -70,5 +104,11 @@ class InesParserCompositeTest {
 
     private object EmptyNes20Db : Nes20Db {
         override fun findBySha1(sha1: String): Nes20DbEntry? = null
+    }
+
+    private class SingleEntryNes20Db(
+        private val entry: Nes20DbEntry,
+    ) : Nes20Db {
+        override fun findBySha1(sha1: String): Nes20DbEntry = entry
     }
 }

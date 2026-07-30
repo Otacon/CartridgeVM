@@ -35,9 +35,11 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kermit)
             implementation(libs.kotlinInjectMp)
+            implementation(libs.kotlinxCoroutinesCore)
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)
+            implementation(libs.kotlinxCoroutinesTest)
         }
         wasmJsMain.dependencies {
             implementation(libs.kotlinxBrowser)

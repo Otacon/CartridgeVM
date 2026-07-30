@@ -9,7 +9,7 @@ class InesParserV1(
 ) : InesParser {
     private val log = Logger.withTag("InesParserV1")
 
-    override fun parse(romData: RomData): Cartridge {
+    override suspend fun parse(romData: RomData): Cartridge {
         val bytes = romData.bytes
         utils.validateHeader(bytes)
         if (utils.isNes2(bytes)) {

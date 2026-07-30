@@ -24,6 +24,15 @@ class InesParserUtils {
 
     fun isNes2(bytes: ByteArray): Boolean = (bytes[7].toUnsignedInt() and 0x0C) == 0x08
 
+    fun romBytesForHash(bytes: ByteArray): ByteArray {
+        val trainer = (bytes[6].toUnsignedInt() and 0x04) != 0
+        val offset = HEADER_SIZE + if (trainer) TRAINER_SIZE else 0
+        if (bytes.size < offset) {
+            throw RomFormatException("Truncated ROM: missing trainer")
+        }
+        return bytes.copyOfRange(offset, bytes.size)
+    }
+
     fun regionFromFilename(name: String): ConsoleRegion? {
         val normalized = name.uppercase()
         return when {
@@ -143,7 +152,7 @@ class InesParserUtils {
         }
     }
 
-    private fun createMapper(mapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean): Mapper = when (mapper) {
+    fun createMapper(mapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean): Mapper = when (mapper) {
         0 -> Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
         1 -> Mapper1(prgRom = prg, chr = chr, isChrRam = isChrRam)
         2 -> Mapper2(prgRom = prg, chrRam = chr)

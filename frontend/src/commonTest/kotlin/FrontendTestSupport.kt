@@ -1,5 +1,6 @@
 import nes.cartridge.InesParser
 import nes.cartridge.RomData
+import kotlin.test.fail
 
 fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean = false, prgFill: Int = 0): ByteArray {
     val header = ByteArray(16)
@@ -16,6 +17,16 @@ fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean
     return header + trainerBytes + prg + chr
 }
 
-fun InesParser.parse(bytes: ByteArray) = parse(RomData("test.nes", bytes))
+suspend fun InesParser.parse(bytes: ByteArray) = parse(RomData("test.nes", bytes))
 
-fun InesParser.parse(bytes: ByteArray, name: String) = parse(RomData(name, bytes))
+suspend fun InesParser.parse(bytes: ByteArray, name: String) = parse(RomData(name, bytes))
+
+suspend inline fun <reified T : Throwable> assertFailsWithSuspend(noinline block: suspend () -> Unit): T {
+    try {
+        block()
+    } catch (throwable: Throwable) {
+        if (throwable is T) return throwable
+        throw throwable
+    }
+    fail("Expected an exception of ${T::class}")
+}

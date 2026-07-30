@@ -52,10 +52,10 @@ class MainScreenViewModel(
         it.copy(isCrtEnabled = crtEnabled)
     }
 
-    private fun loadRom(romData: RomData) {
-        this.rom = romData.name
+    private fun loadRom(romData: RomData) = viewModelScope.launch {
+        this@MainScreenViewModel.rom = romData.name
         val cartridge = parser.parse(romData)
-        this.region = cartridge.region
+        this@MainScreenViewModel.region = cartridge.region
         platformSynchronized(runtime.lock) {
             machine.powerOff()
             machine.insert(cartridge)

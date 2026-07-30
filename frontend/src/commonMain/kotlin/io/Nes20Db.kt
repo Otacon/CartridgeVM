@@ -15,6 +15,12 @@ class Nes20DbCsv(
     private val log = Logger.withTag("Nes20Db")
 
     override fun findBySha1(sha1: String): Nes20DbEntry? {
+        val normalizedSha1 = sha1.trim().lowercase()
+        if(normalizedSha1.length != 40 || !normalizedSha1.all { it.isHexDigit() }) {
+            log.e { "Invalid SHA1 provided: $sha1" }
+            return null
+        }
+
         val lines = readTextResource(csvResource)
             .lineSequence()
             .map(String::trim)
@@ -43,18 +49,20 @@ class Nes20DbCsv(
 
             val columns = lines.next().split(',')
 
-            require(columns.size == 5) {
-                "Invalid column count at line $lineNumber"
+            if (columns.size < 5) {
+                log.w { "Line $lineNumber contains ${columns.size} but rather than 5!" }
+                continue
             }
 
-            val sha1 = columns[0].trim().lowercase()
-
-            require(sha1.length == 40 && sha1.all { it.isHexDigit() }) {
-                "Invalid SHA-1 at line $lineNumber: $sha1"
+            val entrySha1 = columns[0].trim().lowercase()
+            val validEntrySha1 = entrySha1.length == 40 && entrySha1.all { it.isHexDigit() }
+            if (!validEntrySha1) {
+                log.w { "Line $lineNumber contains an invalid SHA-1: $entrySha1" }
+                continue
             }
-            if (sha1 == sha1) {
+            if (normalizedSha1 == entrySha1) {
                 return Nes20DbEntry(
-                    sha1 = sha1,
+                    sha1 = entrySha1,
                     region = parseRegion(columns[1], lineNumber),
                     mapper = columns[2].toIntOrNull() ?: error("Invalid mapper at line $lineNumber"),
                     submapper = columns[3].toIntOrNull() ?: error("Invalid submapper at line $lineNumber"),

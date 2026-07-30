@@ -1,3 +1,4 @@
+import kotlinx.coroutines.test.runTest
 import nes.ConsoleRegion
 import nes.cartridge.*
 import kotlin.test.*
@@ -6,7 +7,7 @@ class InesParserV2Test {
     private val parser = InesParserV2(utils = InesParserUtils())
 
     @Test
-    fun `valid NES 2 NROM parses PRG ROM and CHR ROM`() {
+    fun `valid NES 2 NROM parses PRG ROM and CHR ROM`() = runTest {
         val cartridge = parser.parse(nes2(prgLsb = 1, chrLsb = 1))
 
         assertEquals(16 * 1024, cartridge.prgRom.size)
@@ -15,8 +16,8 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `iNES 1 header throws ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
+    fun `iNES 1 header throws ROM format exception`() = runTest {
+        val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(ines())
         }
 
@@ -24,7 +25,7 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 exponent multiplier sizes are decoded`() {
+    fun `NES 2 exponent multiplier sizes are decoded`() = runTest {
         val cartridge = parser.parse(
             nes2(
                 prgLsb = 14 shl 2,
@@ -40,7 +41,7 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 MMC1 parses declared CHR RAM`() {
+    fun `NES 2 MMC1 parses declared CHR RAM`() = runTest {
         val cartridge = parser.parse(
             nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x10, chrRamShift = 7),
         )
@@ -51,7 +52,7 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 UxROM uses declared CHR RAM size`() {
+    fun `NES 2 UxROM uses declared CHR RAM size`() = runTest {
         val cartridge = parser.parse(
             nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x20, chrRamShift = 7),
         )
@@ -62,7 +63,7 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 AxROM parses declared CHR RAM`() {
+    fun `NES 2 AxROM parses declared CHR RAM`() = runTest {
         val cartridge = parser.parse(
             nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x70, chrRamShift = 7),
         )
@@ -73,8 +74,8 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 extended unsupported mapper throws ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
+    fun `NES 2 extended unsupported mapper throws ROM format exception`() = runTest {
+        val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(prgLsb = 2, chrLsb = 1, flags6 = 0x40, mapperUpper = 1))
         }
 
@@ -82,8 +83,8 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 unsupported submapper throws ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
+    fun `NES 2 unsupported submapper throws ROM format exception`() = runTest {
+        val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(submapper = 1))
         }
 
@@ -91,15 +92,15 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 missing CHR memory throws ROM format exception`() {
-        assertFailsWith<RomFormatException> {
+    fun `NES 2 missing CHR memory throws ROM format exception`() = runTest {
+        assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(chrLsb = 0, chrSize = 0))
         }
     }
 
     @Test
-    fun `NES 2 mixed CHR ROM and RAM throws ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
+    fun `NES 2 mixed CHR ROM and RAM throws ROM format exception`() = runTest {
+        val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(chrRamShift = 7))
         }
 
@@ -107,7 +108,7 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 timing modes parse region`() {
+    fun `NES 2 timing modes parse region`() = runTest {
         assertEquals(ConsoleRegion.NTSC, parser.parse(nes2(timingMode = 0)).region)
         assertEquals(ConsoleRegion.PAL, parser.parse(nes2(timingMode = 1)).region)
         assertEquals(ConsoleRegion.MULTI_REGION, parser.parse(nes2(timingMode = 2)).region)
@@ -115,19 +116,19 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 multi-region timing can be disambiguated by filename`() {
+    fun `NES 2 multi-region timing can be disambiguated by filename`() = runTest {
         assertEquals(ConsoleRegion.PAL, parser.parse(nes2(timingMode = 2), "Game (Europe).nes").region)
         assertEquals(ConsoleRegion.NTSC, parser.parse(nes2(timingMode = 2), "Game (USA).nes").region)
     }
 
     @Test
-    fun `NES 2 explicit timing ignores filename region marker`() {
+    fun `NES 2 explicit timing ignores filename region marker`() = runTest {
         assertEquals(ConsoleRegion.PAL, parser.parse(nes2(timingMode = 1), "Game (USA).nes").region)
     }
 
     @Test
-    fun `NES 2 nonstandard console type throws ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
+    fun `NES 2 nonstandard console type throws ROM format exception`() = runTest {
+        val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(consoleType = 1))
         }
 
@@ -135,8 +136,8 @@ class InesParserV2Test {
     }
 
     @Test
-    fun `NES 2 miscellaneous ROMs throw ROM format exception`() {
-        val exception = assertFailsWith<RomFormatException> {
+    fun `NES 2 miscellaneous ROMs throw ROM format exception`() = runTest {
+        val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(miscRomCount = 1))
         }
 
