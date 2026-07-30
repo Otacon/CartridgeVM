@@ -1,5 +1,6 @@
 package frontend
 
+import nes.cartridge.RomData
 import java.awt.FileDialog
 import java.awt.Frame
 import java.nio.file.Path

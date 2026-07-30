@@ -7,7 +7,7 @@ import kotlinx.browser.window
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = block()
 
 actual fun startPlatformEmulatorLoop(
-    frameNanos: Long,
+    frameNanos: () -> Long,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -17,7 +17,7 @@ actual fun startPlatformEmulatorLoop(
     var frameStart = 0.0
     var frames = 0
     var fpsTime = 0.0
-    val frameMillis = frameNanos / 1_000_000.0
+    var frameMillis = frameNanos() / 1_000_000.0
 
     fun frame(now: Double) {
         if (!active) return
@@ -32,8 +32,9 @@ actual fun startPlatformEmulatorLoop(
                     onQuit()
                     return
                 }
+                frameMillis = frameNanos() / 1_000_000.0
                 frameStart += frameMillis
-                frames++
+                if (result.frameRendered) frames++
             }
 
             if (now - fpsTime >= 1_000.0) {

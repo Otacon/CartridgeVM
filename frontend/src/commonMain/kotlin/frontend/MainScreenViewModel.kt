@@ -7,8 +7,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.tatarka.inject.annotations.Inject
+import nes.ConsoleRegion
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
+import nes.cartridge.RomData
 
 @Inject
 class MainScreenViewModel(
@@ -23,6 +25,7 @@ class MainScreenViewModel(
 
     private var rom: String? = null
     private var fps: Int? = null
+    private var region: ConsoleRegion? = null
 
     fun onCreate() {
         viewModelScope.launch {
@@ -49,11 +52,13 @@ class MainScreenViewModel(
         it.copy(isCrtEnabled = crtEnabled)
     }
 
-    private fun loadRom(romData: RomData) {
-        this.rom = romData.name
+    private fun loadRom(romData: RomData) = viewModelScope.launch {
+        this@MainScreenViewModel.rom = romData.name
+        val cartridge = parser.parse(romData)
+        this@MainScreenViewModel.region = cartridge.region
         platformSynchronized(runtime.lock) {
             machine.powerOff()
-            machine.insert(parser.parse(romData.bytes))
+            machine.insert(cartridge)
             machine.powerOn()
         }
         updateTitle()
@@ -62,6 +67,7 @@ class MainScreenViewModel(
     private fun updateTitle() = _state.update { current ->
         val elements = buildList {
             rom?.let { add(it) }
+            region?.let { add(it.name) }
             fps?.let { add("$it fps") }
         }
 

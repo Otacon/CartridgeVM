@@ -7,10 +7,6 @@ import nes.NesMachine
 import nes.apu.DmcDma
 import nes.apu.NesApu
 import nes.cartridge.CartridgeSocket
-import nes.cartridge.InesParserComposite
-import nes.cartridge.InesParserUtils
-import nes.cartridge.InesParserV1
-import nes.cartridge.InesParserV2
 import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
 import nes.cpu.CpuStall
@@ -21,7 +17,6 @@ import nes.ppu.PpuBus
 @NesScope
 @Component
 abstract class NesComponent {
-    abstract val inesParser: InesParserComposite
     abstract val nesMachine: NesMachine
 
     @NesScope
@@ -75,26 +70,6 @@ abstract class NesComponent {
         apu: NesApu,
         cpu: Cpu6502,
     ): NesMachine = NesMachine(controller, cartridgeSocket, ppu, apu, cpu)
-
-    @NesScope
-    @Provides
-    fun inesParserUtils(): InesParserUtils = InesParserUtils()
-
-    @NesScope
-    @Provides
-    fun inesParserV1(utils: InesParserUtils): InesParserV1 = InesParserV1(utils)
-
-    @NesScope
-    @Provides
-    fun inesParserV2(utils: InesParserUtils): InesParserV2 = InesParserV2(utils)
-
-    @NesScope
-    @Provides
-    fun inesParserComposite(
-        inesParserV1: InesParserV1,
-        inesParserV2: InesParserV2,
-        utils: InesParserUtils,
-    ): InesParserComposite = InesParserComposite(inesParserV1, inesParserV2, utils)
 }
 
 @Scope

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 actual fun <T> platformSynchronized(lock: Any, block: () -> T): T = synchronized(lock, block)
 
 actual fun startPlatformEmulatorLoop(
-    frameNanos: Long,
+    frameNanos: () -> Long,
     step: () -> EmulatorStepResult,
     onFps: (Int) -> Unit,
     onQuit: () -> Unit,
@@ -15,7 +15,7 @@ actual fun startPlatformEmulatorLoop(
 ): ComposeEmulatorLoop {
     val keepRunning = AtomicBoolean(true)
     val thread = Thread({
-        val pacer = FramePacer(frameNanos)
+        val pacer = FramePacer(frameNanos())
         var frames = 0
         var fpsTime = System.nanoTime()
 
@@ -28,9 +28,10 @@ actual fun startPlatformEmulatorLoop(
                     break
                 }
                 if (!result.frameRendered) Thread.sleep(8)
+                pacer.setFrameNanos(frameNanos())
                 pacer.waitForNextFrame()
 
-                frames++
+                if (result.frameRendered) frames++
                 val now = System.nanoTime()
                 if (now - fpsTime >= 1_000_000_000L) {
                     onFps(frames)

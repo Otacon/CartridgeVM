@@ -1,6 +1,6 @@
 # CartridgeVM
 
-CartridgeVM is a focused Kotlin/JVM NES emulator MVP. Its current compatibility target is Mapper 0 / NROM NTSC software, with validation intended against the original NTSC Super Mario Bros. when the user supplies a legally obtained ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
+CartridgeVM is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. Its current compatibility target is Mapper 0 / NROM software, with validation intended against the original Super Mario Bros. when the user supplies a legally obtained ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
 
 No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassemblies, or ROM patches are included in this repository.
 
@@ -34,7 +34,6 @@ Optional flags:
 
 ```bash
 ./gradlew run --args="--debug /path/to/game.nes"
-./gradlew run --args="--unlimited /path/to/game.nes"
 ./gradlew run --args="--controller /path/to/game.nes"
 ./gradlew run --args="--crt /path/to/game.nes"
 ```
@@ -51,7 +50,7 @@ Run the browser build:
 ./gradlew :frontend:wasmJsBrowserDevelopmentRun
 ```
 
-Then choose a legally obtained `.nes` ROM from the browser menubar. Browser audio is resumed from normal menu gestures such as opening a ROM, pausing, resetting, or toggling CRT. Keyboard input is always available, and the first connected browser Gamepad API controller is polled automatically.
+Then choose a legally obtained `.nes` ROM from the browser menubar. Browser audio is resumed from normal menu gestures such as opening a ROM, resetting, or toggling CRT. Keyboard input is always available, and the first connected browser Gamepad API controller is polled automatically.
 
 ## Controls
 
@@ -65,7 +64,6 @@ Then choose a legally obtained `.nes` ROM from the browser menubar. Browser audi
 | X | B |
 | Enter | Start |
 | Right Shift | Select |
-| P | Pause |
 | R | Reset |
 | Escape | Quit |
 
@@ -75,13 +73,12 @@ Pass `--controller` on desktop to use the first connected controller through JIn
 
 | Controller          | NES input |
 |---------------------| --- |
-| A                   | A |
-| B                   | B |
+| Bottom face button  | B |
+| Right face button   | A |
 | View / Back         | Select |
 | Menu / Start        | Start |
 | D-pad               | D-pad |
-| Right bumper        | Pause |
-| Left bumper         | Reset |
+| Right bumper        | Reset |
 | Guide               | Quit |
 
 ## Supported ROM Format
@@ -98,16 +95,16 @@ The loader supports iNES 1.0 and NES 2.0 ROMs using Mapper 0 / NROM, Mapper 1 / 
 * MMC3 with 32 KiB to 512 KiB PRG ROM, 8 KiB PRG bank switching, CHR ROM/RAM banking, PRG RAM, runtime mirroring control, and scanline IRQs
 * AxROM with 32 KiB to 256 KiB PRG ROM, switchable 32 KiB PRG banks, 8 KiB CHR RAM, and mapper-controlled one-screen mirroring
 * Horizontal and vertical nametable mirroring
-* NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, and explicit CHR RAM/NVRAM sizes
+* NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, explicit CHR RAM/NVRAM sizes, and NTSC/PAL/Dendy timing modes
 
-Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, four-screen mirroring, PAL/Dendy-only NES 2.0 ROMs, nonstandard console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
+Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, four-screen mirroring, nonstandard console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes, invalid headers, and truncated data.
 
 ## Current Emulator Scope
 
 Implemented:
 
-* Single command-line application in `app`
-* iNES 1.0 / NES 2.0 parser and Mapper 0 / Mapper 1 / Mapper 2 / Mapper 3 / Mapper 4 / Mapper 7 cartridge mapping
+* Kotlin Multiplatform core emulator module and desktop/browser frontend module
+* iNES 1.0 / NES 2.0 parser with nes20db metadata overrides and Mapper 0 / Mapper 1 / Mapper 2 / Mapper 3 / Mapper 4 / Mapper 7 cartridge mapping
 * Cartridge socket abstraction for insertion/removal and CPU/PPU cartridge access
 * 2A03-style 6502 CPU core for official opcodes
 * CPU bus RAM/register/controller/OAM DMA mapping, with cartridge space routed through the cartridge socket
@@ -118,8 +115,8 @@ Implemented:
 * One standard NES controller via `$4016` serial protocol
 * Desktop Compose/Skiko presentation of a software framebuffer, an optional SkSL CRT effect, and OpenAL audio playback
 * Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API controller input
-* NTSC-oriented frame pacing with `--unlimited` for debugging
-* Pause, reset, and quit controls
+* Region-aware frame pacing for NTSC, PAL, Dendy, multi-region, and Japan/Famicom-timed cartridges
+* Reset and quit controls
 
 ## Known Limitations
 
@@ -129,7 +126,7 @@ This is an MVP, not a cycle-perfect emulator.
 * Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7 only
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
-* NTSC timing only
+* Region timing is approximate and selected from nes20db metadata when available, then ROM header metadata or filename markers; multi-region software defaults to NTSC timing
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, downloading, or patching
 * PPU rendering is approximate in several edge cases
 * Sprite overflow behavior is not cycle-accurate
@@ -139,16 +136,16 @@ Super Mario Bros. compatibility has not been claimed unless tested locally with 
 
 ## Architecture
 
-Core emulator code is under `nes/src/commonMain/kotlin/nes` and does not depend on frontend graphics or audio APIs.
+Core emulator code is under `nes/src/commonMain/kotlin/nes` and does not depend on frontend graphics, input, audio, or ROM loading APIs.
 
-* `nes.cartridge`: iNES parsing, cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7
+* `nes.cartridge`: cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7
 * `nes.cpu`: CPU core and CPU bus memory map
 * `nes.apu`: pulse, triangle, noise, and DMC channel audio generation
 * `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation
 * `nes.input`: NES controller strobe/serial protocol
 * `nes.NesMachine`: core CPU/PPU/APU/controller orchestration and cartridge insertion
 
-The CPU bus and PPU bus do not depend on mapper classes directly. They communicate with `CartridgeSocket`, which delegates to the mapper stored by the currently inserted `Cartridge`. Parsed iNES ROMs are validated in `InesParser`; unsupported mapper numbers are rejected there before a cartridge is created.
+The CPU bus and PPU bus do not depend on mapper classes directly. They communicate with `CartridgeSocket`, which delegates to the mapper stored by the currently inserted `Cartridge`. Parsed iNES ROMs are validated in the frontend parser package; unsupported mapper numbers are rejected there before a cartridge is created.
 
 Frontend code is under `frontend/src`.
 
@@ -158,6 +155,7 @@ Frontend code is under `frontend/src`.
 * `PlatformAudioPipeline`: queues generated mono PCM samples to OpenAL or WebAudio
 * `PlatformRenderer`: presents the 256x240 framebuffer through Skiko/SkSL on desktop or WebGL on Web
 * `FramePacer`: monotonic accumulated-deadline frame limiter
+* `nes.cartridge` under `frontend/src/commonMain/kotlin`: iNES 1.0 / NES 2.0 parsing and nes20db metadata application
 
 Desktop CLI code is under `frontend/src/jvmMain/kotlin/app`.
 

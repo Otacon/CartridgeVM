@@ -1,7 +1,6 @@
-@file:OptIn(ExperimentalWasmJsInterop::class)
-
 package frontend
 
+import io.readTextResource
 import org.jetbrains.skia.*
 
 actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
@@ -31,7 +30,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
             backgroundPaint = Paint().apply { color = Color.BLACK }
             framePaint = Paint().apply { isAntiAlias = false }
             if (crt) {
-                crtEffect = RuntimeEffect.makeForShader(loadTextResource(CRT_SHADER_RESOURCE))
+                crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))
                 crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
             }
             presentedFrames = 0L
@@ -151,16 +150,3 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())
     }
 }
-
-@JsFun(
-    """
-    (path) => {
-        const request = new XMLHttpRequest();
-        request.open('GET', path, false);
-        request.send();
-        if ((request.status >= 200 && request.status < 300) || request.status === 0) return request.responseText;
-        throw new Error('Unable to load resource ' + path + ': ' + request.status + ' ' + request.statusText);
-    }
-    """
-)
-private external fun loadTextResource(path: String): String

@@ -4,6 +4,7 @@ package frontend
 
 import kotlinx.browser.document
 import kotlinx.coroutines.suspendCancellableCoroutine
+import nes.cartridge.RomData
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 import org.w3c.files.File

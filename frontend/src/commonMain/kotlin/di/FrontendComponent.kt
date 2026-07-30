@@ -1,21 +1,16 @@
 package di
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
-import frontend.Config
-import frontend.DelegatingEmulatorInput
-import frontend.EmulatorRuntimeHost
-import frontend.MainScreenViewModel
-import frontend.PlatformAudioPipeline
-import frontend.PlatformKeyboardInput
-import frontend.PlatformRenderer
+import frontend.*
+import io.Nes20Db
+import io.Nes20DbCsv
 import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Provides
 import me.tatarka.inject.annotations.Scope
 import nes.NesMachine
-import nes.Timing
 import nes.cartridge.InesParserComposite
+import nes.cartridge.InesParserUtils
+import nes.cartridge.InesParserV1
+import nes.cartridge.InesParserV2
 import nes.di.NesComponent
 import nes.di.create
 
@@ -39,7 +34,28 @@ abstract class FrontendComponent(
 
     @AppScope
     @Provides
-    fun inesParser(nesComponent: NesComponent): InesParserComposite = nesComponent.inesParser
+    fun inesParserUtils(): InesParserUtils = InesParserUtils()
+
+    @AppScope
+    @Provides
+    fun inesParserV1(utils: InesParserUtils): InesParserV1 = InesParserV1(utils)
+
+    @AppScope
+    @Provides
+    fun inesParserV2(utils: InesParserUtils): InesParserV2 = InesParserV2(utils)
+
+    @AppScope
+    @Provides
+    fun nes20Db(): Nes20Db = Nes20DbCsv("nes20db.csv")
+
+    @AppScope
+    @Provides
+    fun inesParser(
+        inesParserV1: InesParserV1,
+        inesParserV2: InesParserV2,
+        nes20Db: Nes20Db,
+        utils: InesParserUtils,
+    ): InesParserComposite = InesParserComposite(inesParserV1, inesParserV2, nes20Db, utils)
 
     @AppScope
     @Provides
@@ -80,23 +96,8 @@ abstract class FrontendComponent(
         machine = machine,
         audio = audio,
         input = input,
-        frameNanos = Timing.FRAME_NANOS,
     )
 }
 
 @Scope
 annotation class AppScope
-
-val LocalFrontendComponent = staticCompositionLocalOf<FrontendComponent> {
-    error("FrontendComponent was not provided")
-}
-
-@Composable
-fun ProvideFrontendComponent(
-    component: FrontendComponent,
-    content: @Composable () -> Unit,
-) {
-    CompositionLocalProvider(LocalFrontendComponent provides component) {
-        content()
-    }
-}

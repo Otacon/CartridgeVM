@@ -5,7 +5,7 @@ import nes.util.low8Bits
 import nes.Timing
 
 class NesApu(
-    val dmcDma: DmcDma,
+    dmcDma: DmcDma,
 ) {
     companion object {
         private const val SAMPLE_RATE = 44_100
@@ -25,13 +25,7 @@ class NesApu(
             0, 1, 2, 3, 4, 5, 6, 7,
             8, 9, 10, 11, 12, 13, 14, 15
         )
-        private val NOISE_PERIODS =
-            intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068)
-        private val DMC_PERIODS =
-            intArrayOf(428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 85, 72, 54)
-        private val FOUR_STEP_EVENTS = intArrayOf(7457, 14913, 22371, 29829)
         private val FOUR_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME)
-        private val FIVE_STEP_EVENTS = intArrayOf(7457, 14913, 22371, 37281, 37282)
         private val FIVE_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, 0)
         private val PULSE_MIX = DoubleArray(31) { sum ->
             if (sum == 0) 0.0 else 95.88 / ((8128.0 / sum) + 100.0)
@@ -76,6 +70,12 @@ class NesApu(
     private var frameMode = 0
     private var apuCycle = false
     private var samplePhase = 0
+    var timing: Timing = Timing.DEFAULT
+        set(value) {
+            field = value
+            noise.periods = value.noisePeriods
+            dmc.periods = value.dmcPeriods
+        }
 
     fun reset() {
         pulse1.reset()
@@ -148,8 +148,8 @@ class NesApu(
             }
             stepFrameCounter()
             samplePhase += SAMPLE_RATE
-            if (samplePhase >= Timing.CPU_HZ) {
-                samplePhase -= Timing.CPU_HZ
+            if (samplePhase >= timing.cpuHz) {
+                samplePhase -= timing.cpuHz
                 appendSample(mix())
             }
             i++
@@ -158,7 +158,7 @@ class NesApu(
 
     private fun stepFrameCounter() {
         frameCycle++
-        val events = if (frameMode == 0) FOUR_STEP_EVENTS else FIVE_STEP_EVENTS
+        val events = if (frameMode == 0) timing.apuFourStepEvents else timing.apuFiveStepEvents
         if (frameCycle != events[frameEventIndex]) return
         val actions = if (frameMode == 0) FOUR_STEP_ACTIONS else FIVE_STEP_ACTIONS
         val action = actions[frameEventIndex]
@@ -339,6 +339,7 @@ class NesApu(
     }
 
     private class NoiseChannel {
+        var periods: IntArray = Timing.DEFAULT.noisePeriods
         var enabled = false
         var lengthCounter = 0
         private var envelopeLoop = false
@@ -366,7 +367,7 @@ class NesApu(
                 }
 
                 2 -> {
-                    mode = (value and 0x80) != 0; timer = NOISE_PERIODS[value and 0x0F]
+                    mode = (value and 0x80) != 0; timer = periods[value and 0x0F]
                 }
 
                 3 -> {
@@ -405,11 +406,12 @@ class NesApu(
     private class DmcChannel(
         private val dmcDma: DmcDma,
     ) {
+        var periods: IntArray = Timing.DEFAULT.dmcPeriods
         private var enabled = false
         private var irqEnabled = false
         private var irqRequested = false
         private var loop = false
-        private var period = DMC_PERIODS[0]
+        private var period = periods[0]
         private var timerCounter = 0
         private var outputLevel = 0
         private var sampleAddress = 0xC000
@@ -427,7 +429,7 @@ class NesApu(
             irqEnabled = false
             irqRequested = false
             loop = false
-            period = DMC_PERIODS[0]
+            period = periods[0]
             timerCounter = 0
             outputLevel = 0
             sampleAddress = 0xC000
@@ -447,7 +449,7 @@ class NesApu(
                     irqEnabled = (value and 0x80) != 0
                     if (!irqEnabled) irqRequested = false
                     loop = (value and 0x40) != 0
-                    period = DMC_PERIODS[value and 0x0F]
+                    period = periods[value and 0x0F]
                 }
 
                 1 -> outputLevel = value and 0x7F
