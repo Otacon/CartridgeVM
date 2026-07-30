@@ -53,9 +53,9 @@ class NesMachine(
         val cpuCyclesPerInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
         var cyclesUntilInputPoll = cpuCyclesPerInputPoll
         while (!ppu.frameComplete) {
-            latchInterrupts()
             val cycles = cpu.step()
             apu.step(cycles)
+            latchInterrupts()
             cyclesUntilInputPoll -= cycles
             if (onInputPoll != null && cyclesUntilInputPoll <= 0) {
                 onInputPoll()

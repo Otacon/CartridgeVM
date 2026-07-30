@@ -40,6 +40,7 @@ class InesParserComposite(
             prgSize = prgRom.size.toLong(),
             chrRomSize = if (isChrRam) 0 else chr.size.toLong(),
             chrRamSize = if (isChrRam) chr.size else 0,
+            prgRamSize = entry.prgRamSize,
         )
         return Cartridge(
             mirroring = entry.mirroring,
@@ -47,7 +48,7 @@ class InesParserComposite(
             chr = chr,
             isChrRam = isChrRam,
             trainerPresent = trainerPresent,
-            mapper = utils.createMapper(entry.mapper, prgRom, chr, isChrRam),
+            mapper = utils.createMapper(entry.mapper, prgRom, chr, isChrRam, entry.prgRamSize),
             region = entry.region,
         )
     }

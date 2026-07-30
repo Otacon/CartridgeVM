@@ -49,6 +49,7 @@ class InesParserCompositeTest {
             mapper = 3,
             submapper = 0,
             mirroring = Mirroring.VERTICAL,
+            prgRamSize = 0,
         )
         val parser = InesParserComposite(
             nes20Db = SingleEntryNes20Db(dbEntry),
