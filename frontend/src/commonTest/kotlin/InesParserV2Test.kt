@@ -63,6 +63,17 @@ class InesParserV2Test {
     }
 
     @Test
+    fun `NES 2 UxROM submapper 2 parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x20, submapper = 2, chrRamShift = 7),
+        )
+
+        assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertTrue(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper2)
+    }
+
+    @Test
     fun `NES 2 AxROM parses declared CHR RAM`() = runTest {
         val cartridge = parser.parse(
             nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x70, chrRamShift = 7),

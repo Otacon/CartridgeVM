@@ -104,7 +104,7 @@ class InesParserUtils {
     }
 
     fun validateMapperSizes(mapper: Int, submapper: Int, prgSize: Long, chrRomSize: Long, chrRamSize: Int, prgRamSize: Int) {
-        if (submapper != 0) {
+        if (!supportsSubmapper(mapper, submapper)) {
             throw RomFormatException("Unsupported submapper $submapper for Mapper $mapper")
         }
         val chrSize = if (chrRomSize != 0L) chrRomSize else chrRamSize.toLong()
@@ -165,6 +165,11 @@ class InesParserUtils {
     }
 
     private fun Long.isPowerOfTwo(): Boolean = this > 0 && (this and (this - 1)) == 0L
+
+    private fun supportsSubmapper(mapper: Int, submapper: Int): Boolean = when (mapper) {
+        2 -> submapper == 0 || submapper == 2
+        else -> submapper == 0
+    }
 
     private fun invalidSize(memory: String, mapper: Int, size: Long): Nothing {
         val message = "Invalid $memory size for Mapper $mapper: ${size / 1024} KiB"

@@ -83,7 +83,7 @@ Pass `--controller` on desktop to use the first connected controller through JIn
 
 ## Supported ROM Format
 
-The loader supports iNES 1.0 and NES 2.0 ROMs using Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, or Mapper 7 / AxROM with submapper 0:
+The loader supports iNES 1.0 and NES 2.0 ROMs using Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, or Mapper 7 / AxROM with submapper 0, plus Mapper 2 submapper 2:
 
 * NROM-128 with 16 KiB PRG ROM mirrored at `$C000-$FFFF`
 * NROM-256 with 32 KiB PRG ROM

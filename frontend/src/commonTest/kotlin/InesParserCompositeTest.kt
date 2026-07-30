@@ -66,6 +66,29 @@ class InesParserCompositeTest {
     }
 
     @Test
+    fun `Nes20Db Mapper 2 submapper 2 override parses`() = runTest {
+        val dbEntry = Nes20DbEntry(
+            sha1 = "0000000000000000000000000000000000000000",
+            region = ConsoleRegion.NTSC,
+            mapper = 2,
+            submapper = 2,
+            mirroring = Mirroring.VERTICAL,
+            prgRamSize = 0,
+        )
+        val parser = InesParserComposite(
+            nes20Db = SingleEntryNes20Db(dbEntry),
+            inesParserV1 = InesParserV1(utils),
+            inesParserV2 = InesParserV2(utils),
+            utils = utils,
+        )
+
+        val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
+
+        assertEquals(Mirroring.VERTICAL, cartridge.mirroring)
+        assertTrue(cartridge.mapper is Mapper2)
+    }
+
+    @Test
     fun `invalid magic throws before routing`() = runTest {
         assertFailsWithSuspend<RomFormatException> {
             parser.parse(ByteArray(16))
