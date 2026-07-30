@@ -19,6 +19,7 @@ class InesParserV1(
         val chrBanks = bytes[5].toUnsignedInt()
         val flags6 = bytes[6].toUnsignedInt()
         val flags7 = bytes[7].toUnsignedInt()
+        val prgRamSize = decodePrgRamSize(bytes)
         val region = utils.regionFromFilename(romData.name) ?: decodeRegion(bytes)
         log.d { "Region: $region" }
         if ((flags6 and 0x08) != 0) {
@@ -38,6 +39,7 @@ class InesParserV1(
             prgSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,
+            prgRamSize = prgRamSize,
         )
         return utils.createCartridge(
             bytes = bytes,
@@ -46,8 +48,14 @@ class InesParserV1(
             prgRomSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,
+            prgRamSize = prgRamSize,
             region = region,
         )
+    }
+
+    private fun decodePrgRamSize(bytes: ByteArray): Int {
+        val banks = bytes[8].toUnsignedInt()
+        return (if (banks == 0) 1 else banks) * 8 * 1024
     }
 
     private fun decodeRegion(bytes: ByteArray): ConsoleRegion {

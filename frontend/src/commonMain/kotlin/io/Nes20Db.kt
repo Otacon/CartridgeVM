@@ -32,11 +32,12 @@ class Nes20DbCsv(
             return null
         }
 
-        val expectedHeader = "rom_sha1,console_region,pcb_mapper,pcb_submapper,pcb_mirroring"
+        val legacyHeader = "rom_sha1,console_region,pcb_mapper,pcb_submapper,pcb_mirroring"
+        val expectedHeader = "$legacyHeader,prgram_size"
 
         val actualHeader = lines.next().removePrefix("\uFEFF")
 
-        if (actualHeader != expectedHeader) {
+        if (actualHeader != expectedHeader && actualHeader != legacyHeader) {
             log.e { "The Nes20Db file format is incorrect!" }
             return null
         }
@@ -67,6 +68,7 @@ class Nes20DbCsv(
                     mapper = columns[2].toIntOrNull() ?: error("Invalid mapper at line $lineNumber"),
                     submapper = columns[3].toIntOrNull() ?: error("Invalid submapper at line $lineNumber"),
                     mirroring = parseMirroring(columns[4], lineNumber),
+                    prgRamSize = columns.getOrNull(5)?.toIntOrNull() ?: 0,
                 )
             }
         }
@@ -106,4 +108,5 @@ data class Nes20DbEntry(
     val mapper: Int,
     val submapper: Int,
     val mirroring: Mirroring,
+    val prgRamSize: Int = 0,
 )

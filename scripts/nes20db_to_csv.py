@@ -32,6 +32,7 @@ PREFERRED_COLUMNS = [
     "pcb_mapper",
     "pcb_submapper",
     "pcb_mirroring",
+    "prgram_size",
 ]
 
 
@@ -63,6 +64,7 @@ def entry_to_row(entry: ET.Element) -> dict[str, str]:
     region = row.get("console_region")
     if region is not None:
         row["console_region_name"] = REGION_NAMES.get(region, "UNKNOWN")
+    row.setdefault("prgram_size", "0")
 
     return row
 

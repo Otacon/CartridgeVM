@@ -33,6 +33,10 @@ class CartridgeSocket {
         return cartridge?.mapper?.cpuRead(address) ?: 0
     }
 
+    fun cpuRead(address: Int, openBus: Int): Int {
+        return cartridge?.mapper?.cpuRead(address, openBus) ?: 0
+    }
+
     fun cpuWrite(address: Int, value: Int) {
         val inserted = cartridge ?: return
         inserted.mapper.cpuWrite(address, value)
