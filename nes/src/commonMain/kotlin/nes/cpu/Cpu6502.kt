@@ -277,17 +277,17 @@ class Cpu6502(
             }
 
             OP_LDA_ABSX -> {
-                val r = absx(true)
-                a = read(r.addr)
+                val r = absxWithPageCrossPenalty()
+                a = read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_LDA_ABSY -> {
-                val r = absy(true)
-                a = read(r.addr)
+                val r = absyWithPageCrossPenalty()
+                a = read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_LDA_INDX -> {
@@ -297,10 +297,10 @@ class Cpu6502(
             }
 
             OP_LDA_INDY -> {
-                val r = indy(true)
-                a = read(r.addr)
+                val r = indyWithPageCrossPenalty()
+                a = read(resultAddr(r))
                 zn(a)
-                5 + r.page
+                5 + resultPage(r)
             }
 
             OP_LDX_IMM -> {
@@ -328,10 +328,10 @@ class Cpu6502(
             }
 
             OP_LDX_ABSY -> {
-                val r = absy(true)
-                x = read(r.addr)
+                val r = absyWithPageCrossPenalty()
+                x = read(resultAddr(r))
                 zn(x)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_LDY_IMM -> {
@@ -359,10 +359,10 @@ class Cpu6502(
             }
 
             OP_LDY_ABSX -> {
-                val r = absx(true)
-                y = read(r.addr)
+                val r = absxWithPageCrossPenalty()
+                y = read(resultAddr(r))
                 zn(y)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_STA_ZP -> {
@@ -381,12 +381,12 @@ class Cpu6502(
             }
 
             OP_STA_ABSX -> {
-                write(absx(false).addr, a)
+                write(absx(), a)
                 5
             }
 
             OP_STA_ABSY -> {
-                write(absy(false).addr, a)
+                write(absy(), a)
                 5
             }
 
@@ -396,7 +396,7 @@ class Cpu6502(
             }
 
             OP_STA_INDY -> {
-                write(indy(false).addr, a)
+                write(indy(), a)
                 6
             }
 
@@ -507,15 +507,15 @@ class Cpu6502(
             }
 
             OP_ADC_ABSX -> {
-                val r = absx(true)
-                adc(read(r.addr))
-                4 + r.page
+                val r = absxWithPageCrossPenalty()
+                adc(read(resultAddr(r)))
+                4 + resultPage(r)
             }
 
             OP_ADC_ABSY -> {
-                val r = absy(true)
-                adc(read(r.addr))
-                4 + r.page
+                val r = absyWithPageCrossPenalty()
+                adc(read(resultAddr(r)))
+                4 + resultPage(r)
             }
 
             OP_ADC_INDX -> {
@@ -524,9 +524,9 @@ class Cpu6502(
             }
 
             OP_ADC_INDY -> {
-                val r = indy(true)
-                adc(read(r.addr))
-                5 + r.page
+                val r = indyWithPageCrossPenalty()
+                adc(read(resultAddr(r)))
+                5 + resultPage(r)
             }
 
             OP_SBC_IMM, OP_SBC_IMM_UNOFFICIAL -> {
@@ -550,15 +550,15 @@ class Cpu6502(
             }
 
             OP_SBC_ABSX -> {
-                val r = absx(true)
-                sbc(read(r.addr))
-                4 + r.page
+                val r = absxWithPageCrossPenalty()
+                sbc(read(resultAddr(r)))
+                4 + resultPage(r)
             }
 
             OP_SBC_ABSY -> {
-                val r = absy(true)
-                sbc(read(r.addr))
-                4 + r.page
+                val r = absyWithPageCrossPenalty()
+                sbc(read(resultAddr(r)))
+                4 + resultPage(r)
             }
 
             OP_SBC_INDX -> {
@@ -567,9 +567,9 @@ class Cpu6502(
             }
 
             OP_SBC_INDY -> {
-                val r = indy(true)
-                sbc(read(r.addr))
-                5 + r.page
+                val r = indyWithPageCrossPenalty()
+                sbc(read(resultAddr(r)))
+                5 + resultPage(r)
             }
 
             OP_AND_IMM -> {
@@ -597,17 +597,17 @@ class Cpu6502(
             }
 
             OP_AND_ABSX -> {
-                val r = absx(true)
-                a = a and read(r.addr)
+                val r = absxWithPageCrossPenalty()
+                a = a and read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_AND_ABSY -> {
-                val r = absy(true)
-                a = a and read(r.addr)
+                val r = absyWithPageCrossPenalty()
+                a = a and read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_AND_INDX -> {
@@ -617,10 +617,10 @@ class Cpu6502(
             }
 
             OP_AND_INDY -> {
-                val r = indy(true)
-                a = a and read(r.addr)
+                val r = indyWithPageCrossPenalty()
+                a = a and read(resultAddr(r))
                 zn(a)
-                5 + r.page
+                5 + resultPage(r)
             }
 
             OP_ORA_IMM -> {
@@ -648,17 +648,17 @@ class Cpu6502(
             }
 
             OP_ORA_ABSX -> {
-                val r = absx(true)
-                a = a or read(r.addr)
+                val r = absxWithPageCrossPenalty()
+                a = a or read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_ORA_ABSY -> {
-                val r = absy(true)
-                a = a or read(r.addr)
+                val r = absyWithPageCrossPenalty()
+                a = a or read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_ORA_INDX -> {
@@ -668,10 +668,10 @@ class Cpu6502(
             }
 
             OP_ORA_INDY -> {
-                val r = indy(true)
-                a = a or read(r.addr)
+                val r = indyWithPageCrossPenalty()
+                a = a or read(resultAddr(r))
                 zn(a)
-                5 + r.page
+                5 + resultPage(r)
             }
 
             OP_EOR_IMM -> {
@@ -699,17 +699,17 @@ class Cpu6502(
             }
 
             OP_EOR_ABSX -> {
-                val r = absx(true)
-                a = a xor read(r.addr)
+                val r = absxWithPageCrossPenalty()
+                a = a xor read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_EOR_ABSY -> {
-                val r = absy(true)
-                a = a xor read(r.addr)
+                val r = absyWithPageCrossPenalty()
+                a = a xor read(resultAddr(r))
                 zn(a)
-                4 + r.page
+                4 + resultPage(r)
             }
 
             OP_EOR_INDX -> {
@@ -719,10 +719,10 @@ class Cpu6502(
             }
 
             OP_EOR_INDY -> {
-                val r = indy(true)
-                a = a xor read(r.addr)
+                val r = indyWithPageCrossPenalty()
+                a = a xor read(resultAddr(r))
                 zn(a)
-                5 + r.page
+                5 + resultPage(r)
             }
 
             OP_CMP_IMM -> {
@@ -746,15 +746,15 @@ class Cpu6502(
             }
 
             OP_CMP_ABSX -> {
-                val r = absx(true)
-                cmp(a, read(r.addr))
-                4 + r.page
+                val r = absxWithPageCrossPenalty()
+                cmp(a, read(resultAddr(r)))
+                4 + resultPage(r)
             }
 
             OP_CMP_ABSY -> {
-                val r = absy(true)
-                cmp(a, read(r.addr))
-                4 + r.page
+                val r = absyWithPageCrossPenalty()
+                cmp(a, read(resultAddr(r)))
+                4 + resultPage(r)
             }
 
             OP_CMP_INDX -> {
@@ -763,9 +763,9 @@ class Cpu6502(
             }
 
             OP_CMP_INDY -> {
-                val r = indy(true)
-                cmp(a, read(r.addr))
-                5 + r.page
+                val r = indyWithPageCrossPenalty()
+                cmp(a, read(resultAddr(r)))
+                5 + resultPage(r)
             }
 
             OP_CPX_IMM -> {
@@ -814,7 +814,7 @@ class Cpu6502(
             }
 
             OP_INC_ABSX -> {
-                inc(absx(false).addr)
+                inc(absx())
                 7
             }
 
@@ -834,7 +834,7 @@ class Cpu6502(
             }
 
             OP_DEC_ABSX -> {
-                dec(absx(false).addr)
+                dec(absx())
                 7
             }
 
@@ -883,7 +883,7 @@ class Cpu6502(
             }
 
             OP_ASL_ABSX -> {
-                asl(absx(false).addr)
+                asl(absx())
                 7
             }
 
@@ -908,7 +908,7 @@ class Cpu6502(
             }
 
             OP_LSR_ABSX -> {
-                lsr(absx(false).addr)
+                lsr(absx())
                 7
             }
 
@@ -933,7 +933,7 @@ class Cpu6502(
             }
 
             OP_ROL_ABSX -> {
-                rol(absx(false).addr)
+                rol(absx())
                 7
             }
 
@@ -958,7 +958,7 @@ class Cpu6502(
             }
 
             OP_ROR_ABSX -> {
-                ror(absx(false).addr)
+                ror(absx())
                 7
             }
 
@@ -1080,11 +1080,6 @@ class Cpu6502(
         }
     }
 
-    private class Addr(private val packed: Int) {
-        val addr: Int get() = packed and 0xFFFF
-        val page: Int get() = packed ushr 16
-    }
-
     /**
      * Reads one byte from the CPU bus at the supplied 16-bit address.
      */
@@ -1139,21 +1134,35 @@ class Cpu6502(
     }
 
     /**
-     * Resolves absolute,X addressing and optionally reports a page-crossing cycle penalty.
+     * Resolves absolute,X addressing.
      */
-    private fun absx(includePageCrossPenalty: Boolean): Addr {
-        val b = abs()
-        val a = (b + x).low16Bits()
-        return addressResult(a, includePageCrossPenalty && b.pageBase() != a.pageBase())
+    private fun absx(): Int {
+        return (abs() + x).low16Bits()
     }
 
     /**
-     * Resolves absolute,Y addressing and optionally reports a page-crossing cycle penalty.
+     * Resolves absolute,X addressing and reports a page-crossing cycle penalty.
      */
-    private fun absy(includePageCrossPenalty: Boolean): Addr {
+    private fun absxWithPageCrossPenalty(): Int {
+        val b = abs()
+        val a = (b + x).low16Bits()
+        return addressWithPageCrossPenalty(a, b.pageBase() != a.pageBase())
+    }
+
+    /**
+     * Resolves absolute,Y addressing.
+     */
+    private fun absy(): Int {
+        return (abs() + y).low16Bits()
+    }
+
+    /**
+     * Resolves absolute,Y addressing and reports a page-crossing cycle penalty.
+     */
+    private fun absyWithPageCrossPenalty(): Int {
         val b = abs()
         val a = (b + y).low16Bits()
-        return addressResult(a, includePageCrossPenalty && b.pageBase() != a.pageBase())
+        return addressWithPageCrossPenalty(a, b.pageBase() != a.pageBase())
     }
 
     /**
@@ -1165,17 +1174,34 @@ class Cpu6502(
     }
 
     /**
-     * Resolves indirect-indexed `(operand),Y` addressing and optionally reports page crossing.
+     * Resolves indirect-indexed `(operand),Y` addressing.
      */
-    private fun indy(includePageCrossPenalty: Boolean): Addr {
+    private fun indy(): Int {
+        val p = fetchByte()
+        val b = read(p) or (read((p + 1).low8Bits()) shl 8)
+        return (b + y).low16Bits()
+    }
+
+    /**
+     * Resolves indirect-indexed `(operand),Y` addressing and reports page crossing.
+     */
+    private fun indyWithPageCrossPenalty(): Int {
         val p = fetchByte()
         val b = read(p) or (read((p + 1).low8Bits()) shl 8)
         val a = (b + y).low16Bits()
-        return addressResult(a, includePageCrossPenalty && b.pageBase() != a.pageBase())
+        return addressWithPageCrossPenalty(a, b.pageBase() != a.pageBase())
     }
 
-    private fun addressResult(address: Int, pageCrossed: Boolean): Addr {
-        return Addr(address or ((if (pageCrossed) 1 else 0) shl 16))
+    private fun addressWithPageCrossPenalty(address: Int, pageCrossed: Boolean): Int {
+        return address or ((if (pageCrossed) 1 else 0) shl 16)
+    }
+
+    private fun resultAddr(result: Int): Int {
+        return result and 0xFFFF
+    }
+
+    private fun resultPage(result: Int): Int {
+        return result ushr 16
     }
 
     /**
