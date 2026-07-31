@@ -72,7 +72,7 @@ actual class PlatformControllerInput actual constructor(
                 else -> emptyList()
             }
             if (libraries.isNotEmpty()) {
-                val directory = Files.createTempDirectory("cartridgevm-jinput-")
+                val directory = Files.createTempDirectory("kassette-jinput-")
                 directory.toFile().deleteOnExit()
                 libraries.forEach { (resource, fileName) ->
                     val target = directory.resolve(fileName)

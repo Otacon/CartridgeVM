@@ -16,7 +16,7 @@ kotlin {
     wasmJs {
         browser {
             commonWebpackConfig {
-                outputFileName = "cartridgevm.js"
+                outputFileName = "kassette.js"
             }
         }
         binaries.executable()
@@ -76,7 +76,7 @@ compose.desktop {
     application {
         mainClass = "app.MainKt"
         if (System.getProperty("os.name").lowercase().contains("mac")) {
-            jvmArgs += "-Xdock:name=CartridgeVM NES"
+            jvmArgs += "-Xdock:name=Kassette NES"
         }
     }
 }

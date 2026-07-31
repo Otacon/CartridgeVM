@@ -13,7 +13,7 @@ import java.nio.file.Path
 import kotlin.io.path.readBytes
 
 @Inject
-class CliArgsParser : CliktCommand("cartridgevm") {
+class CliArgsParser : CliktCommand("kassette") {
     val debug: Boolean by option(names = arrayOf("-d", "--debug"), help = "Enable debug logging")
         .flag()
 

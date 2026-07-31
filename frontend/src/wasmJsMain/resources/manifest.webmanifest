@@ -1,7 +1,7 @@
 {
-  "name": "CartridgeVM NES",
-  "short_name": "CartridgeVM",
-  "description": "A browser-installable NES emulator powered by CartridgeVM.",
+  "name": "Kassette NES",
+  "short_name": "Kassette",
+  "description": "A browser-installable NES emulator powered by Kassette.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

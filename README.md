@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="frontend/src/wasmJsMain/resources/icons/icon-192.png" alt="CartridgeVM NES icon" width="192" height="192">
+  <img src="frontend/src/wasmJsMain/resources/icons/icon-192.png" alt="Kassette NES icon" width="192" height="192">
 </p>
-<h1 align="center">CartridgeVM</h1>
+<h1 align="center">Kassette</h1>
 
-CartridgeVM is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. Its current
+Kassette is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. Its current
 compatibility target is Mapper 0 / NROM software, with validation intended against the original Super Mario Bros. when
 the user supplies a legally obtained ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and
 Mapper 7 / AxROM are also supported.

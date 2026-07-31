@@ -1,6 +1,6 @@
 # Agent Handoff
 
-CartridgeVM is a Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. The near-term objective is practical compatibility with user-supplied `.nes` ROMs, with Super Mario Bros. as the primary Mapper 0 reference. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
+Kassette is a Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. The near-term objective is practical compatibility with user-supplied `.nes` ROMs, with Super Mario Bros. as the primary Mapper 0 reference. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
 
 Do not add ROMs, BIOS files, Nintendo assets, screenshots, extracted data, disassemblies, or ROM patches.
 

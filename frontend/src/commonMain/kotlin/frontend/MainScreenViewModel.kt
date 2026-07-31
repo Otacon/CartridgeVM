@@ -76,7 +76,7 @@ class MainScreenViewModel(
         } else {
             ""
         }
-        current.copy(windowTitle = "CartridgeVM$values")
+        current.copy(windowTitle = "Kassette$values")
     }
 }
 
