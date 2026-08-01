@@ -19,7 +19,7 @@ class Mapper3(
 
     override fun cpuWrite(address: Int, value: Int) {
         if (address.low16Bits() >= 0x8000) {
-            selectedChrBankBase = ((value and 0x03) % chrBankCount) * CHR_BANK_SIZE
+            selectedChrBankBase = (value % chrBankCount) * CHR_BANK_SIZE
         }
     }
 

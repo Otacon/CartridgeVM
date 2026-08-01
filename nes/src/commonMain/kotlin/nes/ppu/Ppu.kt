@@ -89,7 +89,7 @@ class Ppu(
             if (cycle in FIRST_VISIBLE_DOT..LAST_VISIBLE_DOT && (cycle and 7) == 0) incrementCoarseX()
             if (cycle == LAST_VISIBLE_DOT) incrementY()
             if (cycle == HORIZONTAL_TRANSFER_DOT) transferHorizontalAddress()
-            if (cycle == MAPPER_SCANLINE_DOT && visibleScanline) bus.clockScanline()
+            if (cycle == MAPPER_SCANLINE_DOT && (visibleScanline || scanline == preRenderScanline)) bus.clockScanline()
             if (scanline == preRenderScanline && cycle in 280..304) transferVerticalAddress()
         }
         if (timing.skipsOddFrameDot && rendering && oddFrame && scanline == preRenderScanline && cycle == ODD_FRAME_LAST_DOT) {

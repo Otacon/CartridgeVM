@@ -138,7 +138,7 @@ class InesParserUtils {
                 if (prgRamSize != 0 && prgRamSize != 8 * 1024) invalidSize("PRG RAM", mapper, prgRamSize.toLong())
             }
             7 -> {
-                if (prgSize !in AXROM_PRG_BANK_SIZE.toLong()..(8L * AXROM_PRG_BANK_SIZE) ||
+                if (prgSize !in AXROM_PRG_BANK_SIZE.toLong()..(16L * AXROM_PRG_BANK_SIZE) ||
                     prgSize % AXROM_PRG_BANK_SIZE != 0L
                 ) {
                     invalidSize("PRG ROM", mapper, prgSize)

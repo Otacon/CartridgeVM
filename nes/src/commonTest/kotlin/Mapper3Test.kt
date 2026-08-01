@@ -52,6 +52,17 @@ class Mapper3Test {
     }
 
     @Test
+    fun `CHR bank select uses bits above one`() {
+        val chr = ByteArray(8 * 8192)
+        chr[4 * 8192] = 0x54
+        val mapper = Mapper3(prgRom = ByteArray(32 * 1024), chrRom = chr)
+
+        mapper.cpuWrite(0x8000, 4)
+
+        assertEquals(0x54, mapper.ppuRead(0x0000))
+    }
+
+    @Test
     fun `PPU writes do not modify CHR ROM`() {
         val chr = ByteArray(8192)
         chr[0] = 0x60

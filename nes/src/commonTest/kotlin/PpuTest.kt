@@ -1,6 +1,7 @@
 import kotlin.test.*
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
+import nes.cartridge.Mapper
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.ppu.Palette
@@ -241,6 +242,30 @@ class PpuTest {
     }
 
     @Test
+    fun `mapper scanline clock includes pre-render line`() {
+        val mapper = CountingMapper()
+        val chr = ByteArray(8192)
+        val prgRom = ByteArray(16 * 1024)
+        val socket = CartridgeSocket()
+        socket.insert(
+            Cartridge(
+                mirroring = Mirroring.HORIZONTAL,
+                prgRom = prgRom,
+                chr = chr,
+                isChrRam = true,
+                trainerPresent = false,
+                mapper = mapper,
+            )
+        )
+        val ppu = Ppu(PpuBus(socket))
+        ppu.cpuWrite(1, 0x18)
+
+        while (!ppu.frameComplete) ppu.step()
+
+        assertEquals(241, mapper.scanlineClocks)
+    }
+
+    @Test
     fun `OAM DMA wraps around current OAM address`() {
         val ppu = ppu()
         val page = ByteArray(256) { it.toByte() }
@@ -319,5 +344,21 @@ class PpuTest {
         repeat(344) { ppu.step() }
 
         assertEquals(Palette.COLORS[0x21], ppu.framebuffer[256])
+    }
+
+    private class CountingMapper : Mapper {
+        var scanlineClocks = 0
+
+        override fun cpuRead(address: Int): Int = 0
+
+        override fun cpuWrite(address: Int, value: Int) = Unit
+
+        override fun ppuRead(address: Int): Int = 0
+
+        override fun ppuWrite(address: Int, value: Int) = Unit
+
+        override fun clockScanline() {
+            scanlineClocks++
+        }
     }
 }

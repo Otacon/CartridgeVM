@@ -30,6 +30,15 @@ class Mapper7Test {
     }
 
     @Test
+    fun `bank select uses bit three`() {
+        val mapper = Mapper7(prgRom = prgBanks(16), chrRam = ByteArray(8192))
+
+        mapper.cpuWrite(0x8000, 8)
+
+        assertEquals(0x18, mapper.cpuRead(0x8000))
+    }
+
+    @Test
     fun `PPU reads and writes use CHR RAM`() {
         val mapper = Mapper7(prgRom = prgBanks(1), chrRam = ByteArray(8192))
 
