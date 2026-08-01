@@ -1,6 +1,6 @@
 package frontend
 
-import me.tatarka.inject.annotations.Inject
+import dev.zacsweers.metro.Inject
 import nes.apu.NesApu
 import org.lwjgl.BufferUtils
 import org.lwjgl.openal.AL

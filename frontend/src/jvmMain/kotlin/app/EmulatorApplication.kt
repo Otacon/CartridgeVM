@@ -7,9 +7,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import co.touchlab.kermit.Logger
+import dev.zacsweers.metro.Inject
 import frontend.*
 import kotlinx.coroutines.launch
-import me.tatarka.inject.annotations.Inject
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import kotlin.system.exitProcess

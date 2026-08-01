@@ -1,8 +1,8 @@
 package nes.di
 
-import me.tatarka.inject.annotations.Component
-import me.tatarka.inject.annotations.Provides
-import me.tatarka.inject.annotations.Scope
+import dev.zacsweers.metro.DependencyGraph
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.Scope
 import nes.NesMachine
 import nes.apu.DmcDma
 import nes.apu.NesApu
@@ -15,9 +15,9 @@ import nes.ppu.Ppu
 import nes.ppu.PpuBus
 
 @NesScope
-@Component
-abstract class NesComponent {
-    abstract val nesMachine: NesMachine
+@DependencyGraph
+interface NesComponent {
+    val nesMachine: NesMachine
 
     @NesScope
     @Provides

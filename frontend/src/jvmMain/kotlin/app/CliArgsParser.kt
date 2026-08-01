@@ -6,8 +6,8 @@ import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
+import dev.zacsweers.metro.Inject
 import frontend.Config
-import me.tatarka.inject.annotations.Inject
 import nes.cartridge.RomData
 import java.nio.file.Path
 import kotlin.io.path.readBytes

@@ -3,35 +3,38 @@ package di
 import frontend.*
 import io.Nes20Db
 import io.Nes20DbCsv
-import me.tatarka.inject.annotations.Component
-import me.tatarka.inject.annotations.Provides
-import me.tatarka.inject.annotations.Scope
+import dev.zacsweers.metro.DependencyGraph
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.Scope
+import dev.zacsweers.metro.createGraph
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParserUtils
 import nes.cartridge.InesParserV1
 import nes.cartridge.InesParserV2
 import nes.di.NesComponent
-import nes.di.create
 
 @AppScope
-@Component
-abstract class FrontendComponent(
-    private val providedConfig: Config,
-) {
-    abstract val inesParser: InesParserComposite
-    abstract val nesMachine: NesMachine
-    abstract val renderer: PlatformRenderer
-    abstract val audio: PlatformAudioPipeline
-    abstract val keyboardInput: PlatformKeyboardInput
-    abstract val controllerInput: PlatformControllerInput
-    abstract val runtimeInput: DelegatingEmulatorInput
-    abstract val runtimeHost: EmulatorRuntimeHost
-    abstract val viewModel: MainScreenViewModel
+@DependencyGraph
+interface FrontendComponent {
+    val inesParser: InesParserComposite
+    val nesMachine: NesMachine
+    val renderer: PlatformRenderer
+    val audio: PlatformAudioPipeline
+    val keyboardInput: PlatformKeyboardInput
+    val controllerInput: PlatformControllerInput
+    val runtimeInput: DelegatingEmulatorInput
+    val runtimeHost: EmulatorRuntimeHost
+    val viewModel: MainScreenViewModel
+
+    @DependencyGraph.Factory
+    fun interface Factory {
+        fun create(@Provides config: Config): FrontendComponent
+    }
 
     @AppScope
     @Provides
-    fun nesComponent(): NesComponent = NesComponent::class.create()
+    fun nesComponent(): NesComponent = createGraph<NesComponent>()
 
     @AppScope
     @Provides
@@ -69,10 +72,6 @@ abstract class FrontendComponent(
     @AppScope
     @Provides
     fun audio(): PlatformAudioPipeline = PlatformAudioPipeline()
-
-    @AppScope
-    @Provides
-    fun config(): Config = providedConfig
 
     @AppScope
     @Provides

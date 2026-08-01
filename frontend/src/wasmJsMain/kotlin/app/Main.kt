@@ -7,16 +7,16 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeViewport
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.createGraphFactory
 import di.WasmFrontendComponent
-import di.create
 import frontend.*
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
-import me.tatarka.inject.annotations.Inject
 import nes.NesMachine
 
 fun main() {
-    val appComponent = WasmFrontendComponent::class.create(Config(debug = true))
+    val appComponent = createGraphFactory<WasmFrontendComponent.Factory>().create(Config(debug = true))
     val root = document.getElementById("app") ?: document.body ?: error("Missing document body")
     ComposeViewport(root) {
         val application = remember { appComponent.webEmulatorApplication }

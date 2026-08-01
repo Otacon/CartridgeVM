@@ -7,20 +7,25 @@ import frontend.EmulatorRuntimeHost
 import frontend.MainScreenViewModel
 import frontend.PlatformKeyboardInput
 import frontend.PlatformRenderer
-import me.tatarka.inject.annotations.Component
-import me.tatarka.inject.annotations.Provides
+import dev.zacsweers.metro.DependencyGraph
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.createGraphFactory
 import nes.NesMachine
 
 @AppScope
-@Component
-abstract class WasmFrontendComponent(
-    @get:Provides val config: Config,
-) {
-    abstract val webEmulatorApplication: WebEmulatorApplication
+@DependencyGraph
+interface WasmFrontendComponent {
+    val webEmulatorApplication: WebEmulatorApplication
+
+    @DependencyGraph.Factory
+    fun interface Factory {
+        fun create(@Provides config: Config): WasmFrontendComponent
+    }
 
     @AppScope
     @Provides
-    fun frontendComponent(config: Config): FrontendComponent = FrontendComponent::class.create(config)
+    fun frontendComponent(config: Config): FrontendComponent =
+        createGraphFactory<FrontendComponent.Factory>().create(config)
 
     @AppScope
     @Provides

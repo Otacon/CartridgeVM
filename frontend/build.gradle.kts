@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.ksp)
+    alias(libs.plugins.metro)
 }
 
 val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").map(String::toInt).get()
@@ -34,7 +34,6 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kermit)
-            implementation(libs.kotlinInjectMp)
             implementation(libs.kotlinxCoroutinesCore)
         }
         commonTest.dependencies {
@@ -47,7 +46,6 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.clikt)
-            implementation(libs.kotlinInjectRuntime)
             implementation(libs.kotlinxCoroutinesSwing)
             implementation(libs.jinput)
             implementation(libs.lwjgl)
@@ -65,11 +63,6 @@ kotlin {
             runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-windows")
         }
     }
-}
-
-dependencies {
-    add("kspJvm", libs.kotlinInjectCompiler)
-    add("kspWasmJs", libs.kotlinInjectCompiler)
 }
 
 compose.desktop {
