@@ -14,16 +14,6 @@ interface Renderer {
     fun close()
 }
 
-expect class PlatformRenderer() : Renderer {
-    override fun init(crt: Boolean)
-
-    override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int)
-
-    override fun draw(canvas: Canvas)
-
-    override fun close()
-}
-
 expect class PlatformAudioPipeline() : AudioPipeline {
     override fun submit(samples: ShortArray, count: Int)
 }

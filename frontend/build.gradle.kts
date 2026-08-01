@@ -29,9 +29,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":nes"))
-            implementation(compose.foundation)
-            implementation(compose.runtime)
-            implementation(compose.ui)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.ui)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kermit)
             implementation(libs.kotlinInjectMp)

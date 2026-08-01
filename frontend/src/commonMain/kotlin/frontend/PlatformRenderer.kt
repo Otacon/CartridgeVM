@@ -1,9 +1,21 @@
 package frontend
 
 import io.readTextResource
-import org.jetbrains.skia.*
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorSpace
+import org.jetbrains.skia.ColorType
+import org.jetbrains.skia.FilterTileMode
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.RuntimeEffect
+import org.jetbrains.skia.RuntimeShaderBuilder
+import org.jetbrains.skia.SamplingMode
 
-actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
+class PlatformRenderer : Renderer {
     private val upload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
     private val imageInfo = ImageInfo(
         FRAME_WIDTH,
@@ -23,7 +35,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
     private var outputHeight = 0
     private var presentedFrames = 0L
 
-    actual override fun init(crt: Boolean) {
+    override fun init(crt: Boolean) {
         release()
         try {
             crtEnabled = crt
@@ -41,7 +53,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         }
     }
 
-    actual override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
+    override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
         check(initialized) { "Skiko renderer is not initialized" }
         require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES framebuffer" }
 
@@ -61,7 +73,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         outputHeight = windowHeight
     }
 
-    actual override fun draw(canvas: Canvas) {
+    override fun draw(canvas: Canvas) {
         val image = frameImage ?: return
         if (outputWidth <= 0 || outputHeight <= 0) return
 
@@ -83,7 +95,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         presentedFrames++
     }
 
-    actual override fun close() {
+    override fun close() {
         release()
     }
 

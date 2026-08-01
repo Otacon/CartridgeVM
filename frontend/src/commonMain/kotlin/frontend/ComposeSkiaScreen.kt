@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.skiaCanvas
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import kotlin.math.roundToInt
 
@@ -50,7 +50,7 @@ fun ComposeSkiaScreen(
         val height = size.height.roundToInt()
         if (width > 0 && height > 0) {
             renderer.present(frame, width, height)
-            renderer.draw(drawContext.canvas.nativeCanvas)
+            renderer.draw(drawContext.canvas.skiaCanvas)
         }
     }
 }
