@@ -3,6 +3,15 @@
 </p>
 <h1 align="center">Kassette</h1>
 
+<p align="center">
+  <a href="https://orfeociano.substack.com/">
+    <img src="https://img.shields.io/badge/Substack-orfeociano-FF6719?logo=substack&logoColor=white" alt="Substack blog">
+  </a>  
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Kotlin-WasmJs-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform Web">
+  <img src="https://img.shields.io/badge/Kotlin-JVM-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform JVM">
+</p>
+
 Kassette is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. Its current
 compatibility target is Mapper 0 / NROM software, with validation intended against the original Super Mario Bros. when
 the user supplies a legally obtained ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and
