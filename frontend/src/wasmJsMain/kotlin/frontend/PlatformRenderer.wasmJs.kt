@@ -61,7 +61,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         outputHeight = windowHeight
     }
 
-    fun draw(canvas: Canvas) {
+    actual override fun draw(canvas: Canvas) {
         val image = frameImage ?: return
         if (outputWidth <= 0 || outputHeight <= 0) return
 

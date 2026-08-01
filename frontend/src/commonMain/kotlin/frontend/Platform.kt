@@ -2,11 +2,14 @@ package frontend
 
 import androidx.compose.ui.input.key.KeyEvent
 import nes.input.NesController
+import org.jetbrains.skia.Canvas
 
 interface Renderer {
     fun init(crt: Boolean)
 
     fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int)
+
+    fun draw(canvas: Canvas)
 
     fun close()
 }
@@ -15,6 +18,8 @@ expect class PlatformRenderer() : Renderer {
     override fun init(crt: Boolean)
 
     override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int)
+
+    override fun draw(canvas: Canvas)
 
     override fun close()
 }

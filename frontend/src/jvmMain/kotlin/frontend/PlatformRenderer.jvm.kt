@@ -1,10 +1,8 @@
 package frontend
 
 import io.readTextResource
-import me.tatarka.inject.annotations.Inject
 import org.jetbrains.skia.*
 
-@Inject
 actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
     private val upload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
     private val imageInfo = ImageInfo(
@@ -63,7 +61,7 @@ actual class PlatformRenderer actual constructor() : Renderer, AutoCloseable {
         outputHeight = windowHeight
     }
 
-    fun draw(canvas: Canvas) {
+    actual override fun draw(canvas: Canvas) {
         val image = frameImage ?: return
         if (outputWidth <= 0 || outputHeight <= 0) return
 
