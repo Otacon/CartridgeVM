@@ -79,7 +79,7 @@ ROM/cartridge:
 * UxROM/UNROM with switchable 16 KiB lower PRG bank and fixed last 16 KiB upper PRG bank.
 * CNROM with fixed PRG ROM and switchable 8 KiB CHR ROM banks.
 * MMC3 with precomputed 8 KiB PRG/1 KiB CHR page offsets, PRG RAM, runtime mirroring control, and approximate scanline IRQs.
-* AxROM with switchable 32 KiB PRG banks, CHR RAM, and mapper-controlled one-screen mirroring.
+* AxROM with switchable 32 KiB PRG banks up to 512 KiB PRG ROM, CHR RAM, and mapper-controlled one-screen mirroring.
 * CHR ROM and CHR RAM.
 * Horizontal and vertical mirroring.
 * PAL, NTSC, Dendy, and multi-region timing metadata; multi-region currently maps to NTSC timing.
@@ -117,6 +117,8 @@ APU/audio:
 * Pulse 1, pulse 2, triangle, noise, and DMC channels with region-specific noise and DMC periods.
 * Length counters, envelopes, pulse sweep and overflow muting, triangle linear counter/DAC hold, and frame-counter
   clocks with frame IRQ status, inhibit, and acknowledgement behavior.
+* APU behavior is partially aligned with MesenCE for pulse sweep divider periods, DMC startup bit-counter silence, and
+  NTSC/PAL/Dendy DMC period tables.
 * NES nonlinear pulse/TND mixing followed by 90 Hz and 440 Hz high-pass filters and a 14 kHz low-pass filter.
 * OpenAL desktop playback and WebAudio browser playback.
 * DMC sample playback with CPU-memory reads, buffered output after reader disable, looping, IRQ state, address wrapping,
@@ -173,7 +175,7 @@ Architecture notes:
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
 * APU register effects and frame-counter events are instruction-batched; `$4017`'s parity-dependent 3/4-cycle reset
-  delay and exact frame IRQ edge timing are not modeled.
+  delay, exact frame IRQ edge timing, and Mesen's full event scheduler are not modeled.
 * DMC DMA fetches immediately and always stalls for four cycles. Exact 3/4-cycle alignment, OAM DMA conflicts, and
   cycle-level bus arbitration are not modeled.
 * APU PCM uses point sampling plus the output filter chain, not band-limited synthesis, so high-frequency aliasing can
@@ -191,7 +193,7 @@ then input/controller protocol, then CPU/APU details.
 Run at least:
 
 ```bash
-./gradlew test
+./gradlew allTests
 ```
 
 For faster focused checks, run:

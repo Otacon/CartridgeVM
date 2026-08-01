@@ -270,7 +270,7 @@ class NesApu(
                 }
 
                 1 -> {
-                    sweepEnabled = (value and 0x80) != 0; sweepPeriod = (value shr 4) and 7; sweepNegate =
+                    sweepEnabled = (value and 0x80) != 0; sweepPeriod = ((value shr 4) and 7) + 1; sweepNegate =
                         (value and 0x08) != 0; sweepShift = value and 7; sweepReload = true
                 }
 
@@ -453,14 +453,14 @@ class NesApu(
         private var irqRequested = false
         private var loop = false
         private var period = periods[0]
-        private var timerCounter = 0
+        private var timerCounter = period - 1
         private var outputLevel = 0
         private var sampleAddress = 0xC000
         private var sampleLength = 1
         private var currentAddress = 0xC000
         private var bytesRemaining = 0
         private var shiftRegister = 0
-        private var bitsRemaining = 0
+        private var bitsRemaining = 8
         private var sampleBuffer = 0
         private var sampleBufferFull = false
         private var silence = true
@@ -471,14 +471,14 @@ class NesApu(
             irqRequested = false
             loop = false
             period = periods[0]
-            timerCounter = 0
+            timerCounter = period - 1
             outputLevel = 0
             sampleAddress = 0xC000
             sampleLength = 1
             currentAddress = sampleAddress
             bytesRemaining = 0
             shiftRegister = 0
-            bitsRemaining = 0
+            bitsRemaining = 8
             sampleBuffer = 0
             sampleBufferFull = false
             silence = true

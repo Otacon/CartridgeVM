@@ -6,6 +6,7 @@ import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.cpu.CpuStall
+import nes.ConsoleRegion
 
 class ApuTest {
     private fun apu(prg: ByteArray = ByteArray(16 * 1024)): NesApu {
@@ -179,6 +180,23 @@ class ApuTest {
     }
 
     @Test
+    fun `DMC keeps output silent until initial bit counter expires`() {
+        val apu = apu(ByteArray(16 * 1024) { 0xFF.toByte() })
+        apu.cpuWrite(0x4010, 0x0F)
+        apu.cpuWrite(0x4011, 0x00)
+        apu.cpuWrite(0x4013, 0x00)
+
+        apu.cpuWrite(0x4015, 0x10)
+        apu.step(450)
+
+        assertTrue(apu.samples.take(apu.sampleCount).all { it.toInt() == 0 })
+
+        apu.step(500)
+
+        assertTrue(apu.samples.take(apu.sampleCount).any { it.toInt() != 0 })
+    }
+
+    @Test
     fun `DMC sample fetch requests CPU stall cycles`() {
         val socket = CartridgeSocket()
         val prg = ByteArray(16 * 1024)
@@ -190,5 +208,11 @@ class ApuTest {
         apu.cpuWrite(0x4015, 0x10)
 
         assertEquals(4, cpuStall.drain())
+    }
+
+    @Test
+    fun `NTSC DMC period table matches hardware rate index thirteen`() {
+        assertEquals(84, ConsoleRegion.NTSC.timing.dmcPeriods[13])
+        assertEquals(84, ConsoleRegion.DENDY.timing.dmcPeriods[13])
     }
 }

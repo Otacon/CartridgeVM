@@ -111,7 +111,7 @@ CNROM, Mapper 4 / MMC3, or Mapper 7 / AxROM with submapper 0, plus Mapper 2 subm
 * CNROM with 16 KiB or 32 KiB PRG ROM and switchable 8 KiB CHR ROM banks
 * MMC3 with 32 KiB to 512 KiB PRG ROM, 8 KiB PRG bank switching, CHR ROM/RAM banking, PRG RAM, runtime mirroring
   control, and scanline IRQs
-* AxROM with 32 KiB to 256 KiB PRG ROM, switchable 32 KiB PRG banks, 8 KiB CHR RAM, and mapper-controlled one-screen
+* AxROM with 32 KiB to 512 KiB PRG ROM, switchable 32 KiB PRG banks, 8 KiB CHR RAM, and mapper-controlled one-screen
   mirroring
 * Horizontal and vertical nametable mirroring
 * NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, explicit CHR
@@ -134,8 +134,8 @@ Implemented:
 * Dedicated PPU bus for CHR ROM/RAM, nametable memory, palette memory, and PPU-side mirroring
 * Background rendering, 8x8 sprite rendering, palette selection, sprite priority, sprite-zero hit approximation
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
-* Region-timed 2A03/2A07 APU audio with pulse, triangle, noise, DMC, nonlinear mixing, frame/DMC IRQs, and an
-  NES-style output filter chain
+* Region-timed 2A03/2A07 APU audio with pulse, triangle, noise, DMC, nonlinear mixing, frame/DMC IRQs, pulse sweep
+  periods, DMC startup bit-counter behavior, and an NES-style output filter chain
 * One standard NES controller via `$4016` serial protocol
 * Desktop Compose/Skiko presentation of a software framebuffer, an optional SkSL CRT effect, and OpenAL audio playback
 * Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API
@@ -148,8 +148,8 @@ Implemented:
 This is an MVP, not a cycle-perfect emulator.
 
 * APU channel timers, counters, sweep muting, triangle DAC hold, DMC output, nonlinear mixing, and output filtering are
-  modeled, but register writes and frame-counter events are advanced in instruction-sized batches rather than on exact
-  CPU bus cycles
+  modeled, with pulse sweep divider periods, DMC bit-counter startup, and DMC NTSC/PAL period tables; register writes
+  and frame-counter events are still advanced in instruction-sized batches rather than on exact CPU bus cycles
 * DMC DMA reads are immediate fixed four-cycle stalls; exact 3/4-cycle alignment and DMC/OAM DMA conflicts are not
   modeled, and PCM generation uses point sampling rather than band-limited synthesis
 * Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7 only
