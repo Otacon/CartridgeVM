@@ -1,9 +1,9 @@
-<p align="center">
+<p style="text-align: center;">
   <img src="frontend/src/wasmJsMain/resources/icons/icon-192.png" alt="Kassette NES icon" width="192" height="192">
 </p>
-<h1 align="center">Kassette</h1>
+<h1 style="text-align: center;">Kassette</h1>
 
-<p align="center">
+<p style="text-align: center;">
   <a href="https://orfeociano.substack.com/">
     <img src="https://img.shields.io/badge/Substack-orfeociano-FF6719?logo=substack&logoColor=white" alt="Substack blog">
   </a>  
@@ -12,10 +12,9 @@
   <img src="https://img.shields.io/badge/Kotlin-JVM-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform JVM">
 </p>
 
-Kassette is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. Its current
-compatibility target is Mapper 0 / NROM software, with validation intended against the original Super Mario Bros. when
-the user supplies a legally obtained ROM. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and
-Mapper 7 / AxROM are also supported.
+Kassette is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. It supports Mapper 0 /
+NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM software, with
+validation intended against user-supplied, legally obtained ROMs.
 
 No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassemblies, or ROM patches are included in
 this repository.
@@ -51,7 +50,6 @@ Optional flags:
 
 ```bash
 ./gradlew run --args="--debug /path/to/game.nes"
-./gradlew run --args="--controller /path/to/game.nes"
 ./gradlew run --args="--crt /path/to/game.nes"
 ```
 
@@ -69,48 +67,33 @@ Run the browser build:
 ```
 
 Then choose a legally obtained `.nes` ROM from the browser menubar. Browser audio is resumed from normal menu gestures
-such as opening a ROM, resetting, or toggling CRT. Keyboard input is always available, and the first connected browser
-Gamepad API controller is polled automatically.
+such as opening a ROM or toggling CRT. Keyboard input is always available, and the first connected browser Gamepad API
+controller is polled automatically.
 
-The WebAssembly frontend is configured as a progressive web app. When the production distribution is served from
-`localhost` or HTTPS, supported browsers can offer desktop installation using `manifest.webmanifest` and `sw.js`.
-Service worker registration is disabled for the Gradle webpack dev server at `localhost:8080` to avoid conflicts with
-live reload.
+The WebAssembly frontend includes a web app manifest. When the production distribution is served from `localhost` or
+HTTPS, supported browsers can offer desktop installation using `manifest.webmanifest`.
 
-PWA assets live in `frontend/src/wasmJsMain/resources`: `favicon.ico`, `manifest.webmanifest`, `sw.js`, and the install
-icons under `icons/`. The manifest includes 192px, 512px, and maskable icon variants.
+Web assets live in `frontend/src/wasmJsMain/resources`: `index.html`, `favicon.ico`, `manifest.webmanifest`, and the
+install icons under `icons/`. The manifest includes 192px, 512px, and maskable icon variants.
 
 ## Controls
 
-| Key         | NES input   |
-|-------------|-------------|
-| Arrow Up    | D-pad Up    |
-| Arrow Down  | D-pad Down  |
-| Arrow Left  | D-pad Left  |
-| Arrow Right | D-pad Right |
-| Z           | A           |
-| X           | B           |
-| Enter       | Start       |
-| Right Shift | Select      |
-| R           | Reset       |
-| Escape      | Quit        |
+| NES input   | Keyboard    | Controller         |
+|-------------|-------------|--------------------|
+| A           | Z           | Right face button  |
+| B           | X           | Bottom face button |
+| Select      | Shift       | View / Back        |
+| Start       | Enter       | Menu / Start       |
+| D-pad Up    | Arrow Up    | D-pad Up           |
+| D-pad Down  | Arrow Down  | D-pad Down         |
+| D-pad Left  | Arrow Left  | D-pad Left         |
+| D-pad Right | Arrow Right | D-pad Right        |
 
 Opposite directions are filtered so left/right and up/down are not both sent to the emulated controller at the same
 time.
 
-Pass `--controller` on desktop to use the first connected controller through JInput. Without the flag, keyboard input is
-used. The web build polls the first connected browser Gamepad API controller automatically in addition to keyboard
-input.
-
-| Controller         | NES input |
-|--------------------|-----------|
-| Bottom face button | B         |
-| Right face button  | A         |
-| View / Back        | Select    |
-| Menu / Start       | Start     |
-| D-pad              | D-pad     |
-| Right bumper       | Reset     |
-| Guide              | Quit      |
+Desktop builds poll the first connected controller through JInput in addition to keyboard input. The web build polls the
+first connected browser Gamepad API controller automatically in addition to keyboard input.
 
 ## Supported ROM Format
 
@@ -158,7 +141,7 @@ Implemented:
 * Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API
   controller input
 * Region-aware frame pacing for NTSC, PAL, Dendy, multi-region, and Japan/Famicom-timed cartridges
-* Reset and quit controls
+* ROM loading/reloading, CRT toggling, and a desktop exit menu item
 
 ## Known Limitations
 
@@ -206,7 +189,7 @@ Frontend code is under `frontend/src`.
 * `ComposeSkiaScreen`: Compose drawing surface for the shared framebuffer
 * `EmulatorRuntimeHost`: coroutine-based emulator lifecycle and frame pacing
 * `PlatformKeyboardInput`: fixed keyboard bindings
-* `PlatformControllerInput`: JInput gamepad bindings enabled with `--controller`
+* `PlatformControllerInput`: JInput gamepad bindings on desktop and Gamepad API bindings on Web
 * `PlatformAudioPipeline`: queues generated mono PCM samples to OpenAL or WebAudio
 * `PlatformRenderer`: presents the 256x240 framebuffer through Skiko/SkSL on desktop or WebGL on Web
 * `nes.cartridge` under `frontend/src/commonMain/kotlin`: iNES 1.0 / NES 2.0 parsing and nes20db metadata application
