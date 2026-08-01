@@ -1,6 +1,6 @@
 # Agent Handoff
 
-Kassette is a Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. The near-term objective is practical compatibility with user-supplied `.nes` ROMs, with Super Mario Bros. as the primary Mapper 0 reference. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are also supported.
+Kassette is a Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. The near-term objective is practical compatibility with user-supplied `.nes` ROMs. Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, Mapper 7 / AxROM, Mapper 11 / Color Dreams, Mapper 34 / BNROM/NINA-001, Mapper 66 / GxROM, Mapper 71 / BF909x, Mapper 79 / NINA-03/06, Mapper 87 / Jaleco JF-xx, and Mapper 113 / multicart NINA are also supported.
 
 Do not add ROMs, BIOS files, Nintendo assets, screenshots, extracted data, disassemblies, or ROM patches.
 
@@ -47,7 +47,7 @@ Key packages:
 ```text
 nes/src/commonMain/kotlin/nes/                 Machine orchestration and timing
 nes/src/commonMain/kotlin/nes/apu/             APU audio generation
-nes/src/commonMain/kotlin/nes/cartridge/       Cartridge socket and Mapper 0, 1, 2, 3, 4, and 7
+nes/src/commonMain/kotlin/nes/cartridge/       Cartridge socket and Mapper 0, 1, 2, 3, 4, 7, 11, 34, 66, 71, 79, 87, and 113
 nes/src/commonMain/kotlin/nes/cpu/             6502 CPU and CPU bus
 nes/src/commonMain/kotlin/nes/input/           NES controller protocol
 nes/src/commonMain/kotlin/nes/ppu/             PPU registers, memory, timing, and software rendering
@@ -73,13 +73,18 @@ ROM/cartridge:
 * iNES 1.0 and NES 2.0 parsing.
 * nes20db SHA-1 metadata overrides for known ROM region, mapper, submapper, and mirroring.
 * Filename region fallback for common USA/Japan/Europe/PAL markers when header metadata is missing or ambiguous.
-* Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM.
+* Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, Mapper 7 / AxROM, Mapper 11 / Color Dreams, Mapper 34 / BNROM/NINA-001, Mapper 66 / GxROM, Mapper 71 / BF909x, Mapper 79 / NINA-03/06, Mapper 87 / Jaleco JF-xx, and Mapper 113 / multicart NINA.
 * NROM-128 and NROM-256.
 * MMC1 with serial register loading, PRG/CHR banking, PRG RAM, and runtime one-screen/horizontal/vertical mirroring.
 * UxROM/UNROM with switchable 16 KiB lower PRG bank and fixed last 16 KiB upper PRG bank.
 * CNROM with fixed PRG ROM and switchable 8 KiB CHR ROM banks.
+* Mappers 2, 3, and 7 support Mesen-style NES 2.0 submapper 2 bus-conflict behavior.
 * MMC3 with precomputed 8 KiB PRG/1 KiB CHR page offsets, PRG RAM, runtime mirroring control, and approximate scanline IRQs.
 * AxROM with switchable 32 KiB PRG banks up to 512 KiB PRG ROM, CHR RAM, and mapper-controlled one-screen mirroring.
+* Mapper 11 / Color Dreams with bus-conflicted 32 KiB PRG and 8 KiB CHR ROM banking.
+* Mapper 34 follows Mesen's mapper-factory split: CHR RAM is BNROM, CHR ROM is NINA-001, and NES 2.0 submappers 1/2 force NINA-001/BNROM.
+* Mapper 66 / GxROM with 32 KiB PRG and 8 KiB CHR ROM banking.
+* Mapper 71 / BF909x, Mapper 79 / NINA-03/06, Mapper 87 / Jaleco JF-xx, and Mapper 113 / multicart NINA follow Mesen's discrete mapper behavior.
 * CHR ROM and CHR RAM.
 * Horizontal and vertical mirroring.
 * PAL, NTSC, Dendy, and multi-region timing metadata; multi-region currently maps to NTSC timing.
@@ -166,8 +171,8 @@ Architecture notes:
 
 ## Known Limitations
 
-* Compatibility target is Super Mario Bros. / Mapper 0, not broad NES compatibility.
-* No mappers beyond Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7.
+* No mappers beyond Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7, Mapper 11, Mapper 34, Mapper 66, Mapper 71, Mapper 79, Mapper 87, and Mapper 113.
+* Larger chips such as MMC5, MMC2/MMC4, Bandai FCG, Jaleco SS88006, Namco 163, VRC2/VRC4, VRC6, and Sunsoft FME-7 still need dedicated IRQ/audio/timing infrastructure before they can be ported accurately.
 * Mapper 1 does not support SUROM/SOROM/SXROM-style extended banking variants.
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing.
 * NTSC/PAL/Dendy timing is supported from nes20db, ROM header metadata, and filename fallback; timing remains approximate.
@@ -187,8 +192,8 @@ Architecture notes:
 
 ## Development Guidance
 
-Prefer small targeted fixes with deterministic tests. For SMB issues, inspect PPU scroll/sprite-zero behavior first,
-then input/controller protocol, then CPU/APU details.
+Prefer small targeted fixes with deterministic tests. For rendering issues, inspect PPU scroll/sprite-zero behavior first,
+then mapper IRQ timing, input/controller protocol, then CPU/APU details.
 
 Run at least:
 

@@ -113,6 +113,42 @@ class InesParserV2Test {
     }
 
     @Test
+    fun `NES 2 BF909x parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 4, chrLsb = 0, flags6 = 0x70, flags7Mapper = 0x40, chrRamShift = 7),
+        )
+
+        assertTrue(cartridge.mapper is Mapper71)
+    }
+
+    @Test
+    fun `NES 2 NINA-03 parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 2, chrLsb = 2, flags6 = 0xF0, flags7Mapper = 0x40),
+        )
+
+        assertTrue(cartridge.mapper is Mapper79)
+    }
+
+    @Test
+    fun `NES 2 Jaleco JF-xx parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 2, chrLsb = 2, flags6 = 0x70, flags7Mapper = 0x50),
+        )
+
+        assertTrue(cartridge.mapper is Mapper87)
+    }
+
+    @Test
+    fun `NES 2 Mapper 113 parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 2, chrLsb = 2, flags6 = 0x10, flags7Mapper = 0x70),
+        )
+
+        assertTrue(cartridge.mapper is Mapper79)
+    }
+
+    @Test
     fun `NES 2 extended unsupported mapper throws ROM format exception`() = runTest {
         val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(prgLsb = 2, chrLsb = 1, flags6 = 0x40, mapperUpper = 1))

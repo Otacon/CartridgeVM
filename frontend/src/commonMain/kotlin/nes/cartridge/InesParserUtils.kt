@@ -167,9 +167,25 @@ class InesParserUtils {
                 if (prgSize !in GXROM_PRG_BANK_SIZE.toLong()..(4L * GXROM_PRG_BANK_SIZE) || prgSize % GXROM_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
                 if (chrRomSize !in CHR_BANK_SIZE.toLong()..(4L * CHR_BANK_SIZE) || chrRomSize % CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
             }
+            71 -> {
+                if (prgSize !in (2L * PRG_BANK_SIZE)..(16L * PRG_BANK_SIZE) || prgSize % PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
+                if (chrRomSize != 0L || chrRamSize != CHR_BANK_SIZE) throw RomFormatException("Invalid CHR memory for Mapper 71: BF909x requires 8 KiB CHR RAM")
+            }
+            79 -> {
+                if (prgSize !in NINA_PRG_BANK_SIZE.toLong()..(2L * NINA_PRG_BANK_SIZE) || prgSize % NINA_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
+                if (chrRomSize !in CHR_BANK_SIZE.toLong()..(8L * CHR_BANK_SIZE) || chrRomSize % CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
+            }
+            87 -> {
+                if (prgSize != PRG_BANK_SIZE.toLong() && prgSize != 2L * PRG_BANK_SIZE) invalidSize("PRG ROM", mapper, prgSize)
+                if (chrRomSize !in CHR_BANK_SIZE.toLong()..(4L * CHR_BANK_SIZE) || chrRomSize % CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
+            }
+            113 -> {
+                if (prgSize !in NINA_PRG_BANK_SIZE.toLong()..(8L * NINA_PRG_BANK_SIZE) || prgSize % NINA_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
+                if (chrRomSize !in CHR_BANK_SIZE.toLong()..(16L * CHR_BANK_SIZE) || chrRomSize % CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
+            }
             else -> {
-                log.e { "Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, and 66 are supported" }
-                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, and 66 are supported")
+                log.e { "Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, 66, 71, 79, 87, and 113 are supported" }
+                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, 66, 71, 79, 87, and 113 are supported")
             }
         }
     }
@@ -184,6 +200,10 @@ class InesParserUtils {
         11 -> Mapper11(prgRom = prg, chrRom = chr)
         34 -> Mapper34(prgRom = prg, chr = chr, isChrRam = isChrRam, prgRamSize = prgRamSize, forceNina = submapper == 1)
         66 -> Mapper66(prgRom = prg, chrRom = chr)
+        71 -> Mapper71(prgRom = prg, chrRam = chr, bf9097Mode = submapper == 1)
+        79 -> Mapper79(prgRom = prg, chrRom = chr)
+        87 -> Mapper87(prgRom = prg, chrRom = chr)
+        113 -> Mapper79(prgRom = prg, chrRom = chr, multicartMode = true)
         else -> error("Unsupported mapper $mapper")
     }
 
@@ -192,6 +212,7 @@ class InesParserUtils {
     private fun supportsSubmapper(mapper: Int, submapper: Int): Boolean = when (mapper) {
         2, 3, 7 -> submapper == 0 || submapper == 2
         34 -> submapper in 0..2
+        71 -> submapper == 0 || submapper == 1
         else -> submapper == 0
     }
 
@@ -213,5 +234,6 @@ class InesParserUtils {
         private const val COLOR_DREAMS_PRG_BANK_SIZE = 32 * 1024
         private const val BNROM_PRG_BANK_SIZE = 32 * 1024
         private const val GXROM_PRG_BANK_SIZE = 32 * 1024
+        private const val NINA_PRG_BANK_SIZE = 32 * 1024
     }
 }
