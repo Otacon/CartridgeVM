@@ -13,8 +13,9 @@
 </p>
 
 Kassette is a focused Kotlin Multiplatform NES emulator MVP with desktop and browser frontends. It supports Mapper 0 /
-NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM software, with
-validation intended against user-supplied, legally obtained ROMs.
+NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, Mapper 7 / AxROM, Mapper 11 / Color Dreams,
+Mapper 34 / BNROM/NINA-001, and Mapper 66 / GxROM software, with validation intended against user-supplied, legally
+obtained ROMs.
 
 No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassemblies, or ROM patches are included in
 this repository.
@@ -98,7 +99,8 @@ first connected browser Gamepad API controller automatically in addition to keyb
 ## Supported ROM Format
 
 The loader supports iNES 1.0 and NES 2.0 ROMs using Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 /
-CNROM, Mapper 4 / MMC3, or Mapper 7 / AxROM with submapper 0, plus Mapper 2 submapper 2:
+CNROM, Mapper 4 / MMC3, Mapper 7 / AxROM, Mapper 11 / Color Dreams, Mapper 34 / BNROM/NINA-001, or Mapper 66 / GxROM.
+Mappers 2, 3, and 7 support Mesen-style submapper 2 bus conflicts:
 
 * NROM-128 with 16 KiB PRG ROM mirrored at `$C000-$FFFF`
 * NROM-256 with 32 KiB PRG ROM
@@ -113,6 +115,10 @@ CNROM, Mapper 4 / MMC3, or Mapper 7 / AxROM with submapper 0, plus Mapper 2 subm
   control, and scanline IRQs
 * AxROM with 32 KiB to 512 KiB PRG ROM, switchable 32 KiB PRG banks, 8 KiB CHR RAM, and mapper-controlled one-screen
   mirroring
+* Color Dreams with bus-conflicted writes selecting 32 KiB PRG and 8 KiB CHR ROM banks
+* Mapper 34 following Mesen's factory behavior: CHR RAM defaults to BNROM, CHR ROM defaults to NINA-001, and NES 2.0
+  submappers 1/2 force NINA-001/BNROM respectively
+* GxROM with 32 KiB PRG and 8 KiB CHR ROM bank switching
 * Horizontal and vertical nametable mirroring
 * NES 2.0 extended mapper numbers, submapper validation, linear and exponent/multiplier ROM sizes, explicit CHR
   RAM/NVRAM sizes, and NTSC/PAL/Dendy timing modes
@@ -127,7 +133,7 @@ Implemented:
 
 * Kotlin Multiplatform core emulator module and desktop/browser frontend module
 * iNES 1.0 / NES 2.0 parser with nes20db metadata overrides and Mapper 0 / Mapper 1 / Mapper 2 / Mapper 3 / Mapper 4 /
-  Mapper 7 cartridge mapping
+  Mapper 7 / Mapper 11 / Mapper 34 / Mapper 66 cartridge mapping
 * Cartridge socket abstraction for insertion/removal and CPU/PPU cartridge access
 * 2A03-style 6502 CPU core for official opcodes
 * CPU bus RAM/register/controller/OAM DMA mapping, with cartridge space routed through the cartridge socket
@@ -152,7 +158,7 @@ This is an MVP, not a cycle-perfect emulator.
   and frame-counter events are still advanced in instruction-sized batches rather than on exact CPU bus cycles
 * DMC DMA reads are immediate fixed four-cycle stalls; exact 3/4-cycle alignment and DMC/OAM DMA conflicts are not
   modeled, and PCM generation uses point sampling rather than band-limited synthesis
-* Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7 only
+* Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7, Mapper 11, Mapper 34, and Mapper 66 only
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
 * Region timing is approximate and selected from nes20db metadata when available, then ROM header metadata or filename
@@ -172,7 +178,7 @@ Core emulator code is under `nes/src/commonMain/kotlin/nes` and does not depend 
 ROM loading APIs.
 
 * `nes.cartridge`: cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3,
-  Mapper 4, Mapper 7
+  Mapper 4, Mapper 7, Mapper 11, Mapper 34, Mapper 66
 * `nes.cpu`: CPU core and CPU bus memory map
 * `nes.apu`: region-aware pulse, triangle, noise, and DMC generation, frame/DMC IRQ state, nonlinear mixing, and output
   filtering

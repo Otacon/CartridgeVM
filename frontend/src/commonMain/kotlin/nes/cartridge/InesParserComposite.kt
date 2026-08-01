@@ -48,7 +48,7 @@ class InesParserComposite(
             chr = chr,
             isChrRam = isChrRam,
             trainerPresent = trainerPresent,
-            mapper = utils.createMapper(entry.mapper, prgRom, chr, isChrRam, entry.prgRamSize),
+            mapper = utils.createMapper(entry.mapper, entry.submapper, prgRom, chr, isChrRam, entry.prgRamSize),
             region = entry.region,
         )
     }

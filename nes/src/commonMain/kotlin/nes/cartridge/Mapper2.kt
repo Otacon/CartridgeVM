@@ -6,6 +6,7 @@ import nes.util.toUnsignedInt
 class Mapper2(
     private val prgRom: ByteArray,
     private val chrRam: ByteArray,
+    private val hasBusConflicts: Boolean = false,
 ) : Mapper {
     private val bankCount = prgRom.size / PRG_BANK_SIZE
     private var selectedBankBase = 0
@@ -20,8 +21,10 @@ class Mapper2(
     }
 
     override fun cpuWrite(address: Int, value: Int) {
-        if (address.low16Bits() >= 0x8000) {
-            selectedBankBase = ((value and 0x0F) % bankCount) * PRG_BANK_SIZE
+        val a = address.low16Bits()
+        if (a >= 0x8000) {
+            val v = if (hasBusConflicts) value and cpuRead(a) else value
+            selectedBankBase = ((v and 0x0F) % bankCount) * PRG_BANK_SIZE
         }
     }
 

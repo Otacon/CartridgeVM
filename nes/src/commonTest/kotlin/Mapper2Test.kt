@@ -33,6 +33,18 @@ class Mapper2Test {
     }
 
     @Test
+    fun `submapper 2 applies bus conflicts`() {
+        val prg = ByteArray(4 * 16 * 1024)
+        prg[0] = 0x01
+        prg[1 * 16 * 1024] = 0x21
+        val mapper = Mapper2(prgRom = prg, chrRam = ByteArray(8192), hasBusConflicts = true)
+
+        mapper.cpuWrite(0x8000, 0x03)
+
+        assertEquals(0x21, mapper.cpuRead(0x8000))
+    }
+
+    @Test
     fun `PPU reads and writes use CHR RAM`() {
         val mapper = Mapper2(prgRom = ByteArray(2 * 16 * 1024), chrRam = ByteArray(8192))
 

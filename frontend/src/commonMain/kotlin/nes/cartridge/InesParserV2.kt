@@ -55,6 +55,7 @@ class InesParserV2(
             bytes = bytes,
             flags6 = flags6,
             mapper = mapper,
+            submapper = submapper,
             prgRomSize = prgRomSize,
             chrRomSize = chrRomSize,
             chrRamSize = chrRamSize,

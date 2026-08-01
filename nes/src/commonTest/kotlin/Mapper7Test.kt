@@ -39,6 +39,17 @@ class Mapper7Test {
     }
 
     @Test
+    fun `submapper 2 applies bus conflicts`() {
+        val prg = prgBanks(4)
+        prg[0] = 0x01
+        val mapper = Mapper7(prgRom = prg, chrRam = ByteArray(8192), hasBusConflicts = true)
+
+        mapper.cpuWrite(0x8000, 0x03)
+
+        assertEquals(0x11, mapper.cpuRead(0x8000))
+    }
+
+    @Test
     fun `PPU reads and writes use CHR RAM`() {
         val mapper = Mapper7(prgRom = prgBanks(1), chrRam = ByteArray(8192))
 

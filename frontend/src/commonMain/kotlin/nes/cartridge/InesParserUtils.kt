@@ -58,6 +58,7 @@ class InesParserUtils {
         bytes: ByteArray,
         flags6: Int,
         mapper: Int,
+        submapper: Int,
         prgRomSize: Long,
         chrRomSize: Long,
         chrRamSize: Int,
@@ -99,7 +100,7 @@ class InesParserUtils {
             isChrRam = isChrRam,
             trainerPresent = trainer,
             region = region,
-            mapper = createMapper(mapper, prg, chr, isChrRam, prgRamSize),
+            mapper = createMapper(mapper, submapper, prg, chr, isChrRam, prgRamSize),
         )
     }
 
@@ -147,27 +148,50 @@ class InesParserUtils {
                     throw RomFormatException("Invalid CHR memory for Mapper 7: AxROM requires 8 KiB CHR RAM")
                 }
             }
+            11 -> {
+                if (prgSize !in COLOR_DREAMS_PRG_BANK_SIZE.toLong()..(16L * COLOR_DREAMS_PRG_BANK_SIZE) ||
+                    prgSize % COLOR_DREAMS_PRG_BANK_SIZE != 0L
+                ) invalidSize("PRG ROM", mapper, prgSize)
+                if (chrRomSize !in CHR_BANK_SIZE.toLong()..(16L * CHR_BANK_SIZE) || chrRomSize % CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
+            }
+            34 -> {
+                val usesNina = submapper == 1 || (submapper == 0 && chrRomSize != 0L)
+                if (prgSize !in BNROM_PRG_BANK_SIZE.toLong()..(256L * BNROM_PRG_BANK_SIZE) || prgSize % BNROM_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
+                if (usesNina) {
+                    if (chrRomSize !in MMC1_CHR_BANK_SIZE.toLong()..(32L * CHR_BANK_SIZE) || chrRomSize % MMC1_CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
+                } else if (chrRomSize != 0L || chrRamSize != CHR_BANK_SIZE) {
+                    throw RomFormatException("Invalid CHR memory for Mapper 34: BNROM requires 8 KiB CHR RAM")
+                }
+            }
+            66 -> {
+                if (prgSize !in GXROM_PRG_BANK_SIZE.toLong()..(4L * GXROM_PRG_BANK_SIZE) || prgSize % GXROM_PRG_BANK_SIZE != 0L) invalidSize("PRG ROM", mapper, prgSize)
+                if (chrRomSize !in CHR_BANK_SIZE.toLong()..(4L * CHR_BANK_SIZE) || chrRomSize % CHR_BANK_SIZE != 0L) invalidSize("CHR ROM", mapper, chrRomSize)
+            }
             else -> {
-                log.e { "Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are supported" }
-                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0 / NROM, Mapper 1 / MMC1, Mapper 2 / UxROM, Mapper 3 / CNROM, Mapper 4 / MMC3, and Mapper 7 / AxROM are supported")
+                log.e { "Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, and 66 are supported" }
+                throw RomFormatException("Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, and 66 are supported")
             }
         }
     }
 
-    fun createMapper(mapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean, prgRamSize: Int): Mapper = when (mapper) {
+    fun createMapper(mapper: Int, submapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean, prgRamSize: Int): Mapper = when (mapper) {
         0 -> Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
         1 -> Mapper1(prgRom = prg, chr = chr, isChrRam = isChrRam)
-        2 -> Mapper2(prgRom = prg, chrRam = chr)
-        3 -> Mapper3(prgRom = prg, chrRom = chr)
+        2 -> Mapper2(prgRom = prg, chrRam = chr, hasBusConflicts = submapper == 2)
+        3 -> Mapper3(prgRom = prg, chrRom = chr, hasBusConflicts = submapper == 2)
         4 -> Mapper4(prgRom = prg, chr = chr, isChrRam = isChrRam, prgRamSize = prgRamSize)
-        7 -> Mapper7(prgRom = prg, chrRam = chr)
+        7 -> Mapper7(prgRom = prg, chrRam = chr, hasBusConflicts = submapper == 2)
+        11 -> Mapper11(prgRom = prg, chrRom = chr)
+        34 -> Mapper34(prgRom = prg, chr = chr, isChrRam = isChrRam, prgRamSize = prgRamSize, forceNina = submapper == 1)
+        66 -> Mapper66(prgRom = prg, chrRom = chr)
         else -> error("Unsupported mapper $mapper")
     }
 
     private fun Long.isPowerOfTwo(): Boolean = this > 0 && (this and (this - 1)) == 0L
 
     private fun supportsSubmapper(mapper: Int, submapper: Int): Boolean = when (mapper) {
-        2 -> submapper == 0 || submapper == 2
+        2, 3, 7 -> submapper == 0 || submapper == 2
+        34 -> submapper in 0..2
         else -> submapper == 0
     }
 
@@ -186,5 +210,8 @@ class InesParserUtils {
         private const val MMC3_PRG_BANK_SIZE = 8 * 1024
         private const val MMC3_CHR_BANK_SIZE = 1024
         private const val AXROM_PRG_BANK_SIZE = 32 * 1024
+        private const val COLOR_DREAMS_PRG_BANK_SIZE = 32 * 1024
+        private const val BNROM_PRG_BANK_SIZE = 32 * 1024
+        private const val GXROM_PRG_BANK_SIZE = 32 * 1024
     }
 }

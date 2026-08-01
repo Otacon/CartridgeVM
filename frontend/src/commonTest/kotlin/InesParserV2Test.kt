@@ -85,6 +85,34 @@ class InesParserV2Test {
     }
 
     @Test
+    fun `NES 2 Color Dreams parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 2, chrLsb = 2, flags6 = 0xB0),
+        )
+
+        assertTrue(cartridge.mapper is Mapper11)
+    }
+
+    @Test
+    fun `NES 2 Mapper 34 CHR RAM parses as BNROM`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 2, chrLsb = 0, flags6 = 0x20, flags7Mapper = 0x20, submapper = 2, chrRamShift = 7),
+        )
+
+        assertTrue(cartridge.isChrRam)
+        assertTrue(cartridge.mapper is Mapper34)
+    }
+
+    @Test
+    fun `NES 2 GxROM parses`() = runTest {
+        val cartridge = parser.parse(
+            nes2(prgLsb = 2, chrLsb = 2, flags6 = 0x20, flags7Mapper = 0x40),
+        )
+
+        assertTrue(cartridge.mapper is Mapper66)
+    }
+
+    @Test
     fun `NES 2 extended unsupported mapper throws ROM format exception`() = runTest {
         val exception = assertFailsWithSuspend<RomFormatException> {
             parser.parse(nes2(prgLsb = 2, chrLsb = 1, flags6 = 0x40, mapperUpper = 1))
@@ -159,6 +187,7 @@ class InesParserV2Test {
         prgLsb: Int = 1,
         chrLsb: Int = 1,
         flags6: Int = 0,
+        flags7Mapper: Int = 0,
         mapperUpper: Int = 0,
         submapper: Int = 0,
         sizeMsb: Int = 0,
@@ -177,7 +206,7 @@ class InesParserV2Test {
         header[4] = prgLsb.toByte()
         header[5] = chrLsb.toByte()
         header[6] = flags6.toByte()
-        header[7] = (0x08 or consoleType).toByte()
+        header[7] = (0x08 or flags7Mapper or consoleType).toByte()
         header[8] = ((submapper shl 4) or mapperUpper).toByte()
         header[9] = sizeMsb.toByte()
         header[11] = chrRamShift.toByte()
