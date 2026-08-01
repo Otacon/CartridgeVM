@@ -40,7 +40,9 @@ class WebEmulatorApplication(
 
         DisposableEffect(Unit) {
             val activityListener = addPageActivityListener {
-                if (isPageActive()) runtimeHost.resume() else runtimeHost.pause()
+                coroutineScope.launch {
+                    if (isPageActive()) runtimeHost.resume() else runtimeHost.pause()
+                }
             }
             runtimeHost.start(
                 onFps = { fps -> coroutineScope.launch { viewModel.onFpsUpdated(fps) } },

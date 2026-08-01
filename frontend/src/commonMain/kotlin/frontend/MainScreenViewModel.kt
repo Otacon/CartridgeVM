@@ -17,7 +17,6 @@ class MainScreenViewModel(
     private val config: Config,
     private val machine: NesMachine,
     private val parser: InesParserComposite,
-    private val runtime: EmulatorRuntimeHost,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainWindowState())
@@ -56,11 +55,9 @@ class MainScreenViewModel(
         this@MainScreenViewModel.rom = romData.name
         val cartridge = parser.parse(romData)
         this@MainScreenViewModel.region = cartridge.region
-        platformSynchronized(runtime.lock) {
-            machine.powerOff()
-            machine.insert(cartridge)
-            machine.powerOn()
-        }
+        machine.powerOff()
+        machine.insert(cartridge)
+        machine.powerOn()
         updateTitle()
     }
 

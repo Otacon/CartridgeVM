@@ -62,11 +62,11 @@ class EmulatorApplication(
                 DisposableEffect(window) {
                     val listener = object : WindowAdapter() {
                         override fun windowActivated(event: WindowEvent) {
-                            runtimeHost.resume()
+                            coroutineScope.launch { runtimeHost.resume() }
                         }
 
                         override fun windowDeactivated(event: WindowEvent) {
-                            runtimeHost.pause()
+                            coroutineScope.launch { runtimeHost.pause() }
                         }
                     }
                     window.addWindowListener(listener)

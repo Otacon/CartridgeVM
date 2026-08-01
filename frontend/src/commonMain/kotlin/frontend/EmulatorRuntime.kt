@@ -9,7 +9,7 @@ class EmulatorRuntime(
     private val video: VideoOutput,
 ) {
 
-    fun step(): EmulatorStepResult {
+    fun step(): Boolean {
         input.poll()
         machine.controller.poll()
 
@@ -23,7 +23,7 @@ class EmulatorRuntime(
             video.submit(machine.ppu.framebuffer)
             frameRendered = true
         }
-        return EmulatorStepResult(frameRendered)
+        return frameRendered
     }
 
     fun pause() {
@@ -37,7 +37,3 @@ class EmulatorRuntime(
         machine.controller.poll()
     }
 }
-
-data class EmulatorStepResult(
-    val frameRendered: Boolean,
-)

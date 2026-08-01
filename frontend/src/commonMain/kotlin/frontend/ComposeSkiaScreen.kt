@@ -5,11 +5,9 @@ import androidx.compose.foundation.focusable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -28,16 +26,10 @@ fun ComposeSkiaScreen(
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
-    var drawTick by remember { mutableLongStateOf(0L) }
+    val frame by frameBuffer.frames.collectAsState(frameBuffer.initialFrame)
 
     LaunchedEffect(focusRequestKey) {
         focusRequester.requestFocus()
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            withFrameNanos { drawTick = it }
-        }
     }
 
     DisposableEffect(renderer, crt) {
@@ -54,11 +46,10 @@ fun ComposeSkiaScreen(
             }
             .focusable(),
     ) {
-        drawTick
         val width = size.width.roundToInt()
         val height = size.height.roundToInt()
         if (width > 0 && height > 0) {
-            renderer.present(frameBuffer.snapshot(), width, height)
+            renderer.present(frame, width, height)
             drawPlatformRenderer(renderer)
         }
     }

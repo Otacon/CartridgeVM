@@ -188,12 +188,12 @@ parser package; unsupported mapper numbers are rejected there before a cartridge
 
 Frontend code is under `frontend/src`.
 
-* `ComposeSkiaScreen`: desktop Compose drawing and emulator thread lifecycle
+* `ComposeSkiaScreen`: Compose drawing surface for the shared framebuffer
+* `EmulatorRuntimeHost`: coroutine-based emulator lifecycle and frame pacing
 * `PlatformKeyboardInput`: fixed keyboard bindings
 * `PlatformControllerInput`: JInput gamepad bindings enabled with `--controller`
 * `PlatformAudioPipeline`: queues generated mono PCM samples to OpenAL or WebAudio
 * `PlatformRenderer`: presents the 256x240 framebuffer through Skiko/SkSL on desktop or WebGL on Web
-* `FramePacer`: monotonic accumulated-deadline frame limiter
 * `nes.cartridge` under `frontend/src/commonMain/kotlin`: iNES 1.0 / NES 2.0 parsing and nes20db metadata application
 
 Desktop CLI code is under `frontend/src/jvmMain/kotlin/app`.
