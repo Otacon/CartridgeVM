@@ -113,11 +113,14 @@ PPU:
 
 APU/audio:
 
-* SMB-focused mono PCM generation at 44.1 kHz.
-* Pulse 1, pulse 2, triangle, and noise channels.
-* Length counters, envelopes, approximate sweep, triangle linear counter, frame counter clocks.
+* Region-aware mono PCM generation at 44.1 kHz for the 2A03/2A07-style APU.
+* Pulse 1, pulse 2, triangle, noise, and DMC channels with region-specific noise and DMC periods.
+* Length counters, envelopes, pulse sweep and overflow muting, triangle linear counter/DAC hold, and frame-counter
+  clocks with frame IRQ status, inhibit, and acknowledgement behavior.
+* NES nonlinear pulse/TND mixing followed by 90 Hz and 440 Hz high-pass filters and a 14 kHz low-pass filter.
 * OpenAL desktop playback and WebAudio browser playback.
-* Approximate DMC sample playback with CPU-memory sample reads, IRQ state, and four-cycle CPU stalls.
+* DMC sample playback with CPU-memory reads, buffered output after reader disable, looping, IRQ state, address wrapping,
+  and fixed four-cycle CPU stalls.
 
 Input/frontend:
 
@@ -169,8 +172,12 @@ Architecture notes:
 * PPU is approximate, not cycle-perfect.
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
-* APU is approximate and SMB-focused.
-* DMC sample playback is approximate.
+* APU register effects and frame-counter events are instruction-batched; `$4017`'s parity-dependent 3/4-cycle reset
+  delay and exact frame IRQ edge timing are not modeled.
+* DMC DMA fetches immediately and always stalls for four cycles. Exact 3/4-cycle alignment, OAM DMA conflicts, and
+  cycle-level bus arbitration are not modeled.
+* APU PCM uses point sampling plus the output filter chain, not band-limited synthesis, so high-frequency aliasing can
+  remain.
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, networking, ROM
   downloading, or ROM patching.
 * PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are approximate.

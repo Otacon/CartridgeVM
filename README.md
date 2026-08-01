@@ -151,7 +151,8 @@ Implemented:
 * Dedicated PPU bus for CHR ROM/RAM, nametable memory, palette memory, and PPU-side mirroring
 * Background rendering, 8x8 sprite rendering, palette selection, sprite priority, sprite-zero hit approximation
 * VBlank flag behavior, status read side effects, NMI triggering, buffered PPUDATA reads
-* SMB-focused APU audio with pulse, triangle, noise, and approximate DMC channels
+* Region-timed 2A03/2A07 APU audio with pulse, triangle, noise, DMC, nonlinear mixing, frame/DMC IRQs, and an
+  NES-style output filter chain
 * One standard NES controller via `$4016` serial protocol
 * Desktop Compose/Skiko presentation of a software framebuffer, an optional SkSL CRT effect, and OpenAL audio playback
 * Kotlin/Wasm browser frontend with DOM menubar, WebGL presentation, WebAudio playback, keyboard input, and Gamepad API
@@ -163,7 +164,11 @@ Implemented:
 
 This is an MVP, not a cycle-perfect emulator.
 
-* APU support is approximate and focused on Mario-era software; DMC sample playback is approximate
+* APU channel timers, counters, sweep muting, triangle DAC hold, DMC output, nonlinear mixing, and output filtering are
+  modeled, but register writes and frame-counter events are advanced in instruction-sized batches rather than on exact
+  CPU bus cycles
+* DMC DMA reads are immediate fixed four-cycle stalls; exact 3/4-cycle alignment and DMC/OAM DMA conflicts are not
+  modeled, and PCM generation uses point sampling rather than band-limited synthesis
 * Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, and Mapper 7 only
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported
 * Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing
@@ -186,7 +191,8 @@ ROM loading APIs.
 * `nes.cartridge`: cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3,
   Mapper 4, Mapper 7
 * `nes.cpu`: CPU core and CPU bus memory map
-* `nes.apu`: pulse, triangle, noise, and DMC channel audio generation
+* `nes.apu`: region-aware pulse, triangle, noise, and DMC generation, frame/DMC IRQ state, nonlinear mixing, and output
+  filtering
 * `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation
 * `nes.input`: NES controller strobe/serial protocol
 * `nes.NesMachine`: core CPU/PPU/APU/controller orchestration and cartridge insertion
