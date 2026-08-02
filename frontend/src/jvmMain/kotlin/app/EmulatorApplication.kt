@@ -86,6 +86,19 @@ class EmulatorApplication(
                             viewModel.onRomSelected(rom)
                         }
                     },
+                    onPauseToggleClick = { paused ->
+                        coroutineScope.launch {
+                            if (paused) runtimeHost.pause() else runtimeHost.resume()
+                            viewModel.setPaused(paused)
+                        }
+                    },
+                    onResetClick = {
+                        coroutineScope.launch {
+                            runtimeHost.reset()
+                            runtimeHost.resume()
+                            viewModel.setPaused(false)
+                        }
+                    },
                     onExitClick = ::exitApplication,
                 )
             }

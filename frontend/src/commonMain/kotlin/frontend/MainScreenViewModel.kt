@@ -29,7 +29,7 @@ class MainScreenViewModel(
     fun onCreate() {
         viewModelScope.launch {
             machine.isPoweredOn.collect { isPoweredOn ->
-                _state.update { it.copy(isRunning = isPoweredOn) }
+                _state.update { it.copy(isRunning = isPoweredOn, isPaused = if (isPoweredOn) it.isPaused else false) }
             }
         }
         config.rom?.let { loadRom(it) }
@@ -61,6 +61,12 @@ class MainScreenViewModel(
         )
     }
 
+    fun setPaused(paused: Boolean) {
+        val next = paused && _state.value.isRunning
+        _state.update { it.copy(isPaused = next) }
+        updateTitle()
+    }
+
     private fun loadRom(romData: RomData) = viewModelScope.launch {
         this@MainScreenViewModel.rom = romData.name
         val cartridge = parser.parse(romData)
@@ -68,6 +74,7 @@ class MainScreenViewModel(
         machine.powerOff()
         machine.insert(cartridge)
         machine.powerOn()
+        _state.update { it.copy(isPaused = false) }
         updateTitle()
     }
 
@@ -75,7 +82,12 @@ class MainScreenViewModel(
         val elements = buildList {
             rom?.let { add(it) }
             region?.let { add(it.name) }
-            fps?.let { add("$it fps") }
+            val status = if (current.isPaused) {
+                "Paused"
+            } else {
+                fps?.let { "$it fps" }
+            }
+            status?.let { add(it) }
         }
 
         val values = if (elements.isNotEmpty()) {
@@ -91,6 +103,7 @@ data class MainWindowState(
     val isRunning: Boolean = false,
     val windowTitle: String = "",
     val showRomPicker: Boolean = false,
+    val isPaused: Boolean = false,
     val isCrtEnabled: Boolean = false,
     val isCastShadowEnabled: Boolean = false,
 )

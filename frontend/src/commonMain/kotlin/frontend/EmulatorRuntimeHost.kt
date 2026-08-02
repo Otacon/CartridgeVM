@@ -54,6 +54,10 @@ class EmulatorRuntimeHost(
         paused = false
     }
 
+    suspend fun reset() = mutex.withLock {
+        machine.reset()
+    }
+
     override fun close() {
         stop()
         scope.cancel()

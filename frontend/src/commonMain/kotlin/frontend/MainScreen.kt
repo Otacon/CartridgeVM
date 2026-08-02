@@ -11,6 +11,8 @@ fun MainScreen(
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
     onOpenRomClick: () -> Unit,
+    onPauseToggleClick: (Boolean) -> Unit,
+    onResetClick: () -> Unit,
     onTitleChanged: (String) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
@@ -27,6 +29,10 @@ fun MainScreen(
 
     ComposeMenuBar(
         onOpenRom = onOpenRomClick,
+        onPauseToggle = { onPauseToggleClick(!state.isPaused) },
+        onReset = onResetClick,
+        gameActionsEnabled = state.isRunning,
+        paused = state.isPaused,
         onExit = onExitClick,
         onMenuOpened = { keyboardInput.releaseAll() },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },

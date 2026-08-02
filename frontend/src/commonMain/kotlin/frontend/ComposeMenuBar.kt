@@ -3,7 +3,9 @@ package frontend
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
@@ -24,6 +26,10 @@ import androidx.compose.ui.window.PopupProperties
 @Composable
 fun ComposeMenuBar(
     onOpenRom: () -> Unit,
+    onPauseToggle: () -> Unit,
+    onReset: () -> Unit,
+    gameActionsEnabled: Boolean,
+    paused: Boolean,
     onMenuOpened: () -> Unit,
     onMenuDismissed: () -> Unit,
     crtEnabled: Boolean,
@@ -41,7 +47,8 @@ fun ComposeMenuBar(
             IntOffset(
                 x = when (expandedMenu) {
                     MenuId.File, null -> 4.dp.roundToPx()
-                    MenuId.Video -> (4.dp + MENU_BUTTON_WIDTH).roundToPx()
+                    MenuId.Game -> (4.dp + MENU_BUTTON_WIDTH).roundToPx()
+                    MenuId.Video -> (4.dp + MENU_BUTTON_WIDTH * 2).roundToPx()
                 },
                 y = MENU_HEIGHT.roundToPx(),
             )
@@ -60,6 +67,11 @@ fun ComposeMenuBar(
                 label = "File",
                 selected = expandedMenu == MenuId.File,
                 onClick = { expandedMenu = expandedMenu.toggle(MenuId.File, onMenuOpened) },
+            )
+            MenuButton(
+                label = "Game",
+                selected = expandedMenu == MenuId.Game,
+                onClick = { expandedMenu = expandedMenu.toggle(MenuId.Game, onMenuOpened) },
             )
             MenuButton(
                 label = "Video",
@@ -105,6 +117,23 @@ fun ComposeMenuBar(
                         }
                     }
 
+                    MenuId.Game -> {
+                        MenuItem(
+                            label = if (paused) "Resume" else "Pause",
+                            enabled = gameActionsEnabled,
+                        ) {
+                            expandedMenu = null
+                            onPauseToggle()
+                        }
+                        MenuItem(
+                            label = "Reset",
+                            enabled = gameActionsEnabled,
+                        ) {
+                            expandedMenu = null
+                            onReset()
+                        }
+                    }
+
                     MenuId.Video -> {
                         MenuItem(
                             label = "CRT Effect",
@@ -138,12 +167,14 @@ private fun MenuButton(
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
     Box(
         Modifier
             .fillMaxHeight()
             .width(MENU_BUTTON_WIDTH)
             .focusProperties { canFocus = false }
-            .background(if (selected) MENU_SELECTION_COLOR else Color.Transparent)
+            .hoverable(interactionSource)
+            .background(if (selected || hovered) MENU_SELECTION_COLOR else Color.Transparent)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -161,17 +192,22 @@ private fun MenuItem(
     label: String,
     checked: Boolean? = null,
     role: Role = Role.Button,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
     Row(
         Modifier
             .fillMaxWidth()
             .height(30.dp)
             .focusProperties { canFocus = false }
+            .hoverable(interactionSource, enabled)
+            .background(if (enabled && hovered) MENU_SELECTION_COLOR else Color.Transparent)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 role = role,
                 onClick = onClick,
             )
@@ -181,7 +217,7 @@ private fun MenuItem(
         if (checked != null) {
             CheckboxMark(checked)
         }
-        BasicText(label, style = MENU_TEXT_STYLE)
+        BasicText(label, style = if (enabled) MENU_TEXT_STYLE else MENU_DISABLED_TEXT_STYLE)
     }
 }
 
@@ -224,7 +260,7 @@ private fun MenuId?.toggle(menu: MenuId, onMenuOpened: () -> Unit): MenuId? =
         menu
     }
 
-private enum class MenuId { File, Video }
+private enum class MenuId { File, Game, Video }
 
 private val MENU_HEIGHT = 30.dp
 private val MENU_BUTTON_WIDTH = 56.dp
@@ -234,4 +270,6 @@ private val MENU_BORDER_COLOR = Color(0xFFB8B8B8)
 private val MENU_CHECKBOX_BORDER_COLOR = Color(0xFF6F6F6F)
 private val MENU_SELECTION_COLOR = Color(0xFFD9E8F8)
 private val MENU_TEXT_COLOR = Color(0xFF161616)
+private val MENU_DISABLED_TEXT_COLOR = Color(0xFF8A8A8A)
 private val MENU_TEXT_STYLE = TextStyle(color = MENU_TEXT_COLOR, fontSize = 13.sp)
+private val MENU_DISABLED_TEXT_STYLE = TextStyle(color = MENU_DISABLED_TEXT_COLOR, fontSize = 13.sp)
