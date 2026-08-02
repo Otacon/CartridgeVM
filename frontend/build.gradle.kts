@@ -48,19 +48,21 @@ kotlin {
             implementation(libs.clikt)
             implementation(libs.kotlinxCoroutinesSwing)
             implementation(libs.jinput)
+            runtimeOnly(dependencies.variantOf(libs.jinput) { classifier("natives-all") })
+
             implementation(libs.lwjgl)
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-macos") })
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-macos-arm64") })
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-linux") })
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-linux-arm64") })
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-windows") })
+
             implementation(libs.lwjglOpenal)
-            runtimeOnly("net.java.jinput:jinput:${libs.versions.jinput.get()}:natives-all")
-            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-macos")
-            runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-macos")
-            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-macos-arm64")
-            runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-macos-arm64")
-            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-linux")
-            runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-linux")
-            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-linux-arm64")
-            runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-linux-arm64")
-            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:natives-windows")
-            runtimeOnly("org.lwjgl:lwjgl-openal:$lwjglVersion:natives-windows")
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-macos") })
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-macos-arm64") })
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-linux") })
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-linux-arm64") })
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-windows") })
         }
     }
 }
@@ -69,7 +71,7 @@ compose.desktop {
     application {
         mainClass = "app.MainKt"
         if (System.getProperty("os.name").lowercase().contains("mac")) {
-            jvmArgs += "-Xdock:name=Kassette NES"
+            jvmArgs += "-Xdock:name=Kassette"
         }
     }
 }
