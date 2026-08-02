@@ -4,6 +4,43 @@ import nes.util.low16Bits
 import nes.util.low8Bits
 import nes.util.pageBase
 
+private enum class AddressMode { IMP, ACC, IMM, ZP, ZPX, ZPY, ABS, AX, AY, IND, IX, IY, REL }
+
+private data class DecodedOpcode(val instruction: String, val mode: AddressMode)
+
+private val OPCODES: Array<DecodedOpcode> = run {
+    val rows = arrayOf(
+        "BRK:IMP ORA:IX KIL:IMP SLO:IX NOP:ZP ORA:ZP ASL:ZP SLO:ZP PHP:IMP ORA:IMM ASL:ACC ANC:IMM NOP:ABS ORA:ABS ASL:ABS SLO:ABS",
+        "BPL:REL ORA:IY KIL:IMP SLO:IY NOP:ZPX ORA:ZPX ASL:ZPX SLO:ZPX CLC:IMP ORA:AY NOP:IMP SLO:AY NOP:AX ORA:AX ASL:AX SLO:AX",
+        "JSR:ABS AND:IX KIL:IMP RLA:IX BIT:ZP AND:ZP ROL:ZP RLA:ZP PLP:IMP AND:IMM ROL:ACC ANC:IMM BIT:ABS AND:ABS ROL:ABS RLA:ABS",
+        "BMI:REL AND:IY KIL:IMP RLA:IY NOP:ZPX AND:ZPX ROL:ZPX RLA:ZPX SEC:IMP AND:AY NOP:IMP RLA:AY NOP:AX AND:AX ROL:AX RLA:AX",
+        "RTI:IMP EOR:IX KIL:IMP SRE:IX NOP:ZP EOR:ZP LSR:ZP SRE:ZP PHA:IMP EOR:IMM LSR:ACC ALR:IMM JMP:ABS EOR:ABS LSR:ABS SRE:ABS",
+        "BVC:REL EOR:IY KIL:IMP SRE:IY NOP:ZPX EOR:ZPX LSR:ZPX SRE:ZPX CLI:IMP EOR:AY NOP:IMP SRE:AY NOP:AX EOR:AX LSR:AX SRE:AX",
+        "RTS:IMP ADC:IX KIL:IMP RRA:IX NOP:ZP ADC:ZP ROR:ZP RRA:ZP PLA:IMP ADC:IMM ROR:ACC ARR:IMM JMP:IND ADC:ABS ROR:ABS RRA:ABS",
+        "BVS:REL ADC:IY KIL:IMP RRA:IY NOP:ZPX ADC:ZPX ROR:ZPX RRA:ZPX SEI:IMP ADC:AY NOP:IMP RRA:AY NOP:AX ADC:AX ROR:AX RRA:AX",
+        "NOP:IMM STA:IX NOP:IMM SAX:IX STY:ZP STA:ZP STX:ZP SAX:ZP DEY:IMP NOP:IMM TXA:IMP XAA:IMM STY:ABS STA:ABS STX:ABS SAX:ABS",
+        "BCC:REL STA:IY KIL:IMP AHX:IY STY:ZPX STA:ZPX STX:ZPY SAX:ZPY TYA:IMP STA:AY TXS:IMP TAS:AY SHY:AX STA:AX SHX:AY AHX:AY",
+        "LDY:IMM LDA:IX LDX:IMM LAX:IX LDY:ZP LDA:ZP LDX:ZP LAX:ZP TAY:IMP LDA:IMM TAX:IMP LAX:IMM LDY:ABS LDA:ABS LDX:ABS LAX:ABS",
+        "BCS:REL LDA:IY KIL:IMP LAX:IY LDY:ZPX LDA:ZPX LDX:ZPY LAX:ZPY CLV:IMP LDA:AY TSX:IMP LAS:AY LDY:AX LDA:AX LDX:AY LAX:AY",
+        "CPY:IMM CMP:IX NOP:IMM DCP:IX CPY:ZP CMP:ZP DEC:ZP DCP:ZP INY:IMP CMP:IMM DEX:IMP AXS:IMM CPY:ABS CMP:ABS DEC:ABS DCP:ABS",
+        "BNE:REL CMP:IY KIL:IMP DCP:IY NOP:ZPX CMP:ZPX DEC:ZPX DCP:ZPX CLD:IMP CMP:AY NOP:IMP DCP:AY NOP:AX CMP:AX DEC:AX DCP:AX",
+        "CPX:IMM SBC:IX NOP:IMM ISB:IX CPX:ZP SBC:ZP INC:ZP ISB:ZP INX:IMP SBC:IMM NOP:IMP SBC:IMM CPX:ABS SBC:ABS INC:ABS ISB:ABS",
+        "BEQ:REL SBC:IY KIL:IMP ISB:IY NOP:ZPX SBC:ZPX INC:ZPX ISB:ZPX SED:IMP SBC:AY NOP:IMP ISB:AY NOP:AX SBC:AX INC:AX ISB:AX",
+    )
+    rows.flatMap { row ->
+        row.split(' ').map { token ->
+            val separator = token.indexOf(':')
+            DecodedOpcode(token.substring(0, separator), AddressMode.valueOf(token.substring(separator + 1)))
+        }
+    }.toTypedArray()
+}
+
+private val BRANCHES = setOf("BPL", "BMI", "BVC", "BVS", "BCC", "BCS", "BNE", "BEQ")
+private val WRITES = setOf("STA", "STX", "STY", "SAX", "AHX", "SHX", "SHY", "TAS")
+private val UNSTABLE_WRITES = setOf("AHX", "SHX", "SHY", "TAS")
+private val READ_MODIFY_WRITES =
+    setOf("ASL", "LSR", "ROL", "ROR", "INC", "DEC", "SLO", "RLA", "SRE", "RRA", "DCP", "ISB")
+
 class Cpu6502(
     private val bus: CpuBus
 ) {
@@ -188,1258 +225,506 @@ class Cpu6502(
 
     private var nmiPending = false
     private var irqLine = false
+    private var irqPending = false
+    private var irqSample = false
+    private var halted = false
 
-    /**
-     * Resets the CPU registers, status flags, pending interrupts, cycle count, and program counter.
-     * The reset vector at `$FFFC/$FFFD` supplies the initial program counter.
-     */
-    fun reset() {
+    fun reset() = reset(softReset = false)
+
+    fun reset(softReset: Boolean) {
         bus.reset()
-        a = 0
-        x = 0
-        y = 0
-        sp = 0xFD
-        status = I or U
-        pc = read16(0xFFFC)
-        totalCycles = 7
+        totalCycles = -1
+        if (softReset) {
+            sp = (sp - 3).low8Bits()
+            set(I, true)
+        } else {
+            a = 0
+            x = 0
+            y = 0
+            sp = 0xFD
+            status = I or U
+        }
+        pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
+        repeat(8) {
+            bus.idle(CpuBus.CycleType.RESET)
+            totalCycles++
+        }
         nmiPending = false
         irqLine = false
+        irqPending = false
+        irqSample = false
+        halted = false
     }
 
-    /**
-     * Queues a non-maskable interrupt to be serviced before the next opcode is executed.
-     */
     fun requestNmi() {
         nmiPending = true
     }
 
-    /**
-     * Updates the level-sensitive IRQ input sampled before the next opcode.
-     */
     fun setIrqLine(asserted: Boolean) {
         irqLine = asserted
+        irqPending = asserted && !flag(I)
     }
 
-    /**
-     * Executes one CPU step, servicing a pending interrupt first when applicable.
-     *
-     * @return the number of CPU cycles consumed, including any pending DMA stall cycles.
-     */
+    fun sampleIrqLine(asserted: Boolean) {
+        irqLine = asserted
+        irqPending = irqSample
+        irqSample = asserted && !flag(I)
+    }
+
     fun step(): Int {
-        val pendingStallCycles = bus.consumeDmaCycles()
-        if (pendingStallCycles > 0) {
-            totalCycles += pendingStallCycles.toLong()
-            return pendingStallCycles
+        val start = totalCycles
+        val stalls = bus.consumeDmaCycles()
+        if (stalls > 0) {
+            repeat(stalls) {
+                bus.idle(CpuBus.CycleType.STALL)
+                totalCycles++
+            }
+            return stalls
         }
-        val instructionCycles = when {
+
+        when {
+            halted -> execute(OPCODES[fetchOpcode()])
             nmiPending -> {
                 nmiPending = false
-                interrupt(0xFFFA, false)
+                serviceInterrupt(0xFFFA)
             }
-            irqLine && !flag(I) -> interrupt(0xFFFE, false)
-            else -> execute(fetchByte())
+            irqPending -> serviceInterrupt(0xFFFE)
+            else -> {
+                val opcode = fetchOpcode()
+                execute(OPCODES[opcode])
+            }
         }
-        val cycles = instructionCycles + bus.consumeDmaCycles()
-        totalCycles += cycles.toLong()
-        return cycles
+        return (totalCycles - start).toInt()
     }
 
-    /**
-     * Decodes and executes a single opcode that has already been fetched from memory.
-     *
-     * @param op the opcode byte to execute.
-     * @return the base CPU cycles consumed by the instruction, including page-cross penalties.
-     */
-    private fun execute(op: Int): Int {
-        return when (op) {
-            OP_LDA_IMM -> {
-                a = fetchByte()
-                zn(a)
-                2
+    private fun execute(opcode: DecodedOpcode) {
+        val instruction = opcode.instruction
+        val mode = opcode.mode
+        when (instruction) {
+            "BRK" -> brk()
+            "JSR" -> jsr()
+            "JMP" -> jump(mode)
+            "RTS" -> rts()
+            "RTI" -> rti()
+            "PHP" -> pushInstruction(status or B or U)
+            "PHA" -> pushInstruction(a)
+            "PLP" -> {
+                impliedRead()
+                dummyRead(0x100 or sp)
+                status = (pull() and (B or U).inv()) or U
             }
-
-            OP_LDA_ZP -> {
-                a = read(zp())
-                zn(a)
-                3
-            }
-
-            OP_LDA_ZPX -> {
-                a = read(zpx())
-                zn(a)
-                4
-            }
-
-            OP_LDA_ABS -> {
-                a = read(abs())
-                zn(a)
-                4
-            }
-
-            OP_LDA_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                a = read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_LDA_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                a = read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_LDA_INDX -> {
-                a = read(indx())
-                zn(a)
-                6
-            }
-
-            OP_LDA_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                a = read(resultAddr(r))
-                zn(a)
-                5 + resultPage(r)
-            }
-
-            OP_LDX_IMM -> {
-                x = fetchByte()
-                zn(x)
-                2
-            }
-
-            OP_LDX_ZP -> {
-                x = read(zp())
-                zn(x)
-                3
-            }
-
-            OP_LDX_ZPY -> {
-                x = read(zpy())
-                zn(x)
-                4
-            }
-
-            OP_LDX_ABS -> {
-                x = read(abs())
-                zn(x)
-                4
-            }
-
-            OP_LDX_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                x = read(resultAddr(r))
-                zn(x)
-                4 + resultPage(r)
-            }
-
-            OP_LDY_IMM -> {
-                y = fetchByte()
-                zn(y)
-                2
-            }
-
-            OP_LDY_ZP -> {
-                y = read(zp())
-                zn(y)
-                3
-            }
-
-            OP_LDY_ZPX -> {
-                y = read(zpx())
-                zn(y)
-                4
-            }
-
-            OP_LDY_ABS -> {
-                y = read(abs())
-                zn(y)
-                4
-            }
-
-            OP_LDY_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                y = read(resultAddr(r))
-                zn(y)
-                4 + resultPage(r)
-            }
-
-            OP_STA_ZP -> {
-                write(zp(), a)
-                3
-            }
-
-            OP_STA_ZPX -> {
-                write(zpx(), a)
-                4
-            }
-
-            OP_STA_ABS -> {
-                write(abs(), a)
-                4
-            }
-
-            OP_STA_ABSX -> {
-                write(absx(), a)
-                5
-            }
-
-            OP_STA_ABSY -> {
-                write(absy(), a)
-                5
-            }
-
-            OP_STA_INDX -> {
-                write(indx(), a)
-                6
-            }
-
-            OP_STA_INDY -> {
-                write(indy(), a)
-                6
-            }
-
-            OP_STX_ZP -> {
-                write(zp(), x)
-                3
-            }
-
-            OP_STX_ZPY -> {
-                write(zpy(), x)
-                4
-            }
-
-            OP_STX_ABS -> {
-                write(abs(), x)
-                4
-            }
-
-            OP_STY_ZP -> {
-                write(zp(), y)
-                3
-            }
-
-            OP_STY_ZPX -> {
-                write(zpx(), y)
-                4
-            }
-
-            OP_STY_ABS -> {
-                write(abs(), y)
-                4
-            }
-
-            OP_TAX -> {
-                x = a
-                zn(x)
-                2
-            }
-
-            OP_TAY -> {
-                y = a
-                zn(y)
-                2
-            }
-
-            OP_TXA -> {
-                a = x
-                zn(a)
-                2
-            }
-
-            OP_TYA -> {
-                a = y
-                zn(a)
-                2
-            }
-
-            OP_TSX -> {
-                x = sp
-                zn(x)
-                2
-            }
-
-            OP_TXS -> {
-                sp = x
-                2
-            }
-
-            OP_PHA -> {
-                push(a)
-                3
-            }
-
-            OP_PLA -> {
+            "PLA" -> {
+                impliedRead()
+                dummyRead(0x100 or sp)
                 a = pull()
                 zn(a)
-                4
             }
-
-            OP_PHP -> {
-                push(status or B or U)
-                3
-            }
-
-            OP_PLP -> {
-                status = (pull() or U) and B.inv()
-                4
-            }
-
-            OP_ADC_IMM -> {
-                adc(fetchByte())
-                2
-            }
-
-            OP_ADC_ZP -> {
-                adc(read(zp()))
-                3
-            }
-
-            OP_ADC_ZPX -> {
-                adc(read(zpx()))
-                4
-            }
-
-            OP_ADC_ABS -> {
-                adc(read(abs()))
-                4
-            }
-
-            OP_ADC_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                adc(read(resultAddr(r)))
-                4 + resultPage(r)
-            }
-
-            OP_ADC_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                adc(read(resultAddr(r)))
-                4 + resultPage(r)
-            }
-
-            OP_ADC_INDX -> {
-                adc(read(indx()))
-                6
-            }
-
-            OP_ADC_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                adc(read(resultAddr(r)))
-                5 + resultPage(r)
-            }
-
-            OP_SBC_IMM, OP_SBC_IMM_UNOFFICIAL -> {
-                sbc(fetchByte())
-                2
-            }
-
-            OP_SBC_ZP -> {
-                sbc(read(zp()))
-                3
-            }
-
-            OP_SBC_ZPX -> {
-                sbc(read(zpx()))
-                4
-            }
-
-            OP_SBC_ABS -> {
-                sbc(read(abs()))
-                4
-            }
-
-            OP_SBC_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                sbc(read(resultAddr(r)))
-                4 + resultPage(r)
-            }
-
-            OP_SBC_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                sbc(read(resultAddr(r)))
-                4 + resultPage(r)
-            }
-
-            OP_SBC_INDX -> {
-                sbc(read(indx()))
-                6
-            }
-
-            OP_SBC_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                sbc(read(resultAddr(r)))
-                5 + resultPage(r)
-            }
-
-            OP_AND_IMM -> {
-                a = a and fetchByte()
-                zn(a)
-                2
-            }
-
-            OP_AND_ZP -> {
-                a = a and read(zp())
-                zn(a)
-                3
-            }
-
-            OP_AND_ZPX -> {
-                a = a and read(zpx())
-                zn(a)
-                4
-            }
-
-            OP_AND_ABS -> {
-                a = a and read(abs())
-                zn(a)
-                4
-            }
-
-            OP_AND_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                a = a and read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_AND_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                a = a and read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_AND_INDX -> {
-                a = a and read(indx())
-                zn(a)
-                6
-            }
-
-            OP_AND_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                a = a and read(resultAddr(r))
-                zn(a)
-                5 + resultPage(r)
-            }
-
-            OP_ORA_IMM -> {
-                a = a or fetchByte()
-                zn(a)
-                2
-            }
-
-            OP_ORA_ZP -> {
-                a = a or read(zp())
-                zn(a)
-                3
-            }
-
-            OP_ORA_ZPX -> {
-                a = a or read(zpx())
-                zn(a)
-                4
-            }
-
-            OP_ORA_ABS -> {
-                a = a or read(abs())
-                zn(a)
-                4
-            }
-
-            OP_ORA_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                a = a or read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_ORA_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                a = a or read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_ORA_INDX -> {
-                a = a or read(indx())
-                zn(a)
-                6
-            }
-
-            OP_ORA_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                a = a or read(resultAddr(r))
-                zn(a)
-                5 + resultPage(r)
-            }
-
-            OP_EOR_IMM -> {
-                a = a xor fetchByte()
-                zn(a)
-                2
-            }
-
-            OP_EOR_ZP -> {
-                a = a xor read(zp())
-                zn(a)
-                3
-            }
-
-            OP_EOR_ZPX -> {
-                a = a xor read(zpx())
-                zn(a)
-                4
-            }
-
-            OP_EOR_ABS -> {
-                a = a xor read(abs())
-                zn(a)
-                4
-            }
-
-            OP_EOR_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                a = a xor read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_EOR_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                a = a xor read(resultAddr(r))
-                zn(a)
-                4 + resultPage(r)
-            }
-
-            OP_EOR_INDX -> {
-                a = a xor read(indx())
-                zn(a)
-                6
-            }
-
-            OP_EOR_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                a = a xor read(resultAddr(r))
-                zn(a)
-                5 + resultPage(r)
-            }
-
-            OP_CMP_IMM -> {
-                cmp(a, fetchByte())
-                2
-            }
-
-            OP_CMP_ZP -> {
-                cmp(a, read(zp()))
-                3
-            }
-
-            OP_CMP_ZPX -> {
-                cmp(a, read(zpx()))
-                4
-            }
-
-            OP_CMP_ABS -> {
-                cmp(a, read(abs()))
-                4
-            }
-
-            OP_CMP_ABSX -> {
-                val r = absxWithPageCrossPenalty()
-                cmp(a, read(resultAddr(r)))
-                4 + resultPage(r)
-            }
-
-            OP_CMP_ABSY -> {
-                val r = absyWithPageCrossPenalty()
-                cmp(a, read(resultAddr(r)))
-                4 + resultPage(r)
-            }
-
-            OP_CMP_INDX -> {
-                cmp(a, read(indx()))
-                6
-            }
-
-            OP_CMP_INDY -> {
-                val r = indyWithPageCrossPenalty()
-                cmp(a, read(resultAddr(r)))
-                5 + resultPage(r)
-            }
-
-            OP_CPX_IMM -> {
-                cmp(x, fetchByte())
-                2
-            }
-
-            OP_CPX_ZP -> {
-                cmp(x, read(zp()))
-                3
-            }
-
-            OP_CPX_ABS -> {
-                cmp(x, read(abs()))
-                4
-            }
-
-            OP_CPY_IMM -> {
-                cmp(y, fetchByte())
-                2
-            }
-
-            OP_CPY_ZP -> {
-                cmp(y, read(zp()))
-                3
-            }
-
-            OP_CPY_ABS -> {
-                cmp(y, read(abs()))
-                4
-            }
-
-            OP_INC_ZP -> {
-                inc(zp())
-                5
-            }
-
-            OP_INC_ZPX -> {
-                inc(zpx())
-                6
-            }
-
-            OP_INC_ABS -> {
-                inc(abs())
-                6
-            }
-
-            OP_INC_ABSX -> {
-                inc(absx())
-                7
-            }
-
-            OP_DEC_ZP -> {
-                dec(zp())
-                5
-            }
-
-            OP_DEC_ZPX -> {
-                dec(zpx())
-                6
-            }
-
-            OP_DEC_ABS -> {
-                dec(abs())
-                6
-            }
-
-            OP_DEC_ABSX -> {
-                dec(absx())
-                7
-            }
-
-            OP_INX -> {
-                x = (x + 1).low8Bits()
-                zn(x)
-                2
-            }
-
-            OP_INY -> {
-                y = (y + 1).low8Bits()
-                zn(y)
-                2
-            }
-
-            OP_DEX -> {
-                x = (x - 1).low8Bits()
-                zn(x)
-                2
-            }
-
-            OP_DEY -> {
-                y = (y - 1).low8Bits()
-                zn(y)
-                2
-            }
-
-            OP_ASL_ACC -> {
-                a = aslValue(a)
-                2
-            }
-
-            OP_ASL_ZP -> {
-                asl(zp())
-                5
-            }
-
-            OP_ASL_ZPX -> {
-                asl(zpx())
-                6
-            }
-
-            OP_ASL_ABS -> {
-                asl(abs())
-                6
-            }
-
-            OP_ASL_ABSX -> {
-                asl(absx())
-                7
-            }
-
-            OP_LSR_ACC -> {
-                a = lsrValue(a)
-                2
-            }
-
-            OP_LSR_ZP -> {
-                lsr(zp())
-                5
-            }
-
-            OP_LSR_ZPX -> {
-                lsr(zpx())
-                6
-            }
-
-            OP_LSR_ABS -> {
-                lsr(abs())
-                6
-            }
-
-            OP_LSR_ABSX -> {
-                lsr(absx())
-                7
-            }
-
-            OP_ROL_ACC -> {
-                a = rolValue(a)
-                2
-            }
-
-            OP_ROL_ZP -> {
-                rol(zp())
-                5
-            }
-
-            OP_ROL_ZPX -> {
-                rol(zpx())
-                6
-            }
-
-            OP_ROL_ABS -> {
-                rol(abs())
-                6
-            }
-
-            OP_ROL_ABSX -> {
-                rol(absx())
-                7
-            }
-
-            OP_ROR_ACC -> {
-                a = rorValue(a)
-                2
-            }
-
-            OP_ROR_ZP -> {
-                ror(zp())
-                5
-            }
-
-            OP_ROR_ZPX -> {
-                ror(zpx())
-                6
-            }
-
-            OP_ROR_ABS -> {
-                ror(abs())
-                6
-            }
-
-            OP_ROR_ABSX -> {
-                ror(absx())
-                7
-            }
-
-            OP_BIT_ZP -> {
-                bit(read(zp()))
-                3
-            }
-
-            OP_BIT_ABS -> {
-                bit(read(abs()))
-                4
-            }
-
-            OP_JMP_ABS -> {
-                pc = abs()
-                3
-            }
-
-            OP_JMP_IND -> {
-                pc = jmpIndirect()
-                5
-            }
-
-            OP_JSR_ABS -> {
-                val addr = abs()
-                push16((pc - 1).low16Bits())
-                pc = addr
-                6
-            }
-
-            OP_RTS -> {
-                pc = (pull16() + 1).low16Bits()
-                6
-            }
-
-            OP_RTI -> {
-                status = (pull() or U) and B.inv()
-                pc = pull16()
-                6
-            }
-
-            OP_BRK -> {
-                pc = (pc + 1).low16Bits()
-                interrupt(0xFFFE, true)
-            }
-
-            OP_BPL -> {
-                branch(!flag(N))
-            }
-
-            OP_BMI -> {
-                branch(flag(N))
-            }
-
-            OP_BVC -> {
-                branch(!flag(V))
-            }
-
-            OP_BVS -> {
-                branch(flag(V))
-            }
-
-            OP_BCC -> {
-                branch(!flag(C))
-            }
-
-            OP_BCS -> {
-                branch(flag(C))
-            }
-
-            OP_BNE -> {
-                branch(!flag(Z))
-            }
-
-            OP_BEQ -> {
-                branch(flag(Z))
-            }
-
-            OP_CLC -> {
-                set(C, false)
-                2
-            }
-
-            OP_SEC -> {
-                set(C, true)
-                2
-            }
-
-            OP_CLI -> {
-                set(I, false)
-                2
-            }
-
-            OP_SEI -> {
-                set(I, true)
-                2
-            }
-
-            OP_CLV -> {
-                set(V, false)
-                2
-            }
-
-            OP_CLD -> {
-                set(D, false)
-                2
-            }
-
-            OP_SED -> {
-                set(D, true)
-                2
-            }
-
-            OP_NOP -> {
-                2
-            }
-
-            else -> error("Unsupported unofficial opcode 0x${op.toString(16).padStart(2, '0')}")
+            in BRANCHES -> branch(instruction, fetch())
+            in UNSTABLE_WRITES -> unstableStore(instruction, mode)
+            in WRITES -> {
+                val target = address(mode, write = true)
+                lastAddress = target
+                write(target, storeValue(instruction))
+            }
+            "ASL", "LSR", "ROL", "ROR" -> {
+                if (mode == AddressMode.ACC) {
+                    impliedRead()
+                    a = transform(instruction, a)
+                } else {
+                    modify(address(mode, write = true), instruction)
+                }
+            }
+            in READ_MODIFY_WRITES -> modify(address(mode, write = true), instruction)
+            "KIL" -> {
+                pc = (pc - 1).low16Bits()
+                halted = true
+                irqPending = false
+                nmiPending = false
+            }
+            else -> executeReadOrImplied(instruction, mode)
         }
     }
 
-    /**
-     * Reads one byte from the CPU bus at the supplied 16-bit address.
-     */
-    private fun read(addr: Int): Int {
-        return bus.read(addr)
+    private fun executeReadOrImplied(instruction: String, mode: AddressMode) {
+        if (mode == AddressMode.IMP) {
+            impliedRead()
+            when (instruction) {
+                "CLC" -> set(C, false)
+                "SEC" -> set(C, true)
+                "CLI" -> set(I, false)
+                "SEI" -> set(I, true)
+                "CLV" -> set(V, false)
+                "CLD" -> set(D, false)
+                "SED" -> set(D, true)
+                "TAX" -> { x = a; zn(x) }
+                "TAY" -> { y = a; zn(y) }
+                "TXA" -> { a = x; zn(a) }
+                "TYA" -> { a = y; zn(a) }
+                "TSX" -> { x = sp; zn(x) }
+                "TXS" -> sp = x
+                "DEX" -> { x = (x - 1).low8Bits(); zn(x) }
+                "DEY" -> { y = (y - 1).low8Bits(); zn(y) }
+                "INX" -> { x = (x + 1).low8Bits(); zn(x) }
+                "INY" -> { y = (y + 1).low8Bits(); zn(y) }
+                "NOP" -> Unit
+                else -> error("Unsupported implied instruction $instruction")
+            }
+            return
+        }
+
+        val value = readOperand(mode)
+        when (instruction) {
+            "ORA" -> { a = a or value; zn(a) }
+            "AND" -> { a = a and value; zn(a) }
+            "EOR" -> { a = a xor value; zn(a) }
+            "ADC" -> adc(value)
+            "SBC" -> sbc(value)
+            "CMP" -> compare(a, value)
+            "CPX" -> compare(x, value)
+            "CPY" -> compare(y, value)
+            "BIT" -> bit(value)
+            "LDA" -> { a = value; zn(a) }
+            "LDX" -> { x = value; zn(x) }
+            "LDY" -> { y = value; zn(y) }
+            "LAX" -> { a = value; x = value; zn(value) }
+            "LAS" -> { val result = value and sp; a = result; x = result; sp = result; zn(result) }
+            "ANC" -> { a = a and value; zn(a); set(C, flag(N)) }
+            "ALR" -> { a = lsrValue(a and value) }
+            "ARR" -> arr(value)
+            "XAA" -> { a = (a or 0xEE) and x and value; zn(a) }
+            "AXS" -> axs(value)
+            "NOP" -> Unit
+            else -> error("Unsupported read instruction $instruction")
+        }
     }
 
-    /**
-     * Writes one byte to the CPU bus at the supplied 16-bit address.
-     */
-    private fun write(addr: Int, value: Int) {
-        bus.write(addr, value)
+    private fun readOperand(mode: AddressMode): Int = when (mode) {
+        AddressMode.IMM -> fetch()
+        else -> read(address(mode, write = false))
     }
 
-    /**
-     * Reads the next instruction byte and advances the program counter.
-     */
-    private fun fetchByte(): Int {
-        val v = read(pc)
-        pc = (pc + 1).low16Bits()
-        return v
+    private fun address(mode: AddressMode, write: Boolean): Int = when (mode) {
+        AddressMode.ZP -> fetch()
+        AddressMode.ZPX, AddressMode.ZPY -> {
+            val base = fetch()
+            dummyRead(base)
+            (base + if (mode == AddressMode.ZPX) x else y).low8Bits()
+        }
+        AddressMode.ABS -> absolute()
+        AddressMode.AX, AddressMode.AY -> indexedAbsolute(if (mode == AddressMode.AX) x else y, write)
+        AddressMode.IX -> {
+            val operand = fetch()
+            dummyRead(operand)
+            val pointer = (operand + x).low8Bits()
+            read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
+        }
+        AddressMode.IY -> {
+            val pointer = fetch()
+            val base = read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
+            val result = (base + y).low16Bits()
+            if (write || base.pageBase() != result.pageBase()) {
+                dummyRead(base.pageBase() or result.low8Bits())
+            }
+            result
+        }
+        else -> error("Address mode $mode has no memory address")
     }
 
-    /**
-     * Resolves zero-page addressing from the next instruction byte.
-     */
-    private fun zp(): Int {
-        return fetchByte()
+    private fun indexedAbsolute(index: Int, alwaysDummy: Boolean): Int {
+        val base = absolute()
+        val result = (base + index).low16Bits()
+        if (alwaysDummy || base.pageBase() != result.pageBase()) {
+            dummyRead(base.pageBase() or result.low8Bits())
+        }
+        return result
     }
 
-    /**
-     * Resolves zero-page,X addressing with 8-bit zero-page wraparound.
-     */
-    private fun zpx(): Int {
-        return (fetchByte() + x).low8Bits()
+    private fun modify(address: Int, instruction: String) {
+        val old = read(address)
+        dummyWrite(address, old)
+        val result = when (instruction) {
+            "SLO" -> transform("ASL", old).also { a = a or it; zn(a) }
+            "RLA" -> transform("ROL", old).also { a = a and it; zn(a) }
+            "SRE" -> transform("LSR", old).also { a = a xor it; zn(a) }
+            "RRA" -> transform("ROR", old).also(::adc)
+            "DCP" -> (old - 1).low8Bits().also { compare(a, it) }
+            "ISB" -> (old + 1).low8Bits().also(::sbc)
+            else -> transform(instruction, old)
+        }
+        write(address, result)
     }
 
-    /**
-     * Resolves zero-page,Y addressing with 8-bit zero-page wraparound.
-     */
-    private fun zpy(): Int {
-        return (fetchByte() + y).low8Bits()
+    private fun transform(instruction: String, value: Int): Int = when (instruction) {
+        "ASL" -> aslValue(value)
+        "LSR" -> lsrValue(value)
+        "ROL" -> rolValue(value)
+        "ROR" -> rorValue(value)
+        "INC" -> (value + 1).low8Bits().also(::zn)
+        "DEC" -> (value - 1).low8Bits().also(::zn)
+        else -> error("Unsupported RMW instruction $instruction")
     }
 
-    /**
-     * Resolves absolute addressing from the next two instruction bytes in little-endian order.
-     */
-    private fun abs(): Int {
-        val lo = fetchByte()
-        val hi = fetchByte()
-        return lo or (hi shl 8)
+    private fun storeValue(instruction: String): Int = when (instruction) {
+        "STA" -> a
+        "STX" -> x
+        "STY" -> y
+        "SAX" -> a and x
+        "AHX" -> a and x and (((lastAddress shr 8) + 1).low8Bits())
+        "SHX" -> x and (((lastAddress shr 8) + 1).low8Bits())
+        "SHY" -> y and (((lastAddress shr 8) + 1).low8Bits())
+        "TAS" -> {
+            sp = a and x
+            sp and (((lastAddress shr 8) + 1).low8Bits())
+        }
+        else -> error("Unsupported store instruction $instruction")
     }
 
-    /**
-     * Resolves absolute,X addressing.
-     */
-    private fun absx(): Int {
-        return (abs() + x).low16Bits()
-    }
-
-    /**
-     * Resolves absolute,X addressing and reports a page-crossing cycle penalty.
-     */
-    private fun absxWithPageCrossPenalty(): Int {
-        val b = abs()
-        val a = (b + x).low16Bits()
-        return addressWithPageCrossPenalty(a, b.pageBase() != a.pageBase())
-    }
-
-    /**
-     * Resolves absolute,Y addressing.
-     */
-    private fun absy(): Int {
-        return (abs() + y).low16Bits()
-    }
-
-    /**
-     * Resolves absolute,Y addressing and reports a page-crossing cycle penalty.
-     */
-    private fun absyWithPageCrossPenalty(): Int {
-        val b = abs()
-        val a = (b + y).low16Bits()
-        return addressWithPageCrossPenalty(a, b.pageBase() != a.pageBase())
-    }
-
-    /**
-     * Resolves indexed-indirect `(operand,X)` addressing through zero-page pointer wraparound.
-     */
-    private fun indx(): Int {
-        val p = (fetchByte() + x).low8Bits()
-        return read(p) or (read((p + 1).low8Bits()) shl 8)
-    }
-
-    /**
-     * Resolves indirect-indexed `(operand),Y` addressing.
-     */
-    private fun indy(): Int {
-        val p = fetchByte()
-        val b = read(p) or (read((p + 1).low8Bits()) shl 8)
-        return (b + y).low16Bits()
-    }
-
-    /**
-     * Resolves indirect-indexed `(operand),Y` addressing and reports page crossing.
-     */
-    private fun indyWithPageCrossPenalty(): Int {
-        val p = fetchByte()
-        val b = read(p) or (read((p + 1).low8Bits()) shl 8)
-        val a = (b + y).low16Bits()
-        return addressWithPageCrossPenalty(a, b.pageBase() != a.pageBase())
-    }
-
-    private fun addressWithPageCrossPenalty(address: Int, pageCrossed: Boolean): Int {
-        return address or ((if (pageCrossed) 1 else 0) shl 16)
-    }
-
-    private fun resultAddr(result: Int): Int {
-        return result and 0xFFFF
-    }
-
-    private fun resultPage(result: Int): Int {
-        return result ushr 16
-    }
-
-    /**
-     * Reads a 16-bit little-endian value from the CPU bus.
-     */
-    private fun read16(addr: Int): Int {
-        return read(addr) or (read((addr + 1).low16Bits()) shl 8)
-    }
-
-    /**
-     * Resolves `JMP (addr)` using the 6502 page-wrap hardware bug for the high byte fetch.
-     */
-    private fun jmpIndirect(): Int {
-        val p = abs()
-        return read(p) or (read(p.pageBase() or ((p + 1).low8Bits())) shl 8)
-    }
-
-    /**
-     * Checks whether a status-register flag is currently set.
-     */
-    private fun flag(f: Int): Boolean {
-        return (status and f) != 0
-    }
-
-    /**
-     * Sets or clears a status-register flag while keeping the unused status bit set.
-     */
-    private fun set(f: Int, on: Boolean) {
-        status = if (on) {
-            status or f
+    private fun unstableStore(instruction: String, mode: AddressMode) {
+        val base = if (mode == AddressMode.IY) {
+            val pointer = fetch()
+            read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
         } else {
-            status and f.inv()
+            absolute()
         }
+        val index = if (mode == AddressMode.AX) x else y
+        val target = (base + index).low16Bits()
+        dummyRead(base.pageBase() or target.low8Bits())
+        val valueRegister = when (instruction) {
+            "SHY" -> y
+            "SHX" -> x
+            "AHX" -> a and x
+            "TAS" -> (a and x).also { sp = it }
+            else -> 0
+        }
+        val value = valueRegister and (((base shr 8) + 1).low8Bits())
+        val destination = if (base.pageBase() != target.pageBase()) {
+            target.low8Bits() or (((target shr 8) and valueRegister) shl 8)
+        } else {
+            target
+        }
+        write(destination, value)
     }
 
-    /**
-     * Updates the zero and negative flags from an 8-bit result value.
-     */
-    private fun zn(v: Int) {
-        val value = v.low8Bits()
-        status = status and (Z or N).inv()
-        if (value == 0) status = status or Z
-        status = status or (value and N)
+    private var lastAddress = 0
+
+    private fun write(address: Int, value: Int) {
+        lastAddress = address
+        bus.cpuWrite(address, value)
+        totalCycles++
     }
 
-    /**
-     * Pushes one byte onto the stack page and decrements the stack pointer.
-     */
-    private fun push(v: Int) {
-        write(0x100 or sp, v)
+    private fun dummyWrite(address: Int, value: Int) {
+        bus.cpuWrite(address, value, dummy = true)
+        totalCycles++
+    }
+
+    private fun read(address: Int, opcodeFetch: Boolean = false): Int {
+        lastAddress = address.low16Bits()
+        val result = bus.cpuRead(address, totalCycles, opcodeFetch = opcodeFetch)
+        totalCycles += result.cycles
+        return result.value
+    }
+
+    private fun dummyRead(address: Int, opcodeFetch: Boolean = false): Int {
+        val result = bus.cpuRead(address, totalCycles, dummy = true, opcodeFetch = opcodeFetch)
+        totalCycles += result.cycles
+        return result.value
+    }
+
+    private fun fetch(): Int {
+        val value = read(pc)
+        pc = (pc + 1).low16Bits()
+        return value
+    }
+
+    private fun fetchOpcode(): Int {
+        val value = read(pc, opcodeFetch = true)
+        pc = (pc + 1).low16Bits()
+        return value
+    }
+
+    private fun impliedRead() {
+        dummyRead(pc)
+    }
+
+    private fun absolute(): Int = fetch() or (fetch() shl 8)
+
+    private fun push(value: Int) {
+        write(0x100 or sp, value)
         sp = (sp - 1).low8Bits()
     }
 
-    /**
-     * Increments the stack pointer and pulls one byte from the stack page.
-     */
     private fun pull(): Int {
         sp = (sp + 1).low8Bits()
         return read(0x100 or sp)
     }
 
-    /**
-     * Pushes a 16-bit value onto the stack in 6502 order: high byte first, then low byte.
-     */
-    private fun push16(v: Int) {
-        push(v shr 8)
-        push(v)
+    private fun pushInstruction(value: Int) {
+        impliedRead()
+        push(value)
     }
 
-    /**
-     * Pulls a 16-bit little-endian value from the stack.
-     */
-    private fun pull16(): Int {
-        val lo = pull()
-        val hi = pull()
-        return lo or (hi shl 8)
-    }
-
-    /**
-     * Handles BRK, IRQ, or NMI entry by pushing CPU state, setting interrupt disable, and loading the vector.
-     */
-    private fun interrupt(vector: Int, brk: Boolean): Int {
-        push16(pc)
-        push((status or U or if (brk) B else 0) and if (brk) 0xFF else B.inv())
-        set(I, true)
-        pc = read16(vector)
-        return 7
-    }
-
-    /**
-     * Adds a byte plus carry to the accumulator and updates carry, overflow, zero, and negative flags.
-     */
-    private fun adc(v: Int) {
-        val sum = a + v + if (flag(C)) 1 else 0
-        val result = sum.low8Bits()
-        var flags = result and N
-        if (sum > 0xFF) flags = flags or C
-        if (((a xor sum) and (v xor sum) and 0x80) != 0) flags = flags or V
-        if (result == 0) flags = flags or Z
-        status = (status and (C or Z or V or N).inv()) or flags
-        a = result
-    }
-
-    /**
-     * Subtracts a byte from the accumulator using 6502 carry semantics.
-     */
-    private fun sbc(v: Int) {
-        adc(v xor 0xFF)
-    }
-
-    /**
-     * Compares a register value with a byte and updates carry, zero, and negative flags.
-     */
-    private fun cmp(r: Int, v: Int) {
-        val result = (r - v).low8Bits()
-        var flags = result and N
-        if (r >= v) flags = flags or C
-        if (result == 0) flags = flags or Z
-        status = (status and (C or Z or N).inv()) or flags
-    }
-
-    /**
-     * Performs the BIT test against the accumulator and copies bits 6 and 7 into overflow and negative flags.
-     */
-    private fun bit(v: Int) {
-        var flags = v and (V or N)
-        if ((a and v) == 0) flags = flags or Z
-        status = (status and (Z or V or N).inv()) or flags
-    }
-
-    /**
-     * Increments the byte at an address and updates zero and negative flags.
-     */
-    private fun inc(addr: Int) {
-        val v = (read(addr) + 1).low8Bits()
-        write(addr, v)
-        zn(v)
-    }
-
-    /**
-     * Decrements the byte at an address and updates zero and negative flags.
-     */
-    private fun dec(addr: Int) {
-        val v = (read(addr) - 1).low8Bits()
-        write(addr, v)
-        zn(v)
-    }
-
-    /**
-     * Arithmetic-shifts the byte at an address left and writes the result back.
-     */
-    private fun asl(addr: Int) {
-        val v = aslValue(read(addr))
-        write(addr, v)
-    }
-
-    /**
-     * Logical-shifts the byte at an address right and writes the result back.
-     */
-    private fun lsr(addr: Int) {
-        val v = lsrValue(read(addr))
-        write(addr, v)
-    }
-
-    /**
-     * Rotates the byte at an address left through carry and writes the result back.
-     */
-    private fun rol(addr: Int) {
-        val v = rolValue(read(addr))
-        write(addr, v)
-    }
-
-    /**
-     * Rotates the byte at an address right through carry and writes the result back.
-     */
-    private fun ror(addr: Int) {
-        val v = rorValue(read(addr))
-        write(addr, v)
-    }
-
-    /**
-     * Arithmetic-shifts an 8-bit value left and updates carry, zero, and negative flags.
-     */
-    private fun aslValue(v: Int): Int {
-        set(C, (v and 0x80) != 0)
-        val r = (v shl 1).low8Bits()
-        zn(r)
-        return r
-    }
-
-    /**
-     * Logical-shifts an 8-bit value right and updates carry, zero, and negative flags.
-     */
-    private fun lsrValue(v: Int): Int {
-        set(C, (v and 1) != 0)
-        val r = (v shr 1).low8Bits()
-        zn(r)
-        return r
-    }
-
-    /**
-     * Rotates an 8-bit value left through carry and updates carry, zero, and negative flags.
-     */
-    private fun rolValue(v: Int): Int {
-        val c = if (flag(C)) 1 else 0
-        set(C, (v and 0x80) != 0)
-        val r = ((v shl 1) or c).low8Bits()
-        zn(r)
-        return r
-    }
-
-    /**
-     * Rotates an 8-bit value right through carry and updates carry, zero, and negative flags.
-     */
-    private fun rorValue(v: Int): Int {
-        val c = if (flag(C)) 0x80 else 0
-        set(C, (v and 1) != 0)
-        val r = ((v shr 1) or c).low8Bits()
-        zn(r)
-        return r
-    }
-
-    /**
-     * Applies a signed relative branch when the condition is true and returns the instruction cycle count.
-     */
-    private fun branch(cond: Boolean): Int {
-        val off = fetchByte()
-        if (!cond) {
-            return 2
-        }
-        val old = pc
-        val signed = if (off < 0x80) off else off - 0x100
-        pc = (pc + signed).low16Bits()
-        return if (old.pageBase() != pc.pageBase()) {
-            4
+    private fun serviceInterrupt(vector: Int) {
+        dummyRead(pc, opcodeFetch = true)
+        dummyRead(pc)
+        push(pc shr 8)
+        push(pc)
+        val selectedVector = if (nmiPending) {
+            nmiPending = false
+            0xFFFA
         } else {
-            3
+            vector
+        }
+        push((status or U) and B.inv())
+        set(I, true)
+        pc = read(selectedVector) or (read(selectedVector + 1) shl 8)
+        irqPending = false
+    }
+
+    private fun brk() {
+        fetch() // BRK's padding byte is a real read.
+        push(pc shr 8)
+        push(pc)
+        val vector = if (nmiPending) {
+            nmiPending = false
+            0xFFFA
+        } else {
+            0xFFFE
+        }
+        push(status or B or U)
+        set(I, true)
+        pc = read(vector) or (read(vector + 1) shl 8)
+    }
+
+    private fun jsr() {
+        val low = fetch()
+        dummyRead(0x100 or sp)
+        push(pc shr 8)
+        push(pc)
+        pc = low or (fetch() shl 8)
+    }
+
+    private fun jump(mode: AddressMode) {
+        if (mode == AddressMode.ABS) {
+            pc = absolute()
+        } else {
+            val pointer = absolute()
+            val highAddress = pointer.pageBase() or ((pointer + 1).low8Bits())
+            pc = read(pointer) or (read(highAddress) shl 8)
         }
     }
+
+    private fun rts() {
+        impliedRead()
+        dummyRead(0x100 or sp)
+        val low = pull()
+        val high = pull()
+        val returnAddress = low or (high shl 8)
+        dummyRead(returnAddress)
+        pc = (returnAddress + 1).low16Bits()
+    }
+
+    private fun rti() {
+        impliedRead()
+        dummyRead(0x100 or sp)
+        status = (pull() and (B or U).inv()) or U
+        pc = pull() or (pull() shl 8)
+    }
+
+    private fun branch(instruction: String, offset: Int) {
+        val take = when (instruction) {
+            "BPL" -> !flag(N)
+            "BMI" -> flag(N)
+            "BVC" -> !flag(V)
+            "BVS" -> flag(V)
+            "BCC" -> !flag(C)
+            "BCS" -> flag(C)
+            "BNE" -> !flag(Z)
+            "BEQ" -> flag(Z)
+            else -> false
+        }
+        if (!take) return
+        val oldPc = pc
+        dummyRead(oldPc)
+        val signed = if (offset < 0x80) offset else offset - 0x100
+        val target = (oldPc + signed).low16Bits()
+        if (oldPc.pageBase() != target.pageBase()) {
+            dummyRead(oldPc.pageBase() or target.low8Bits())
+        }
+        pc = target
+    }
+
+    private fun flag(flag: Int): Boolean = (status and flag) != 0
+
+    private fun set(flag: Int, enabled: Boolean) {
+        status = if (enabled) status or flag else status and flag.inv()
+        status = (status or U) and B.inv()
+    }
+
+    private fun zn(value: Int) {
+        val result = value.low8Bits()
+        set(Z, result == 0)
+        set(N, (result and N) != 0)
+    }
+
+    private fun adc(value: Int) {
+        val sum = a + value + if (flag(C)) 1 else 0
+        val result = sum.low8Bits()
+        set(C, sum > 0xFF)
+        set(V, ((a xor result) and (value xor result) and 0x80) != 0)
+        a = result
+        zn(a)
+    }
+
+    private fun sbc(value: Int) = adc(value xor 0xFF)
+
+    private fun compare(register: Int, value: Int) {
+        val result = (register - value).low8Bits()
+        set(C, register >= value)
+        zn(result)
+    }
+
+    private fun bit(value: Int) {
+        set(Z, (a and value) == 0)
+        set(V, (value and V) != 0)
+        set(N, (value and N) != 0)
+    }
+
+    private fun aslValue(value: Int): Int {
+        set(C, (value and 0x80) != 0)
+        return (value shl 1).low8Bits().also(::zn)
+    }
+
+    private fun lsrValue(value: Int): Int {
+        set(C, (value and 1) != 0)
+        return (value ushr 1).low8Bits().also(::zn)
+    }
+
+    private fun rolValue(value: Int): Int {
+        val carry = if (flag(C)) 1 else 0
+        set(C, (value and 0x80) != 0)
+        return ((value shl 1) or carry).low8Bits().also(::zn)
+    }
+
+    private fun rorValue(value: Int): Int {
+        val carry = if (flag(C)) 0x80 else 0
+        set(C, (value and 1) != 0)
+        return ((value ushr 1) or carry).low8Bits().also(::zn)
+    }
+
+    private fun arr(value: Int) {
+        a = (a and value) ushr 1 or if (flag(C)) 0x80 else 0
+        zn(a)
+        set(C, (a and 0x40) != 0)
+        set(V, ((a shr 6) xor (a shr 5)) and 1 != 0)
+    }
+
+    private fun axs(value: Int) {
+        val source = a and x
+        x = (source - value).low8Bits()
+        set(C, source >= value)
+        zn(x)
+    }
+
 
 }

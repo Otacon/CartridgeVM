@@ -69,7 +69,8 @@ interface NesComponent {
         ppu: Ppu,
         apu: NesApu,
         cpu: Cpu6502,
-    ): NesMachine = NesMachine(controller, cartridgeSocket, ppu, apu, cpu)
+        cpuBus: CpuBus,
+    ): NesMachine = NesMachine(controller, cartridgeSocket, ppu, apu, cpu, cpuBus)
 }
 
 @Scope

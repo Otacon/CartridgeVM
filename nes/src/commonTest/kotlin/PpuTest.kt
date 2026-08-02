@@ -4,6 +4,7 @@ import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mapper
 import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
+import nes.ConsoleRegion
 import nes.ppu.Palette
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
@@ -51,6 +52,9 @@ class PpuTest {
         ppu.cpuWrite(6, 0x21)
         ppu.cpuWrite(6, 0x05)
 
+        assertEquals(0, ppu.v)
+        repeat(3) { ppu.step() }
+
         assertEquals(0x2105, ppu.v)
     }
 
@@ -73,8 +77,10 @@ class PpuTest {
         ppu.ppuWrite(0x2000, 0x55)
         ppu.cpuWrite(6, 0x20)
         ppu.cpuWrite(6, 0x00)
+        repeat(3) { ppu.step() }
 
         assertEquals(0, ppu.cpuRead(7))
+        repeat(6) { ppu.step() }
         assertEquals(0x55, ppu.cpuRead(7))
     }
 
@@ -224,21 +230,29 @@ class PpuTest {
         val ppu = ppu()
         ppu.cpuWrite(1, 0x18)
 
-        var firstFrameDots = 0
+        var initialCrossingDots = 0
         while (!ppu.frameComplete) {
             ppu.step()
-            firstFrameDots++
+            initialCrossingDots++
         }
         ppu.clearFrameComplete()
 
-        var secondFrameDots = 0
+        var evenFrameDots = 0
         while (!ppu.frameComplete) {
             ppu.step()
-            secondFrameDots++
+            evenFrameDots++
+        }
+        ppu.clearFrameComplete()
+
+        var oddFrameDots = 0
+        while (!ppu.frameComplete) {
+            ppu.step()
+            oddFrameDots++
         }
 
-        assertEquals(341 * 262, firstFrameDots)
-        assertEquals(firstFrameDots - 1, secondFrameDots)
+        assertEquals(1 + 240 * 341, initialCrossingDots)
+        assertEquals(341 * 262, evenFrameDots)
+        assertEquals(evenFrameDots - 1, oddFrameDots)
     }
 
     @Test
@@ -261,8 +275,106 @@ class PpuTest {
         ppu.cpuWrite(1, 0x18)
 
         while (!ppu.frameComplete) ppu.step()
+        assertEquals(240, mapper.scanlineClocks)
 
-        assertEquals(241, mapper.scanlineClocks)
+        ppu.clearFrameComplete()
+        while (!ppu.frameComplete) ppu.step()
+
+        assertEquals(481, mapper.scanlineClocks)
+    }
+
+    @Test
+    fun `reset timeline crosses from pre-render end to visible start`() {
+        val ppu = ppu()
+
+        assertEquals(-1, ppu.scanline)
+        assertEquals(340, ppu.cycle)
+
+        ppu.step()
+
+        assertEquals(0, ppu.scanline)
+        assertEquals(0, ppu.cycle)
+    }
+
+    @Test
+    fun `frame completes at post-render scanline dot zero`() {
+        val ppu = ppu()
+
+        while (!ppu.frameComplete) ppu.step()
+
+        assertEquals(240, ppu.scanline)
+        assertEquals(0, ppu.cycle)
+    }
+
+    @Test
+    fun `Dendy vblank and NMI begin on scanline 291`() {
+        val ppu = ppu()
+        ppu.timing = ConsoleRegion.DENDY.timing
+        ppu.cpuWrite(0, 0x80)
+
+        while (ppu.scanline != 291 || ppu.cycle != 0) ppu.step()
+        assertEquals(0, ppu.status and 0x80)
+
+        ppu.step()
+
+        assertEquals(0x80, ppu.status and 0x80)
+        assertTrue(ppu.pollNmi())
+    }
+
+    @Test
+    fun `regional scanline geometry uses PAL and Dendy NMI positions`() {
+        assertEquals(262, ConsoleRegion.NTSC.timing.scanlinesPerFrame)
+        assertEquals(241, ConsoleRegion.NTSC.timing.nmiScanline)
+        assertEquals(312, ConsoleRegion.PAL.timing.scanlinesPerFrame)
+        assertEquals(241, ConsoleRegion.PAL.timing.nmiScanline)
+        assertEquals(312, ConsoleRegion.DENDY.timing.scanlinesPerFrame)
+        assertEquals(291, ConsoleRegion.DENDY.timing.nmiScanline)
+    }
+
+    @Test
+    fun `status read on vblank dot zero suppresses vblank and NMI`() {
+        val ppu = ppu()
+        ppu.cpuWrite(0, 0x80)
+        while (ppu.scanline != 241 || ppu.cycle != 0) ppu.step()
+
+        ppu.cpuRead(2)
+        ppu.step()
+
+        assertEquals(0, ppu.status and 0x80)
+        assertFalse(ppu.pollNmi())
+    }
+
+    @Test
+    fun `status returns open bus in low five bits`() {
+        val ppu = ppu()
+        ppu.cpuWrite(1, 0x1B)
+
+        assertEquals(0x1B, ppu.cpuRead(2) and 0x1F)
+    }
+
+    @Test
+    fun `palette reads apply grayscale mask`() {
+        val ppu = ppu()
+        ppu.ppuWrite(0x3F00, 0x2F)
+        ppu.cpuWrite(1, 0x01)
+        ppu.cpuWrite(6, 0x3F)
+        ppu.cpuWrite(6, 0x00)
+        repeat(3) { ppu.step() }
+
+        assertEquals(0x20, ppu.cpuRead(7))
+    }
+
+    @Test
+    fun `forced blank displays palette color addressed by v`() {
+        val ppu = ppu()
+        ppu.ppuWrite(0x3F05, 0x22)
+        ppu.cpuWrite(6, 0x3F)
+        ppu.cpuWrite(6, 0x05)
+        repeat(3) { ppu.step() }
+
+        ppu.step()
+
+        assertEquals(Palette.COLORS[0x22], ppu.backgroundFramebuffer[2])
     }
 
     @Test

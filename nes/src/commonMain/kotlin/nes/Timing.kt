@@ -13,6 +13,11 @@ enum class ConsoleRegion(val timing: Timing) {
             noisePeriods = intArrayOf(4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778),
             dmcPeriods = intArrayOf(398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50),
             skipsOddFrameDot = false,
+            nmiScanline = 241,
+            cpuMasterClockDivider = 16,
+            ppuMasterClockDivider = 5,
+            readPreAccessClocks = 7,
+            writePreAccessClocks = 9,
         ),
     ),
     DENDY(
@@ -26,6 +31,11 @@ enum class ConsoleRegion(val timing: Timing) {
             noisePeriods = intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068),
             dmcPeriods = intArrayOf(428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54),
             skipsOddFrameDot = false,
+            nmiScanline = 291,
+            cpuMasterClockDivider = 15,
+            ppuMasterClockDivider = 5,
+            readPreAccessClocks = 6,
+            writePreAccessClocks = 8,
         ),
     ),
     MULTI_REGION(ntscTiming())
@@ -41,9 +51,16 @@ data class Timing(
     val noisePeriods: IntArray,
     val dmcPeriods: IntArray,
     val skipsOddFrameDot: Boolean,
+    val nmiScanline: Int = 241,
+    val cpuMasterClockDivider: Int,
+    val ppuMasterClockDivider: Int,
+    val readPreAccessClocks: Int,
+    val writePreAccessClocks: Int,
 ) {
+    private val averageFrameDots =
+        PpuTiming.PPU_CYCLES_PER_SCANLINE * scanlinesPerFrame - if (skipsOddFrameDot) 0.5 else 0.0
     val frameRate: Double = cpuHz.toDouble() * ppuCyclesPerCpuNumerator /
-            (ppuCyclesPerCpuDenominator * PpuTiming.PPU_CYCLES_PER_SCANLINE * scanlinesPerFrame)
+            (ppuCyclesPerCpuDenominator * averageFrameDots)
     val frameNanos: Long = (1_000_000_000.0 / frameRate).toLong()
 
     companion object {
@@ -61,6 +78,11 @@ data class Timing(
         if (ppuCyclesPerCpuDenominator != other.ppuCyclesPerCpuDenominator) return false
         if (scanlinesPerFrame != other.scanlinesPerFrame) return false
         if (skipsOddFrameDot != other.skipsOddFrameDot) return false
+        if (nmiScanline != other.nmiScanline) return false
+        if (cpuMasterClockDivider != other.cpuMasterClockDivider) return false
+        if (ppuMasterClockDivider != other.ppuMasterClockDivider) return false
+        if (readPreAccessClocks != other.readPreAccessClocks) return false
+        if (writePreAccessClocks != other.writePreAccessClocks) return false
         if (frameRate != other.frameRate) return false
         if (frameNanos != other.frameNanos) return false
         if (!apuFourStepEvents.contentEquals(other.apuFourStepEvents)) return false
@@ -77,6 +99,11 @@ data class Timing(
         result = 31 * result + ppuCyclesPerCpuDenominator
         result = 31 * result + scanlinesPerFrame
         result = 31 * result + skipsOddFrameDot.hashCode()
+        result = 31 * result + nmiScanline
+        result = 31 * result + cpuMasterClockDivider
+        result = 31 * result + ppuMasterClockDivider
+        result = 31 * result + readPreAccessClocks
+        result = 31 * result + writePreAccessClocks
         result = 31 * result + frameRate.hashCode()
         result = 31 * result + frameNanos.hashCode()
         result = 31 * result + apuFourStepEvents.contentHashCode()
@@ -97,6 +124,11 @@ private fun ntscTiming() = Timing(
     noisePeriods = intArrayOf(4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068),
     dmcPeriods = intArrayOf(428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54),
     skipsOddFrameDot = true,
+    nmiScanline = 241,
+    cpuMasterClockDivider = 12,
+    ppuMasterClockDivider = 4,
+    readPreAccessClocks = 5,
+    writePreAccessClocks = 7,
 )
 
 object PpuTiming {

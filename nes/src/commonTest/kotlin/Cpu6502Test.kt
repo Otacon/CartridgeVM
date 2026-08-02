@@ -1,4 +1,5 @@
 import nes.cpu.Cpu6502
+import nes.cpu.CpuBus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -1385,5 +1386,65 @@ class Cpu6502Test {
         rorAbsoluteXBus.write(0x0202, 0x02)
         repeat(3) { rorAbsoluteXCpu.step() }
         assertEquals(0x81, rorAbsoluteXBus.read(0x0202), "ROR absolute,X rotates indexed memory right through carry")
+    }
+
+    @Test
+    fun `every opcode has a Mesen compatible decoder entry`() {
+        repeat(256) { opcode ->
+            val (cpu, _, _) = cpuWithProgram(program(opcode, 0, 0))
+            cpu.step()
+        }
+    }
+
+    @Test
+    fun `memory RMW emits old value dummy write before final write`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_ASL_ZP, 0x10))
+        bus.write(0x10, 0x41)
+        val cycles = mutableListOf<CpuBus.Cycle>()
+        bus.setCycleListener { cycles += it }
+
+        assertEquals(5, cpu.step())
+
+        assertEquals(
+            listOf(
+                CpuBus.CycleType.READ,
+                CpuBus.CycleType.READ,
+                CpuBus.CycleType.READ,
+                CpuBus.CycleType.DUMMY_WRITE,
+                CpuBus.CycleType.WRITE,
+            ),
+            cycles.map { it.type },
+        )
+        assertEquals(listOf(0x41, 0x82), cycles.takeLast(2).map { it.value })
+    }
+
+    @Test
+    fun `page crossing indexed read performs wrong page dummy read`() {
+        val (cpu, bus, _) = cpuWithProgram(
+            program(Cpu6502.OP_LDX_IMM, 1, Cpu6502.OP_LDA_ABSX, 0xFF, 0x00)
+        )
+        cpu.step()
+        bus.write(0x0100, 0x5A)
+        val cycles = mutableListOf<CpuBus.Cycle>()
+        bus.setCycleListener { cycles += it }
+
+        assertEquals(5, cpu.step())
+
+        assertEquals(CpuBus.CycleType.DUMMY_READ, cycles[3].type)
+        assertEquals(0x0000, cycles[3].address)
+        assertEquals(0x0100, cycles[4].address)
+        assertEquals(0x5A, cpu.a)
+    }
+
+    @Test
+    fun `unofficial SLO shifts memory then ORs accumulator`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_LDA_IMM, 0x01, 0x07, 0x10))
+        bus.write(0x10, 0x40)
+        cpu.step()
+
+        assertEquals(5, cpu.step())
+
+        assertEquals(0x80, bus.read(0x10))
+        assertEquals(0x81, cpu.a)
     }
 }
