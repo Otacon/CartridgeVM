@@ -32,6 +32,8 @@ fun MainScreen(
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
         crtEnabled = state.isCrtEnabled,
         onToggleCrt = { viewModel.setCrtEnabled(!state.isCrtEnabled) },
+        castShadowEnabled = state.isCastShadowEnabled,
+        onToggleCastShadow = { viewModel.setCastShadowEnabled(!state.isCastShadowEnabled) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
         ComposeSkiaScreen(
@@ -39,6 +41,7 @@ fun MainScreen(
             renderer = renderer,
             keyboardInput = keyboardInput,
             crt = state.isCrtEnabled,
+            castShadow = state.isCastShadowEnabled,
             focusRequestKey = focusRequestKey,
             modifier = contentModifier,
         )

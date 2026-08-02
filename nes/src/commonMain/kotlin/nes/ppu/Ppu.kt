@@ -8,7 +8,8 @@ import nes.util.toUnsignedInt
 class Ppu(
     private val bus: PpuBus,
 ) {
-    val framebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
+    val backgroundFramebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
+    val spriteFramebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
     val oam = ByteArray(256)
     private val scanlineSprites = IntArray(8)
     private val paletteColors = IntArray(32)
@@ -62,6 +63,8 @@ class Ppu(
         readBuffer = 0
         pendingSpriteZeroHitCycle = -1
         oddFrame = false
+        backgroundFramebuffer.fill(0)
+        spriteFramebuffer.fill(0)
     }
 
     fun pollNmi(): Boolean {
@@ -235,7 +238,8 @@ class Ppu(
             paletteIndex++
         }
         val rowStart = y * SCREEN_WIDTH
-        framebuffer.fill(paletteColors[0], rowStart, rowStart + SCREEN_WIDTH)
+        backgroundFramebuffer.fill(paletteColors[0], rowStart, rowStart + SCREEN_WIDTH)
+        spriteFramebuffer.fill(0, rowStart, rowStart + SCREEN_WIDTH)
         bgOpaque.fill(false)
         spriteClaimed.fill(false)
         if (bgEnabled) renderBackground(rowStart)
@@ -279,7 +283,8 @@ class Ppu(
             val color = (((hi shr bit) and 1) shl 1) or ((lo shr bit) and 1)
             if (color != 0 && (x >= 8 || showLeftBackground)) {
                 bgOpaque[x] = true
-                framebuffer[rowStart + x] = paletteColors[palette * 4 + color]
+                val pixel = paletteColors[palette * 4 + color]
+                backgroundFramebuffer[rowStart + x] = pixel
             }
             x++
         }
@@ -351,7 +356,8 @@ class Ppu(
                 }
                 if ((attr and 0x20) == 0 || !bgOpaque[x]) {
                     val pal = attr and 3
-                    framebuffer[rowStart + x] = paletteColors[0x10 + pal * 4 + color]
+                    val pixel = paletteColors[0x10 + pal * 4 + color]
+                    spriteFramebuffer[rowStart + x] = pixel
                 }
             }
             px++

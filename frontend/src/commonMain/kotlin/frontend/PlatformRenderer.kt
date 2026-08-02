@@ -16,31 +16,41 @@ import org.jetbrains.skia.RuntimeShaderBuilder
 import org.jetbrains.skia.SamplingMode
 
 class PlatformRenderer : Renderer {
-    private val upload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
+    private val backgroundUpload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
+    private val spriteUpload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
     private val imageInfo = ImageInfo(
         FRAME_WIDTH,
         FRAME_HEIGHT,
         ColorType.RGBA_8888,
-        ColorAlphaType.OPAQUE,
+        ColorAlphaType.PREMUL,
         ColorSpace.sRGB,
     )
-    private var frameImage: Image? = null
+    private var backgroundImage: Image? = null
+    private var spriteImage: Image? = null
     private var backgroundPaint: Paint? = null
     private var framePaint: Paint? = null
     private var crtEffect: RuntimeEffect? = null
     private var crtBuilder: RuntimeShaderBuilder? = null
+    private var shadowEffect: RuntimeEffect? = null
+    private var shadowBuilder: RuntimeShaderBuilder? = null
     private var crtEnabled = false
+    private var castShadowEnabled = false
     private var initialized = false
     private var outputWidth = 0
     private var outputHeight = 0
     private var presentedFrames = 0L
 
-    override fun init(crt: Boolean) {
+    override fun init(crt: Boolean, castShadow: Boolean) {
         release()
         try {
             crtEnabled = crt
+            castShadowEnabled = castShadow && !crt
             backgroundPaint = Paint().apply { color = Color.BLACK }
             framePaint = Paint().apply { isAntiAlias = false }
+            if (castShadowEnabled) {
+                shadowEffect = RuntimeEffect.makeForShader(readTextResource(SHADOW_SHADER_RESOURCE))
+                shadowBuilder = RuntimeShaderBuilder(requireNotNull(shadowEffect))
+            }
             if (crt) {
                 crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))
                 crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
@@ -53,66 +63,62 @@ class PlatformRenderer : Renderer {
         }
     }
 
-    override fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
+    override fun present(frame: VideoFrame, windowWidth: Int, windowHeight: Int) {
         check(initialized) { "Skiko renderer is not initialized" }
-        require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES framebuffer" }
+        require(frame.background.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES background layer" }
+        require(frame.sprites.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES sprite layer" }
 
-        var src = 0
-        var dst = 0
-        while (src < FRAME_WIDTH * FRAME_HEIGHT) {
-            val color = framebuffer[src++]
-            upload[dst++] = (color shr 16).toByte()
-            upload[dst++] = (color shr 8).toByte()
-            upload[dst++] = color.toByte()
-            upload[dst++] = 0xFF.toByte()
-        }
-
-        frameImage?.close()
-        frameImage = Image.makeRaster(imageInfo, upload, FRAME_WIDTH * BYTES_PER_PIXEL)
+        backgroundImage = makeImage(frame.background, backgroundUpload, backgroundImage)
+        spriteImage = makeImage(frame.sprites, spriteUpload, spriteImage)
         outputWidth = windowWidth
         outputHeight = windowHeight
     }
 
+    private fun makeImage(source: IntArray, upload: ByteArray, previous: Image?): Image {
+        var src = 0
+        var dst = 0
+        while (src < FRAME_WIDTH * FRAME_HEIGHT) {
+            val color = source[src++]
+            upload[dst++] = (color shr 16).toByte()
+            upload[dst++] = (color shr 8).toByte()
+            upload[dst++] = color.toByte()
+            upload[dst++] = (color ushr 24).toByte()
+        }
+
+        previous?.close()
+        return Image.makeRaster(imageInfo, upload, FRAME_WIDTH * BYTES_PER_PIXEL)
+    }
+
     override fun draw(canvas: Canvas) {
-        val image = frameImage ?: return
+        val background = backgroundImage ?: return
+        val sprites = spriteImage ?: return
         if (outputWidth <= 0 || outputHeight <= 0) return
 
         val output = Rect.makeWH(outputWidth.toFloat(), outputHeight.toFloat())
         canvas.drawRect(output, requireNotNull(backgroundPaint))
         val destination = destinationRect()
         if (crtEnabled) {
-            drawCrt(canvas, image, destination)
+            drawCrt(canvas, background, sprites, destination)
         } else {
-            canvas.drawImageRect(
-                image,
-                SOURCE_RECT,
-                destination,
-                SamplingMode.DEFAULT,
-                null,
-                true,
-            )
+            drawLayer(canvas, background, destination)
+            if (castShadowEnabled) drawShadow(canvas, sprites, destination)
+            drawLayer(canvas, sprites, destination)
         }
         presentedFrames++
     }
 
-    override fun close() {
-        release()
-    }
-
-    private fun drawCrt(canvas: Canvas, image: Image, destination: Rect) {
-        val frameShader = image.makeShader(
+    private fun drawShadow(canvas: Canvas, spriteImage: Image, destination: Rect) {
+        val spriteShader = spriteImage.makeShader(
             FilterTileMode.CLAMP,
             FilterTileMode.CLAMP,
             SamplingMode.LINEAR,
             null,
         )
-        val builder = requireNotNull(crtBuilder)
+        val builder = requireNotNull(shadowBuilder)
         try {
-            builder.child("frameTexture", frameShader)
-            builder.uniform("outputSize", outputWidth.toFloat(), outputHeight.toFloat())
+            builder.child("spriteTexture", spriteShader)
             builder.uniform("destinationOrigin", destination.left, destination.top)
             builder.uniform("destinationSize", destination.width, destination.height)
-            builder.uniform("time", presentedFrames / 60f)
 
             val shader = builder.makeShader()
             val paint = requireNotNull(framePaint)
@@ -124,7 +130,62 @@ class PlatformRenderer : Renderer {
                 shader.close()
             }
         } finally {
-            frameShader.close()
+            spriteShader.close()
+        }
+    }
+
+    private fun drawLayer(canvas: Canvas, image: Image, destination: Rect) {
+        canvas.drawImageRect(
+            image,
+            SOURCE_RECT,
+            destination,
+            SamplingMode.DEFAULT,
+            null,
+            true,
+        )
+    }
+
+    override fun close() {
+        release()
+    }
+
+    private fun drawCrt(canvas: Canvas, backgroundImage: Image, spriteImage: Image, destination: Rect) {
+        val backgroundShader = backgroundImage.makeShader(
+            FilterTileMode.CLAMP,
+            FilterTileMode.CLAMP,
+            SamplingMode.LINEAR,
+            null,
+        )
+        val spriteShader = spriteImage.makeShader(
+            FilterTileMode.CLAMP,
+            FilterTileMode.CLAMP,
+            SamplingMode.LINEAR,
+            null,
+        )
+        try {
+            val builder = requireNotNull(crtBuilder)
+            try {
+                builder.child("backgroundTexture", backgroundShader)
+                builder.child("spriteTexture", spriteShader)
+                builder.uniform("outputSize", outputWidth.toFloat(), outputHeight.toFloat())
+                builder.uniform("destinationOrigin", destination.left, destination.top)
+                builder.uniform("destinationSize", destination.width, destination.height)
+                builder.uniform("time", presentedFrames / 60f)
+
+                val shader = builder.makeShader()
+                val paint = requireNotNull(framePaint)
+                try {
+                    paint.shader = shader
+                    canvas.drawRect(destination, paint)
+                } finally {
+                    paint.shader = null
+                    shader.close()
+                }
+            } finally {
+                spriteShader.close()
+            }
+        } finally {
+            backgroundShader.close()
         }
     }
 
@@ -141,14 +202,20 @@ class PlatformRenderer : Renderer {
 
     private fun release() {
         framePaint?.shader = null
-        frameImage?.close()
+        backgroundImage?.close()
+        spriteImage?.close()
         crtBuilder?.close()
         crtEffect?.close()
+        shadowBuilder?.close()
+        shadowEffect?.close()
         framePaint?.close()
         backgroundPaint?.close()
-        frameImage = null
+        backgroundImage = null
+        spriteImage = null
         crtBuilder = null
         crtEffect = null
+        shadowBuilder = null
+        shadowEffect = null
         framePaint = null
         backgroundPaint = null
         initialized = false
@@ -159,6 +226,7 @@ class PlatformRenderer : Renderer {
         const val FRAME_HEIGHT = 240
         const val BYTES_PER_PIXEL = 4
         const val CRT_SHADER_RESOURCE = "shaders/crt.sksl"
+        const val SHADOW_SHADER_RESOURCE = "shaders/shadow.sksl"
         val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())
     }
 }

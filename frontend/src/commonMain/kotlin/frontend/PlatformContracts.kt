@@ -9,5 +9,10 @@ interface AudioPipeline {
 }
 
 interface VideoOutput {
-    fun submit(framebuffer: IntArray)
+    fun submit(frame: VideoFrame)
 }
+
+class VideoFrame(
+    val background: IntArray,
+    val sprites: IntArray,
+)

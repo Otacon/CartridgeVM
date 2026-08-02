@@ -28,6 +28,8 @@ fun ComposeMenuBar(
     onMenuDismissed: () -> Unit,
     crtEnabled: Boolean,
     onToggleCrt: () -> Unit,
+    castShadowEnabled: Boolean,
+    onToggleCastShadow: () -> Unit,
     onExit: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     content: @Composable (Modifier) -> Unit,
@@ -111,6 +113,14 @@ fun ComposeMenuBar(
                         ) {
                             expandedMenu = null
                             onToggleCrt()
+                        }
+                        MenuItem(
+                            label = "Cast Shadow",
+                            checked = castShadowEnabled,
+                            role = Role.Checkbox,
+                        ) {
+                            expandedMenu = null
+                            onToggleCastShadow()
                         }
                     }
 

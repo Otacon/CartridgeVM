@@ -5,9 +5,9 @@ import nes.input.NesController
 import org.jetbrains.skia.Canvas
 
 interface Renderer {
-    fun init(crt: Boolean)
+    fun init(crt: Boolean, castShadow: Boolean)
 
-    fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int)
+    fun present(frame: VideoFrame, windowWidth: Int, windowHeight: Int)
 
     fun draw(canvas: Canvas)
 

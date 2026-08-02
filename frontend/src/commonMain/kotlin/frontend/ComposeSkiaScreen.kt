@@ -22,6 +22,7 @@ fun ComposeSkiaScreen(
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput?,
     crt: Boolean,
+    castShadow: Boolean,
     focusRequestKey: Any,
     modifier: Modifier = Modifier,
 ) {
@@ -32,8 +33,8 @@ fun ComposeSkiaScreen(
         focusRequester.requestFocus()
     }
 
-    DisposableEffect(renderer, crt) {
-        renderer.init(crt)
+    DisposableEffect(renderer, crt, castShadow) {
+        renderer.init(crt, castShadow)
         onDispose(renderer::close)
     }
 

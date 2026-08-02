@@ -30,8 +30,8 @@ class PlatformRendererTest {
         val renderer = PlatformRenderer()
         val surface = Surface.makeRasterN32Premul(512, 480)
         return try {
-            renderer.init(crt)
-            renderer.present(IntArray(256 * 240) { Color.WHITE }, 512, 480)
+            renderer.init(crt, castShadow = false)
+            renderer.present(testFrame(), 512, 480)
             renderer.draw(surface.canvas)
 
             val image = surface.makeImageSnapshot()
@@ -55,8 +55,8 @@ class PlatformRendererTest {
         val renderer = PlatformRenderer()
         val surface = Surface.makeRasterN32Premul(800, 480)
         return try {
-            renderer.init(crt)
-            renderer.present(IntArray(256 * 240) { Color.WHITE }, 800, 480)
+            renderer.init(crt, castShadow = false)
+            renderer.present(testFrame(), 800, 480)
             renderer.draw(surface.canvas)
 
             val image = surface.makeImageSnapshot()
@@ -74,5 +74,13 @@ class PlatformRendererTest {
             renderer.close()
             surface.close()
         }
+    }
+
+    private fun testFrame(): VideoFrame {
+        val pixels = IntArray(256 * 240) { Color.WHITE }
+        return VideoFrame(
+            background = pixels.copyOf(),
+            sprites = IntArray(256 * 240),
+        )
     }
 }

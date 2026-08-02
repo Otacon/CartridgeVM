@@ -20,7 +20,12 @@ class EmulatorRuntime(
                 machine.controller.poll()
             }
             audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            video.submit(machine.ppu.framebuffer)
+            video.submit(
+                VideoFrame(
+                    machine.ppu.backgroundFramebuffer,
+                    machine.ppu.spriteFramebuffer,
+                ),
+            )
             frameRendered = true
         }
         return frameRendered

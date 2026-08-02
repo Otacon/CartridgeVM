@@ -112,7 +112,7 @@ class PpuTest {
 
         repeat(2) { ppu.step() }
 
-        assertNotEquals(0, ppu.framebuffer[0])
+        assertNotEquals(0, renderedPixel(ppu, 0))
     }
 
     @Test
@@ -127,7 +127,7 @@ class PpuTest {
 
         repeat(2) { ppu.step() }
 
-        assertNotEquals(0, ppu.framebuffer[0])
+        assertNotEquals(0, renderedPixel(ppu, 0))
     }
 
     @Test
@@ -142,7 +142,7 @@ class PpuTest {
 
         repeat(344) { ppu.step() }
 
-        assertNotEquals(0, ppu.framebuffer[256])
+        assertNotEquals(0, renderedPixel(ppu, 256))
     }
 
     @Test
@@ -158,7 +158,7 @@ class PpuTest {
 
         repeat(341 * 9 + 2) { ppu.step() }
 
-        assertNotEquals(0, ppu.framebuffer[8 * 256])
+        assertNotEquals(0, renderedPixel(ppu, 8 * 256))
     }
 
     @Test
@@ -297,7 +297,7 @@ class PpuTest {
 
         repeat(344) { ppu.step() }
 
-        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[256])
+        assertEquals(Palette.COLORS[0x21], renderedPixel(ppu, 256))
     }
 
     @Test
@@ -316,7 +316,7 @@ class PpuTest {
 
         repeat(344) { ppu.step() }
 
-        assertEquals(Palette.COLORS[0x22], ppu.framebuffer[256])
+        assertEquals(Palette.COLORS[0x22], renderedPixel(ppu, 256))
     }
 
     @Test
@@ -343,7 +343,7 @@ class PpuTest {
 
         repeat(344) { ppu.step() }
 
-        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[256])
+        assertEquals(Palette.COLORS[0x21], renderedPixel(ppu, 256))
     }
 
     private class CountingMapper : Mapper {
@@ -360,5 +360,10 @@ class PpuTest {
         override fun clockScanline() {
             scanlineClocks++
         }
+    }
+
+    private fun renderedPixel(ppu: Ppu, index: Int): Int {
+        val sprite = ppu.spriteFramebuffer[index]
+        return if (sprite != 0) sprite else ppu.backgroundFramebuffer[index]
     }
 }

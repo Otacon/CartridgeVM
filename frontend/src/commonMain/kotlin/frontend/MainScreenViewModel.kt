@@ -34,7 +34,7 @@ class MainScreenViewModel(
         }
         config.rom?.let { loadRom(it) }
         _state.update {
-            it.copy(isCrtEnabled = config.crt)
+            it.copy(isCrtEnabled = config.crt, isCastShadowEnabled = false)
         }
     }
 
@@ -48,7 +48,17 @@ class MainScreenViewModel(
     }
 
     fun setCrtEnabled(crtEnabled: Boolean) = _state.update {
-        it.copy(isCrtEnabled = crtEnabled)
+        it.copy(
+            isCrtEnabled = crtEnabled,
+            isCastShadowEnabled = if (crtEnabled) false else it.isCastShadowEnabled,
+        )
+    }
+
+    fun setCastShadowEnabled(castShadowEnabled: Boolean) = _state.update {
+        it.copy(
+            isCrtEnabled = if (castShadowEnabled) false else it.isCrtEnabled,
+            isCastShadowEnabled = castShadowEnabled,
+        )
     }
 
     private fun loadRom(romData: RomData) = viewModelScope.launch {
@@ -82,4 +92,5 @@ data class MainWindowState(
     val windowTitle: String = "",
     val showRomPicker: Boolean = false,
     val isCrtEnabled: Boolean = false,
+    val isCastShadowEnabled: Boolean = false,
 )
