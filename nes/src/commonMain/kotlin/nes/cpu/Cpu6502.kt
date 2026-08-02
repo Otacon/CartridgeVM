@@ -4,42 +4,133 @@ import nes.util.low16Bits
 import nes.util.low8Bits
 import nes.util.pageBase
 
-private enum class AddressMode { IMP, ACC, IMM, ZP, ZPX, ZPY, ABS, AX, AY, IND, IX, IY, REL }
+private const val IMP = 0
+private const val ACC = 1
+private const val IMM = 2
+private const val ZP = 3
+private const val ZPX = 4
+private const val ZPY = 5
+private const val ABS = 6
+private const val AX = 7
+private const val AY = 8
+private const val IND = 9
+private const val IX = 10
+private const val IY = 11
+private const val REL = 12
 
-private data class DecodedOpcode(val instruction: String, val mode: AddressMode)
+private const val BRK = 0
+private const val ORA = 1
+private const val KIL = 2
+private const val SLO = 3
+private const val NOP = 4
+private const val ASL = 5
+private const val PHP = 6
+private const val ANC = 7
+private const val BPL = 8
+private const val CLC = 9
+private const val JSR = 10
+private const val AND = 11
+private const val RLA = 12
+private const val BIT = 13
+private const val ROL = 14
+private const val PLP = 15
+private const val BMI = 16
+private const val SEC = 17
+private const val RTI = 18
+private const val EOR = 19
+private const val SRE = 20
+private const val LSR = 21
+private const val PHA = 22
+private const val ALR = 23
+private const val JMP = 24
+private const val BVC = 25
+private const val CLI = 26
+private const val RTS = 27
+private const val ADC = 28
+private const val RRA = 29
+private const val ROR = 30
+private const val PLA = 31
+private const val ARR = 32
+private const val BVS = 33
+private const val SEI = 34
+private const val STA = 35
+private const val SAX = 36
+private const val STY = 37
+private const val STX = 38
+private const val DEY = 39
+private const val TXA = 40
+private const val XAA = 41
+private const val BCC = 42
+private const val AHX = 43
+private const val TYA = 44
+private const val TXS = 45
+private const val TAS = 46
+private const val SHY = 47
+private const val SHX = 48
+private const val LDY = 49
+private const val LDA = 50
+private const val LDX = 51
+private const val LAX = 52
+private const val TAY = 53
+private const val TAX = 54
+private const val BCS = 55
+private const val CLV = 56
+private const val TSX = 57
+private const val LAS = 58
+private const val CPY = 59
+private const val CMP = 60
+private const val DCP = 61
+private const val DEC = 62
+private const val INY = 63
+private const val DEX = 64
+private const val AXS = 65
+private const val BNE = 66
+private const val CLD = 67
+private const val CPX = 68
+private const val SBC = 69
+private const val ISB = 70
+private const val INC = 71
+private const val INX = 72
+private const val BEQ = 73
+private const val SED = 74
 
-private val OPCODES: Array<DecodedOpcode> = run {
-    val rows = arrayOf(
-        "BRK:IMP ORA:IX KIL:IMP SLO:IX NOP:ZP ORA:ZP ASL:ZP SLO:ZP PHP:IMP ORA:IMM ASL:ACC ANC:IMM NOP:ABS ORA:ABS ASL:ABS SLO:ABS",
-        "BPL:REL ORA:IY KIL:IMP SLO:IY NOP:ZPX ORA:ZPX ASL:ZPX SLO:ZPX CLC:IMP ORA:AY NOP:IMP SLO:AY NOP:AX ORA:AX ASL:AX SLO:AX",
-        "JSR:ABS AND:IX KIL:IMP RLA:IX BIT:ZP AND:ZP ROL:ZP RLA:ZP PLP:IMP AND:IMM ROL:ACC ANC:IMM BIT:ABS AND:ABS ROL:ABS RLA:ABS",
-        "BMI:REL AND:IY KIL:IMP RLA:IY NOP:ZPX AND:ZPX ROL:ZPX RLA:ZPX SEC:IMP AND:AY NOP:IMP RLA:AY NOP:AX AND:AX ROL:AX RLA:AX",
-        "RTI:IMP EOR:IX KIL:IMP SRE:IX NOP:ZP EOR:ZP LSR:ZP SRE:ZP PHA:IMP EOR:IMM LSR:ACC ALR:IMM JMP:ABS EOR:ABS LSR:ABS SRE:ABS",
-        "BVC:REL EOR:IY KIL:IMP SRE:IY NOP:ZPX EOR:ZPX LSR:ZPX SRE:ZPX CLI:IMP EOR:AY NOP:IMP SRE:AY NOP:AX EOR:AX LSR:AX SRE:AX",
-        "RTS:IMP ADC:IX KIL:IMP RRA:IX NOP:ZP ADC:ZP ROR:ZP RRA:ZP PLA:IMP ADC:IMM ROR:ACC ARR:IMM JMP:IND ADC:ABS ROR:ABS RRA:ABS",
-        "BVS:REL ADC:IY KIL:IMP RRA:IY NOP:ZPX ADC:ZPX ROR:ZPX RRA:ZPX SEI:IMP ADC:AY NOP:IMP RRA:AY NOP:AX ADC:AX ROR:AX RRA:AX",
-        "NOP:IMM STA:IX NOP:IMM SAX:IX STY:ZP STA:ZP STX:ZP SAX:ZP DEY:IMP NOP:IMM TXA:IMP XAA:IMM STY:ABS STA:ABS STX:ABS SAX:ABS",
-        "BCC:REL STA:IY KIL:IMP AHX:IY STY:ZPX STA:ZPX STX:ZPY SAX:ZPY TYA:IMP STA:AY TXS:IMP TAS:AY SHY:AX STA:AX SHX:AY AHX:AY",
-        "LDY:IMM LDA:IX LDX:IMM LAX:IX LDY:ZP LDA:ZP LDX:ZP LAX:ZP TAY:IMP LDA:IMM TAX:IMP LAX:IMM LDY:ABS LDA:ABS LDX:ABS LAX:ABS",
-        "BCS:REL LDA:IY KIL:IMP LAX:IY LDY:ZPX LDA:ZPX LDX:ZPY LAX:ZPY CLV:IMP LDA:AY TSX:IMP LAS:AY LDY:AX LDA:AX LDX:AY LAX:AY",
-        "CPY:IMM CMP:IX NOP:IMM DCP:IX CPY:ZP CMP:ZP DEC:ZP DCP:ZP INY:IMP CMP:IMM DEX:IMP AXS:IMM CPY:ABS CMP:ABS DEC:ABS DCP:ABS",
-        "BNE:REL CMP:IY KIL:IMP DCP:IY NOP:ZPX CMP:ZPX DEC:ZPX DCP:ZPX CLD:IMP CMP:AY NOP:IMP DCP:AY NOP:AX CMP:AX DEC:AX DCP:AX",
-        "CPX:IMM SBC:IX NOP:IMM ISB:IX CPX:ZP SBC:ZP INC:ZP ISB:ZP INX:IMP SBC:IMM NOP:IMP SBC:IMM CPX:ABS SBC:ABS INC:ABS ISB:ABS",
-        "BEQ:REL SBC:IY KIL:IMP ISB:IY NOP:ZPX SBC:ZPX INC:ZPX ISB:ZPX SED:IMP SBC:AY NOP:IMP ISB:AY NOP:AX SBC:AX INC:AX ISB:AX",
-    )
-    rows.flatMap { row ->
-        row.split(' ').map { token ->
-            val separator = token.indexOf(':')
-            DecodedOpcode(token.substring(0, separator), AddressMode.valueOf(token.substring(separator + 1)))
-        }
-    }.toTypedArray()
+private const val OPERATION_MASK = 0xFF
+private const val MODE_SHIFT = 8
+private const val MODE_MASK = 0x0F
+private const val BRANCH_FLAG = 1 shl 12
+private const val WRITE_FLAG = 1 shl 13
+private const val UNSTABLE_WRITE_FLAG = 1 shl 14
+private const val RMW_FLAG = 1 shl 15
+
+private fun opcode(operation: Int, mode: Int): Int {
+    val category = when (operation) {
+        BPL, BMI, BVC, BVS, BCC, BCS, BNE, BEQ -> BRANCH_FLAG
+        AHX, SHX, SHY, TAS -> UNSTABLE_WRITE_FLAG
+        STA, STX, STY, SAX -> WRITE_FLAG
+        ASL, LSR, ROL, ROR, INC, DEC, SLO, RLA, SRE, RRA, DCP, ISB -> RMW_FLAG
+        else -> 0
+    }
+    return operation or (mode shl MODE_SHIFT) or category
 }
 
-private val BRANCHES = setOf("BPL", "BMI", "BVC", "BVS", "BCC", "BCS", "BNE", "BEQ")
-private val WRITES = setOf("STA", "STX", "STY", "SAX", "AHX", "SHX", "SHY", "TAS")
-private val UNSTABLE_WRITES = setOf("AHX", "SHX", "SHY", "TAS")
-private val READ_MODIFY_WRITES =
-    setOf("ASL", "LSR", "ROL", "ROR", "INC", "DEC", "SLO", "RLA", "SRE", "RRA", "DCP", "ISB")
+private val OPCODES = intArrayOf(
+    opcode(BRK, IMP), opcode(ORA, IX), opcode(KIL, IMP), opcode(SLO, IX), opcode(NOP, ZP), opcode(ORA, ZP), opcode(ASL, ZP), opcode(SLO, ZP), opcode(PHP, IMP), opcode(ORA, IMM), opcode(ASL, ACC), opcode(ANC, IMM), opcode(NOP, ABS), opcode(ORA, ABS), opcode(ASL, ABS), opcode(SLO, ABS),
+    opcode(BPL, REL), opcode(ORA, IY), opcode(KIL, IMP), opcode(SLO, IY), opcode(NOP, ZPX), opcode(ORA, ZPX), opcode(ASL, ZPX), opcode(SLO, ZPX), opcode(CLC, IMP), opcode(ORA, AY), opcode(NOP, IMP), opcode(SLO, AY), opcode(NOP, AX), opcode(ORA, AX), opcode(ASL, AX), opcode(SLO, AX),
+    opcode(JSR, ABS), opcode(AND, IX), opcode(KIL, IMP), opcode(RLA, IX), opcode(BIT, ZP), opcode(AND, ZP), opcode(ROL, ZP), opcode(RLA, ZP), opcode(PLP, IMP), opcode(AND, IMM), opcode(ROL, ACC), opcode(ANC, IMM), opcode(BIT, ABS), opcode(AND, ABS), opcode(ROL, ABS), opcode(RLA, ABS),
+    opcode(BMI, REL), opcode(AND, IY), opcode(KIL, IMP), opcode(RLA, IY), opcode(NOP, ZPX), opcode(AND, ZPX), opcode(ROL, ZPX), opcode(RLA, ZPX), opcode(SEC, IMP), opcode(AND, AY), opcode(NOP, IMP), opcode(RLA, AY), opcode(NOP, AX), opcode(AND, AX), opcode(ROL, AX), opcode(RLA, AX),
+    opcode(RTI, IMP), opcode(EOR, IX), opcode(KIL, IMP), opcode(SRE, IX), opcode(NOP, ZP), opcode(EOR, ZP), opcode(LSR, ZP), opcode(SRE, ZP), opcode(PHA, IMP), opcode(EOR, IMM), opcode(LSR, ACC), opcode(ALR, IMM), opcode(JMP, ABS), opcode(EOR, ABS), opcode(LSR, ABS), opcode(SRE, ABS),
+    opcode(BVC, REL), opcode(EOR, IY), opcode(KIL, IMP), opcode(SRE, IY), opcode(NOP, ZPX), opcode(EOR, ZPX), opcode(LSR, ZPX), opcode(SRE, ZPX), opcode(CLI, IMP), opcode(EOR, AY), opcode(NOP, IMP), opcode(SRE, AY), opcode(NOP, AX), opcode(EOR, AX), opcode(LSR, AX), opcode(SRE, AX),
+    opcode(RTS, IMP), opcode(ADC, IX), opcode(KIL, IMP), opcode(RRA, IX), opcode(NOP, ZP), opcode(ADC, ZP), opcode(ROR, ZP), opcode(RRA, ZP), opcode(PLA, IMP), opcode(ADC, IMM), opcode(ROR, ACC), opcode(ARR, IMM), opcode(JMP, IND), opcode(ADC, ABS), opcode(ROR, ABS), opcode(RRA, ABS),
+    opcode(BVS, REL), opcode(ADC, IY), opcode(KIL, IMP), opcode(RRA, IY), opcode(NOP, ZPX), opcode(ADC, ZPX), opcode(ROR, ZPX), opcode(RRA, ZPX), opcode(SEI, IMP), opcode(ADC, AY), opcode(NOP, IMP), opcode(RRA, AY), opcode(NOP, AX), opcode(ADC, AX), opcode(ROR, AX), opcode(RRA, AX),
+    opcode(NOP, IMM), opcode(STA, IX), opcode(NOP, IMM), opcode(SAX, IX), opcode(STY, ZP), opcode(STA, ZP), opcode(STX, ZP), opcode(SAX, ZP), opcode(DEY, IMP), opcode(NOP, IMM), opcode(TXA, IMP), opcode(XAA, IMM), opcode(STY, ABS), opcode(STA, ABS), opcode(STX, ABS), opcode(SAX, ABS),
+    opcode(BCC, REL), opcode(STA, IY), opcode(KIL, IMP), opcode(AHX, IY), opcode(STY, ZPX), opcode(STA, ZPX), opcode(STX, ZPY), opcode(SAX, ZPY), opcode(TYA, IMP), opcode(STA, AY), opcode(TXS, IMP), opcode(TAS, AY), opcode(SHY, AX), opcode(STA, AX), opcode(SHX, AY), opcode(AHX, AY),
+    opcode(LDY, IMM), opcode(LDA, IX), opcode(LDX, IMM), opcode(LAX, IX), opcode(LDY, ZP), opcode(LDA, ZP), opcode(LDX, ZP), opcode(LAX, ZP), opcode(TAY, IMP), opcode(LDA, IMM), opcode(TAX, IMP), opcode(LAX, IMM), opcode(LDY, ABS), opcode(LDA, ABS), opcode(LDX, ABS), opcode(LAX, ABS),
+    opcode(BCS, REL), opcode(LDA, IY), opcode(KIL, IMP), opcode(LAX, IY), opcode(LDY, ZPX), opcode(LDA, ZPX), opcode(LDX, ZPY), opcode(LAX, ZPY), opcode(CLV, IMP), opcode(LDA, AY), opcode(TSX, IMP), opcode(LAS, AY), opcode(LDY, AX), opcode(LDA, AX), opcode(LDX, AY), opcode(LAX, AY),
+    opcode(CPY, IMM), opcode(CMP, IX), opcode(NOP, IMM), opcode(DCP, IX), opcode(CPY, ZP), opcode(CMP, ZP), opcode(DEC, ZP), opcode(DCP, ZP), opcode(INY, IMP), opcode(CMP, IMM), opcode(DEX, IMP), opcode(AXS, IMM), opcode(CPY, ABS), opcode(CMP, ABS), opcode(DEC, ABS), opcode(DCP, ABS),
+    opcode(BNE, REL), opcode(CMP, IY), opcode(KIL, IMP), opcode(DCP, IY), opcode(NOP, ZPX), opcode(CMP, ZPX), opcode(DEC, ZPX), opcode(DCP, ZPX), opcode(CLD, IMP), opcode(CMP, AY), opcode(NOP, IMP), opcode(DCP, AY), opcode(NOP, AX), opcode(CMP, AX), opcode(DEC, AX), opcode(DCP, AX),
+    opcode(CPX, IMM), opcode(SBC, IX), opcode(NOP, IMM), opcode(ISB, IX), opcode(CPX, ZP), opcode(SBC, ZP), opcode(INC, ZP), opcode(ISB, ZP), opcode(INX, IMP), opcode(SBC, IMM), opcode(NOP, IMP), opcode(SBC, IMM), opcode(CPX, ABS), opcode(SBC, ABS), opcode(INC, ABS), opcode(ISB, ABS),
+    opcode(BEQ, REL), opcode(SBC, IY), opcode(KIL, IMP), opcode(ISB, IY), opcode(NOP, ZPX), opcode(SBC, ZPX), opcode(INC, ZPX), opcode(ISB, ZPX), opcode(SED, IMP), opcode(SBC, AY), opcode(NOP, IMP), opcode(ISB, AY), opcode(NOP, AX), opcode(SBC, AX), opcode(INC, AX), opcode(ISB, AX),
+)
 
 class Cpu6502(
     private val bus: CpuBus
@@ -297,45 +388,44 @@ class Cpu6502(
         return (totalCycles - start).toInt()
     }
 
-    private fun execute(opcode: DecodedOpcode) {
-        val instruction = opcode.instruction
-        val mode = opcode.mode
-        when (instruction) {
-            "BRK" -> brk()
-            "JSR" -> jsr()
-            "JMP" -> jump(mode)
-            "RTS" -> rts()
-            "RTI" -> rti()
-            "PHP" -> pushInstruction(status or B or U)
-            "PHA" -> pushInstruction(a)
-            "PLP" -> {
+    private fun execute(encodedOpcode: Int) {
+        val instruction = encodedOpcode and OPERATION_MASK
+        val mode = (encodedOpcode ushr MODE_SHIFT) and MODE_MASK
+        when {
+            instruction == BRK -> brk()
+            instruction == JSR -> jsr()
+            instruction == JMP -> jump(mode)
+            instruction == RTS -> rts()
+            instruction == RTI -> rti()
+            instruction == PHP -> pushInstruction(status or B or U)
+            instruction == PHA -> pushInstruction(a)
+            instruction == PLP -> {
                 impliedRead()
                 dummyRead(0x100 or sp)
                 status = (pull() and (B or U).inv()) or U
             }
-            "PLA" -> {
+            instruction == PLA -> {
                 impliedRead()
                 dummyRead(0x100 or sp)
                 a = pull()
                 zn(a)
             }
-            in BRANCHES -> branch(instruction, fetch())
-            in UNSTABLE_WRITES -> unstableStore(instruction, mode)
-            in WRITES -> {
+            (encodedOpcode and BRANCH_FLAG) != 0 -> branch(instruction, fetch())
+            (encodedOpcode and UNSTABLE_WRITE_FLAG) != 0 -> unstableStore(instruction, mode)
+            (encodedOpcode and WRITE_FLAG) != 0 -> {
                 val target = address(mode, write = true)
-                lastAddress = target
                 write(target, storeValue(instruction))
             }
-            "ASL", "LSR", "ROL", "ROR" -> {
-                if (mode == AddressMode.ACC) {
+            instruction == ASL || instruction == LSR || instruction == ROL || instruction == ROR -> {
+                if (mode == ACC) {
                     impliedRead()
                     a = transform(instruction, a)
                 } else {
                     modify(address(mode, write = true), instruction)
                 }
             }
-            in READ_MODIFY_WRITES -> modify(address(mode, write = true), instruction)
-            "KIL" -> {
+            (encodedOpcode and RMW_FLAG) != 0 -> modify(address(mode, write = true), instruction)
+            instruction == KIL -> {
                 pc = (pc - 1).low16Bits()
                 halted = true
                 irqPending = false
@@ -345,28 +435,28 @@ class Cpu6502(
         }
     }
 
-    private fun executeReadOrImplied(instruction: String, mode: AddressMode) {
-        if (mode == AddressMode.IMP) {
+    private fun executeReadOrImplied(instruction: Int, mode: Int) {
+        if (mode == IMP) {
             impliedRead()
             when (instruction) {
-                "CLC" -> set(C, false)
-                "SEC" -> set(C, true)
-                "CLI" -> set(I, false)
-                "SEI" -> set(I, true)
-                "CLV" -> set(V, false)
-                "CLD" -> set(D, false)
-                "SED" -> set(D, true)
-                "TAX" -> { x = a; zn(x) }
-                "TAY" -> { y = a; zn(y) }
-                "TXA" -> { a = x; zn(a) }
-                "TYA" -> { a = y; zn(a) }
-                "TSX" -> { x = sp; zn(x) }
-                "TXS" -> sp = x
-                "DEX" -> { x = (x - 1).low8Bits(); zn(x) }
-                "DEY" -> { y = (y - 1).low8Bits(); zn(y) }
-                "INX" -> { x = (x + 1).low8Bits(); zn(x) }
-                "INY" -> { y = (y + 1).low8Bits(); zn(y) }
-                "NOP" -> Unit
+                CLC -> set(C, false)
+                SEC -> set(C, true)
+                CLI -> set(I, false)
+                SEI -> set(I, true)
+                CLV -> set(V, false)
+                CLD -> set(D, false)
+                SED -> set(D, true)
+                TAX -> { x = a; zn(x) }
+                TAY -> { y = a; zn(y) }
+                TXA -> { a = x; zn(a) }
+                TYA -> { a = y; zn(a) }
+                TSX -> { x = sp; zn(x) }
+                TXS -> sp = x
+                DEX -> { x = (x - 1).low8Bits(); zn(x) }
+                DEY -> { y = (y - 1).low8Bits(); zn(y) }
+                INX -> { x = (x + 1).low8Bits(); zn(x) }
+                INY -> { y = (y + 1).low8Bits(); zn(y) }
+                NOP -> Unit
                 else -> error("Unsupported implied instruction $instruction")
             }
             return
@@ -374,51 +464,51 @@ class Cpu6502(
 
         val value = readOperand(mode)
         when (instruction) {
-            "ORA" -> { a = a or value; zn(a) }
-            "AND" -> { a = a and value; zn(a) }
-            "EOR" -> { a = a xor value; zn(a) }
-            "ADC" -> adc(value)
-            "SBC" -> sbc(value)
-            "CMP" -> compare(a, value)
-            "CPX" -> compare(x, value)
-            "CPY" -> compare(y, value)
-            "BIT" -> bit(value)
-            "LDA" -> { a = value; zn(a) }
-            "LDX" -> { x = value; zn(x) }
-            "LDY" -> { y = value; zn(y) }
-            "LAX" -> { a = value; x = value; zn(value) }
-            "LAS" -> { val result = value and sp; a = result; x = result; sp = result; zn(result) }
-            "ANC" -> { a = a and value; zn(a); set(C, flag(N)) }
-            "ALR" -> { a = lsrValue(a and value) }
-            "ARR" -> arr(value)
-            "XAA" -> { a = (a or 0xEE) and x and value; zn(a) }
-            "AXS" -> axs(value)
-            "NOP" -> Unit
+            ORA -> { a = a or value; zn(a) }
+            AND -> { a = a and value; zn(a) }
+            EOR -> { a = a xor value; zn(a) }
+            ADC -> adc(value)
+            SBC -> sbc(value)
+            CMP -> compare(a, value)
+            CPX -> compare(x, value)
+            CPY -> compare(y, value)
+            BIT -> bit(value)
+            LDA -> { a = value; zn(a) }
+            LDX -> { x = value; zn(x) }
+            LDY -> { y = value; zn(y) }
+            LAX -> { a = value; x = value; zn(value) }
+            LAS -> { val result = value and sp; a = result; x = result; sp = result; zn(result) }
+            ANC -> { a = a and value; zn(a); set(C, flag(N)) }
+            ALR -> { a = lsrValue(a and value) }
+            ARR -> arr(value)
+            XAA -> { a = (a or 0xEE) and x and value; zn(a) }
+            AXS -> axs(value)
+            NOP -> Unit
             else -> error("Unsupported read instruction $instruction")
         }
     }
 
-    private fun readOperand(mode: AddressMode): Int = when (mode) {
-        AddressMode.IMM -> fetch()
+    private fun readOperand(mode: Int): Int = when (mode) {
+        IMM -> fetch()
         else -> read(address(mode, write = false))
     }
 
-    private fun address(mode: AddressMode, write: Boolean): Int = when (mode) {
-        AddressMode.ZP -> fetch()
-        AddressMode.ZPX, AddressMode.ZPY -> {
+    private fun address(mode: Int, write: Boolean): Int = when (mode) {
+        ZP -> fetch()
+        ZPX, ZPY -> {
             val base = fetch()
             dummyRead(base)
-            (base + if (mode == AddressMode.ZPX) x else y).low8Bits()
+            (base + if (mode == ZPX) x else y).low8Bits()
         }
-        AddressMode.ABS -> absolute()
-        AddressMode.AX, AddressMode.AY -> indexedAbsolute(if (mode == AddressMode.AX) x else y, write)
-        AddressMode.IX -> {
+        ABS -> absolute()
+        AX, AY -> indexedAbsolute(if (mode == AX) x else y, write)
+        IX -> {
             val operand = fetch()
             dummyRead(operand)
             val pointer = (operand + x).low8Bits()
             read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
         }
-        AddressMode.IY -> {
+        IY -> {
             val pointer = fetch()
             val base = read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
             val result = (base + y).low16Bits()
@@ -439,61 +529,54 @@ class Cpu6502(
         return result
     }
 
-    private fun modify(address: Int, instruction: String) {
+    private fun modify(address: Int, instruction: Int) {
         val old = read(address)
         dummyWrite(address, old)
         val result = when (instruction) {
-            "SLO" -> transform("ASL", old).also { a = a or it; zn(a) }
-            "RLA" -> transform("ROL", old).also { a = a and it; zn(a) }
-            "SRE" -> transform("LSR", old).also { a = a xor it; zn(a) }
-            "RRA" -> transform("ROR", old).also(::adc)
-            "DCP" -> (old - 1).low8Bits().also { compare(a, it) }
-            "ISB" -> (old + 1).low8Bits().also(::sbc)
+            SLO -> transform(ASL, old).also { a = a or it; zn(a) }
+            RLA -> transform(ROL, old).also { a = a and it; zn(a) }
+            SRE -> transform(LSR, old).also { a = a xor it; zn(a) }
+            RRA -> transform(ROR, old).also(::adc)
+            DCP -> (old - 1).low8Bits().also { compare(a, it) }
+            ISB -> (old + 1).low8Bits().also(::sbc)
             else -> transform(instruction, old)
         }
         write(address, result)
     }
 
-    private fun transform(instruction: String, value: Int): Int = when (instruction) {
-        "ASL" -> aslValue(value)
-        "LSR" -> lsrValue(value)
-        "ROL" -> rolValue(value)
-        "ROR" -> rorValue(value)
-        "INC" -> (value + 1).low8Bits().also(::zn)
-        "DEC" -> (value - 1).low8Bits().also(::zn)
+    private fun transform(instruction: Int, value: Int): Int = when (instruction) {
+        ASL -> aslValue(value)
+        LSR -> lsrValue(value)
+        ROL -> rolValue(value)
+        ROR -> rorValue(value)
+        INC -> (value + 1).low8Bits().also(::zn)
+        DEC -> (value - 1).low8Bits().also(::zn)
         else -> error("Unsupported RMW instruction $instruction")
     }
 
-    private fun storeValue(instruction: String): Int = when (instruction) {
-        "STA" -> a
-        "STX" -> x
-        "STY" -> y
-        "SAX" -> a and x
-        "AHX" -> a and x and (((lastAddress shr 8) + 1).low8Bits())
-        "SHX" -> x and (((lastAddress shr 8) + 1).low8Bits())
-        "SHY" -> y and (((lastAddress shr 8) + 1).low8Bits())
-        "TAS" -> {
-            sp = a and x
-            sp and (((lastAddress shr 8) + 1).low8Bits())
-        }
+    private fun storeValue(instruction: Int): Int = when (instruction) {
+        STA -> a
+        STX -> x
+        STY -> y
+        SAX -> a and x
         else -> error("Unsupported store instruction $instruction")
     }
 
-    private fun unstableStore(instruction: String, mode: AddressMode) {
-        val base = if (mode == AddressMode.IY) {
+    private fun unstableStore(instruction: Int, mode: Int) {
+        val base = if (mode == IY) {
             val pointer = fetch()
             read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
         } else {
             absolute()
         }
-        val index = if (mode == AddressMode.AX) x else y
+        val index = if (mode == AX) x else y
         val target = (base + index).low16Bits()
         dummyRead(base.pageBase() or target.low8Bits())
         val valueRegister = when (instruction) {
-            "SHY" -> y
-            "SHX" -> x
-            "AHX" -> a and x
-            "TAS" -> (a and x).also { sp = it }
+            SHY -> y
+            SHX -> x
+            AHX -> a and x
+            TAS -> (a and x).also { sp = it }
             else -> 0
         }
         val value = valueRegister and (((base shr 8) + 1).low8Bits())
@@ -505,10 +588,7 @@ class Cpu6502(
         write(destination, value)
     }
 
-    private var lastAddress = 0
-
     private fun write(address: Int, value: Int) {
-        lastAddress = address
         bus.cpuWrite(address, value)
         totalCycles++
     }
@@ -519,7 +599,6 @@ class Cpu6502(
     }
 
     private fun read(address: Int, opcodeFetch: Boolean = false): Int {
-        lastAddress = address.low16Bits()
         val result = bus.cpuRead(address, totalCycles, opcodeFetch = opcodeFetch)
         totalCycles += result.cycles
         return result.value
@@ -604,8 +683,8 @@ class Cpu6502(
         pc = low or (fetch() shl 8)
     }
 
-    private fun jump(mode: AddressMode) {
-        if (mode == AddressMode.ABS) {
+    private fun jump(mode: Int) {
+        if (mode == ABS) {
             pc = absolute()
         } else {
             val pointer = absolute()
@@ -631,16 +710,16 @@ class Cpu6502(
         pc = pull() or (pull() shl 8)
     }
 
-    private fun branch(instruction: String, offset: Int) {
+    private fun branch(instruction: Int, offset: Int) {
         val take = when (instruction) {
-            "BPL" -> !flag(N)
-            "BMI" -> flag(N)
-            "BVC" -> !flag(V)
-            "BVS" -> flag(V)
-            "BCC" -> !flag(C)
-            "BCS" -> flag(C)
-            "BNE" -> !flag(Z)
-            "BEQ" -> flag(Z)
+            BPL -> !flag(N)
+            BMI -> flag(N)
+            BVC -> !flag(V)
+            BVS -> flag(V)
+            BCC -> !flag(C)
+            BCS -> flag(C)
+            BNE -> !flag(Z)
+            BEQ -> flag(Z)
             else -> false
         }
         if (!take) return
