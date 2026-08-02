@@ -5,11 +5,11 @@ import frontend.Config
 import frontend.DelegatingEmulatorInput
 import frontend.EmulatorRuntimeHost
 import frontend.MainScreenViewModel
-import frontend.PlatformKeyboardInput
 import frontend.PlatformRenderer
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
+import frontend.PlatformKeyboardInput
 import nes.NesMachine
 
 @AppScope

@@ -23,9 +23,14 @@ expect class PlatformKeyboardInput(controller: NesController) : EmulatorInput {
 
     fun releaseAll()
 
+    override fun init()
+
     override fun poll()
 }
 
 expect class PlatformControllerInput(controller: NesController) : EmulatorInput {
+
+    override fun init()
+
     override fun poll()
 }

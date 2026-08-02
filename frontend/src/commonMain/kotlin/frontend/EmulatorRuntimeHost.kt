@@ -13,7 +13,7 @@ import kotlin.time.TimeSource
 class EmulatorRuntimeHost(
     private val machine: NesMachine,
     audio: AudioPipeline,
-    input: EmulatorInput,
+    private val input: EmulatorInput,
 ) : AutoCloseable {
     val frameBuffer = SharedFrameBuffer()
 
@@ -28,6 +28,7 @@ class EmulatorRuntimeHost(
         onError: (Throwable) -> Unit = { error -> log.e(error) { "Emulator loop failed" } },
     ) {
         check(loop == null) { "Emulator runtime host is already started" }
+        input.init()
         loop = scope.startEmulatorLoop(
             frameNanos = { machine.timing.frameNanos },
             step = {

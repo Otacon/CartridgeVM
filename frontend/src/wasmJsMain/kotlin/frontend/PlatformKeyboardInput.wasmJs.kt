@@ -18,7 +18,6 @@ actual class PlatformKeyboardInput actual constructor(
         when (event.type) {
             KeyEventType.KeyDown -> pressedButtons = pressedButtons or mask
             KeyEventType.KeyUp -> pressedButtons = pressedButtons and mask.inv()
-            else -> return false
         }
         return true
     }
@@ -26,6 +25,8 @@ actual class PlatformKeyboardInput actual constructor(
     actual fun releaseAll() {
         pressedButtons = 0
     }
+
+    actual override fun init() = Unit
 
     actual override fun poll() {
         if (NesController.BUTTON_A.isPressed()) controller.press(NesController.BUTTON_A)
