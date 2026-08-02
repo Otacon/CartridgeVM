@@ -13,11 +13,13 @@ class Mapper71(
     private var selectedPrgBankBase = 0
     private val fixedPrgBankBase = (prgBankCount - 1) * PRG_BANK_SIZE
     private var firehawkMode = bf9097Mode
-    private var mirroring = Mirroring.SINGLE_SCREEN_UPPER
+    private var mirroring: Mirroring? = null
 
-    override fun cpuRead(address: Int): Int {
+    override fun cpuRead(address: Int): Int = cpuRead(address, 0)
+
+    override fun cpuRead(address: Int, openBus: Int): Int {
         val a = address.low16Bits()
-        if (a < 0x8000) return 0
+        if (a < 0x8000) return openBus.low8Bits()
         val bankBase = if (a < 0xC000) selectedPrgBankBase else fixedPrgBankBase
         return prgRom[bankBase + (a and 0x3FFF)].toUnsignedInt()
     }
@@ -38,11 +40,6 @@ class Mapper71(
 
     override fun ppuWrite(address: Int, value: Int) {
         chrRam[address and 0x1FFF] = value.toByte()
-    }
-
-    override fun reset() {
-        selectedPrgBankBase = 0
-        mirroring = Mirroring.SINGLE_SCREEN_UPPER
     }
 
     override fun mirroring(): Mirroring? = if (firehawkMode) mirroring else null

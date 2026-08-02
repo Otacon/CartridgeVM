@@ -7,6 +7,7 @@ import nes.apu.NesApu
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
 import nes.cpu.Cpu6502
+import nes.cpu.CpuBus
 import nes.input.NesController
 import nes.ppu.Ppu
 
@@ -16,16 +17,24 @@ class NesMachine(
     val ppu: Ppu,
     val apu: NesApu,
     val cpu: Cpu6502,
+    cpuBus: CpuBus,
 ) {
     private val _isPoweredOn = MutableStateFlow(false)
     val isPoweredOn: StateFlow<Boolean> = _isPoweredOn.asStateFlow()
     val timing: Timing
         get() = cartridgeSocket.region.timing
 
-    private var ppuCycleRemainder = 0
+    private var ppuMasterClockRemainder = 0
+    private var previousNmiLine = false
+    private var cyclesUntilInputPoll = 0
+    private var inputPollCallback: (() -> Unit)? = null
+
+    init {
+        cpuBus.setCyclePhaseListener { type, beforeAccess -> clockCpuPhase(type, beforeAccess) }
+    }
 
     fun powerOn() {
-        reset()
+        resetComponents(softReset = false)
         _isPoweredOn.value = true
     }
 
@@ -39,53 +48,76 @@ class NesMachine(
     }
 
     fun reset() {
+        resetComponents(softReset = true)
+    }
+
+    private fun resetComponents(softReset: Boolean) {
         cartridgeSocket.reset()
         applyCartridgeTiming()
-        controller.reset()
-        ppu.reset()
+        ppu.reset(softReset)
         apu.reset()
-        cpu.reset()
+        cpu.reset(softReset)
+        controller.reset()
     }
 
     fun runUntilFrame(onInputPoll: (() -> Unit)? = null) {
         ppu.clearFrameComplete()
         apu.beginFrame()
-        val cpuCyclesPerInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
-        var cyclesUntilInputPoll = cpuCyclesPerInputPoll
-        while (!ppu.frameComplete) {
-            val cycles = cpu.step()
-            apu.step(cycles)
-            latchNmi()
-            cyclesUntilInputPoll -= cycles
-            if (onInputPoll != null && cyclesUntilInputPoll <= 0) {
-                onInputPoll()
-                cyclesUntilInputPoll += cpuCyclesPerInputPoll
-            }
-            var i = 0
-            val ppuCyclesNumerator = cycles * timing.ppuCyclesPerCpuNumerator + ppuCycleRemainder
-            val ppuCycles = ppuCyclesNumerator / timing.ppuCyclesPerCpuDenominator
-            ppuCycleRemainder = ppuCyclesNumerator % timing.ppuCyclesPerCpuDenominator
-            while (i < ppuCycles) {
-                ppu.step()
-                i++
-            }
-            latchIrq()
+        inputPollCallback = onInputPoll
+        cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        try {
+            while (!ppu.frameComplete) cpu.step()
+        } finally {
+            inputPollCallback = null
         }
     }
 
-    private fun latchNmi() {
-        if (ppu.pollNmi()) cpu.requestNmi()
+    private fun clockCpuPhase(type: CpuBus.CycleType, beforeAccess: Boolean) {
+        val preAccessClocks = when (type) {
+            CpuBus.CycleType.WRITE, CpuBus.CycleType.DUMMY_WRITE, CpuBus.CycleType.DMA_WRITE ->
+                timing.writePreAccessClocks
+            else -> timing.readPreAccessClocks
+        }
+        val masterClocks = if (beforeAccess) {
+            preAccessClocks
+        } else {
+            timing.cpuMasterClockDivider - preAccessClocks
+        }
+        clockPpu(masterClocks)
+        if (!beforeAccess) {
+            sampleInterruptLines()
+            return
+        }
+
+        apu.step(1)
+
+        val callback = inputPollCallback ?: return
+        cyclesUntilInputPoll--
+        if (cyclesUntilInputPoll <= 0) {
+            callback()
+            cyclesUntilInputPoll += timing.cpuHz / INPUT_POLLS_PER_SECOND
+        }
     }
 
-    private fun latchIrq() {
-        cpu.setIrqLine(cartridgeSocket.irqPending() || apu.irqPending())
+    private fun clockPpu(masterClocks: Int) {
+        val totalClocks = ppuMasterClockRemainder + masterClocks
+        repeat(totalClocks / timing.ppuMasterClockDivider) { ppu.step() }
+        ppuMasterClockRemainder = totalClocks % timing.ppuMasterClockDivider
+    }
+
+    private fun sampleInterruptLines() {
+        val nmiLine = ppu.nmiLine
+        if (!previousNmiLine && nmiLine) cpu.requestNmi()
+        previousNmiLine = nmiLine
+        cpu.sampleIrqLine(cartridgeSocket.irqPending() || apu.irqPending())
     }
 
     private fun applyCartridgeTiming() {
         val cartridgeTiming = timing
         ppu.timing = cartridgeTiming
         apu.timing = cartridgeTiming
-        ppuCycleRemainder = 0
+        ppuMasterClockRemainder = 0
+        previousNmiLine = false
     }
 
     companion object {

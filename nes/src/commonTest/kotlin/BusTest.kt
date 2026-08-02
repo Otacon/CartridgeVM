@@ -140,12 +140,33 @@ class BusTest {
         val ppu = Ppu(PpuBus(socket))
         val cpuStall = CpuStall()
         val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
 
-        bus.write(0x0000, 0x77)
-        bus.write(0x4014, 0)
+        bus.write(0x0000, Cpu6502.OP_NOP)
+        bus.write(0x0200, 0x77)
+        bus.write(0x4014, 2)
+        val cycles = cpu.step()
 
         assertEquals(0x77, ppu.oam[0].toUnsignedInt())
-        assertTrue(bus.consumeDmaCycles() >= 513)
+        assertEquals(515, cycles)
+    }
+
+    @Test
+    fun `OAM DMA adds alignment cycle on opposite CPU parity`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val cpuStall = CpuStall()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_PHP)
+        bus.write(1, Cpu6502.OP_NOP)
+        cpu.step()
+        bus.write(0x4014, 2)
+
+        assertEquals(516, cpu.step())
     }
 
     @Test
