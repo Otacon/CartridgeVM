@@ -1389,7 +1389,7 @@ class Cpu6502Test {
     }
 
     @Test
-    fun `every opcode has a Mesen compatible decoder entry`() {
+    fun `every opcode has a decoder entry`() {
         repeat(256) { opcode ->
             val (cpu, _, _) = cpuWithProgram(program(opcode, 0, 0))
             cpu.step()

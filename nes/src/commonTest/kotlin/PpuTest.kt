@@ -378,6 +378,23 @@ class PpuTest {
     }
 
     @Test
+    fun `disabling rendering restores PPU bus address before delayed palette write`() {
+        val ppu = ppu()
+        ppu.cpuWrite(1, 0x18)
+        ppu.cpuWrite(6, 0x3F)
+        ppu.cpuWrite(6, 0x0F)
+        repeat(4) { ppu.step() }
+        ppu.cpuWrite(1, 0)
+        ppu.step()
+
+        ppu.cpuWrite(7, 0x11)
+        repeat(5) { ppu.step() }
+
+        assertEquals(0x11, ppu.ppuRead(0x3F0F))
+        assertEquals(0, ppu.ppuRead(0x000B))
+    }
+
+    @Test
     fun `OAM DMA wraps around current OAM address`() {
         val ppu = ppu()
         val page = ByteArray(256) { it.toByte() }

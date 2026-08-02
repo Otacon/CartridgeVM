@@ -565,6 +565,9 @@ class Ppu(
             bus.write(address, value)
             pendingVramIncrement = true
         }
+        if (renderingEnabled() && (mask and (MASK_BACKGROUND or MASK_SPRITES)) == 0) {
+            ppuBusAddress = v and 0x3FFF
+        }
         renderingMask = mask
     }
 
