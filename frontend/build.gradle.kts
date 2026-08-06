@@ -6,9 +6,37 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.metro)
 }
+project.version = "1.0.0"
 
 val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").map(String::toInt).get()
-val lwjglVersion = libs.versions.lwjgl.get()
+
+val osName = System.getProperty("os.name").lowercase()
+val osArch = System.getProperty("os.arch").lowercase()
+
+val isArm64 = osArch == "aarch64" || osArch == "arm64"
+
+val desktopPlatform = when {
+    osName.contains("win") && isArm64 -> "windows-arm64"
+    osName.contains("win") -> "windows-x64"
+
+    osName.contains("mac") && isArm64 -> "macos-arm64"
+    osName.contains("mac") -> "macos-x64"
+
+    osName.contains("linux") && isArm64 -> "linux-arm64"
+    osName.contains("linux") -> "linux-x64"
+
+    else -> error("Unsupported desktop platform: os.name=$osName, os.arch=$osArch")
+}
+
+val lwjglNatives = when (desktopPlatform) {
+    "windows-x64" -> "natives-windows"
+    "windows-arm64" -> "natives-windows-arm64"
+    "macos-x64" -> "natives-macos"
+    "macos-arm64" -> "natives-macos-arm64"
+    "linux-x64" -> "natives-linux"
+    "linux-arm64" -> "natives-linux-arm64"
+    else -> error("Unsupported desktop platform: $desktopPlatform")
+}
 
 kotlin {
     jvm()
@@ -51,18 +79,14 @@ kotlin {
             runtimeOnly(dependencies.variantOf(libs.jinput) { classifier("natives-all") })
 
             implementation(libs.lwjgl)
-            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-macos") })
-            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-macos-arm64") })
-            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-linux") })
-            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-linux-arm64") })
-            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier("natives-windows") })
+            runtimeOnly(
+                dependencies.variantOf(libs.lwjgl) { classifier(lwjglNatives) }
+            )
 
             implementation(libs.lwjglOpenal)
-            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-macos") })
-            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-macos-arm64") })
-            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-linux") })
-            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-linux-arm64") })
-            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier("natives-windows") })
+            runtimeOnly(
+                dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) }
+            )
         }
     }
 }
@@ -70,8 +94,41 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "app.MainKt"
-        if (System.getProperty("os.name").lowercase().contains("mac")) {
+        nativeDistributions {
+            packageName = "Kassette"
+            packageVersion = project.version.toString()
+            modules("java.instrument", "java.management", "jdk.unsupported")
+        }
+
+        if (osName.contains("mac")) {
             jvmArgs += "-Xdock:name=Kassette"
+        }
+    }
+}
+
+tasks.register<Zip>("zipDesktopDistribution") {
+    group = "distribution"
+    description = "Creates a ZIP containing the desktop application image."
+    dependsOn("createDistributable")
+
+    from(layout.buildDirectory.dir("compose/binaries/main/app"))
+
+    archiveBaseName.set("kassette")
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set(desktopPlatform)
+
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    includeEmptyDirs = false
+
+    filesMatching("**/*.app/Contents/MacOS/*") {
+        permissions {
+            unix("rwxr-xr-x")
+        }
+    }
+
+    filesMatching("**/bin/*") {
+        permissions {
+            unix("rwxr-xr-x")
         }
     }
 }
