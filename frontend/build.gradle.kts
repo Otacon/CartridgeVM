@@ -24,7 +24,7 @@ fun semVerToInt(version: String): String {
 
 val appVersion = providers
     .gradleProperty("appVersion")
-    .orElse("0.1.0-indev")
+    .orElse("0.1.1-indev")
     .map { it.removePrefix("v") }
     .get()
 
