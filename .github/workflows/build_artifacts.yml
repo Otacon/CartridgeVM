@@ -1,0 +1,52 @@
+name: Build artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  desktop:
+    name: Desktop - ${{ matrix.name }}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+
+          - name: linux-x64
+            os: ubuntu-latest
+
+          - name: macos-arm64
+            os: macos-latest
+
+          - name: macos-x64
+            os: macos-15-intel
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build desktop artifact
+        shell: bash
+        run: ./gradlew :frontend:zipDesktopDistribution
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kassette-${{ matrix.name }}
+          path: |
+            **/build/distributions/*.zip
+          if-no-files-found: error
+          retention-days: 14

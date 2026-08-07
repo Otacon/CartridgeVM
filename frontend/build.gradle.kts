@@ -98,6 +98,19 @@ compose.desktop {
             packageName = "Kassette"
             packageVersion = project.version.toString()
             modules("java.instrument", "java.management", "jdk.unsupported")
+
+            macOS {
+                iconFile.set(project.file("icons/kassette.icns"))
+            }
+
+            windows {
+                iconFile.set(project.file("icons/kassette.ico"))
+            }
+
+            linux {
+                iconFile.set(project.file("icons/kassette.png"))
+            }
+
         }
 
         if (osName.contains("mac")) {
