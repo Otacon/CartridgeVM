@@ -50,7 +50,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: kassette-${{ matrix.name }}
-          path: |
-            **/build/distributions/*.zip
+          path: frontend/build/distributions/*.zip
           if-no-files-found: error
           retention-days: 14
