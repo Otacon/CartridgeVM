@@ -8,17 +8,13 @@ plugins {
 }
 
 fun semVerToInt(version: String): String {
-    val parts = version.split(".")
+    val coreVersion = version
+        .substringBefore('-')
+        .substringBefore('+')
 
-    require(parts.size == 3) { "Version must be in major.minor.patch format" }
-
-    val major = parts[0].toInt()
-    val minor = parts[1].toInt()
-    val patch = parts[2].toInt()
-
-    require(major in 0..99)
-    require(minor in 0..99)
-    require(patch in 0..99)
+    val (major, minor, patch) = coreVersion
+        .split(".")
+        .map(String::toInt)
 
     return "%02d%02d%02d"
         .format(major, minor, patch)
@@ -26,10 +22,13 @@ fun semVerToInt(version: String): String {
         .toString()
 }
 
-val version = "0.1.0"
-val build = "indev"
+val appVersion = providers
+    .gradleProperty("appVersion")
+    .orElse("0.1.0-indev")
+    .map { it.removePrefix("v") }
+    .get()
 
-project.version = listOfNotNull(version, build).joinToString(separator = "-")
+project.version = appVersion
 
 val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").map(String::toInt).get()
 
@@ -124,7 +123,7 @@ compose.desktop {
 
             macOS {
                 iconFile.set(project.file("icons/kassette.icns"))
-                val macVersion = semVerToInt(version)
+                val macVersion = semVerToInt(appVersion)
                 packageVersion = macVersion
                 packageBuildVersion = macVersion
             }
