@@ -3,6 +3,10 @@ name: Build artifacts
 on:
   workflow_dispatch:
 
+  push:
+    branches:
+      - gha_distributions
+
 jobs:
   desktop:
     name: Desktop - ${{ matrix.name }}
