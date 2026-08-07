@@ -6,7 +6,29 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.metro)
 }
-project.version = "1.0.0"
+
+fun semVerToInt(version: String): String {
+    val coreVersion = version
+        .substringBefore('-')
+        .substringBefore('+')
+
+    val (major, minor, patch) = coreVersion
+        .split(".")
+        .map(String::toInt)
+
+    return "%02d%02d%02d"
+        .format(major, minor, patch)
+        .toInt()
+        .toString()
+}
+
+val appVersion = providers
+    .gradleProperty("appVersion")
+    .orElse("0.1.0-indev")
+    .map { it.removePrefix("v") }
+    .get()
+
+project.version = appVersion
 
 val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").map(String::toInt).get()
 
@@ -95,9 +117,27 @@ compose.desktop {
     application {
         mainClass = "app.MainKt"
         nativeDistributions {
+            val projectVersion = project.version as String
             packageName = "Kassette"
-            packageVersion = project.version.toString()
             modules("java.instrument", "java.management", "jdk.unsupported")
+
+            macOS {
+                iconFile.set(project.file("icons/kassette.icns"))
+                val macVersion = semVerToInt(appVersion)
+                packageVersion = macVersion
+                packageBuildVersion = macVersion
+            }
+
+            windows {
+                packageVersion = projectVersion
+                iconFile.set(project.file("icons/kassette.ico"))
+            }
+
+            linux {
+                packageVersion = projectVersion
+                iconFile.set(project.file("icons/kassette.png"))
+            }
+
         }
 
         if (osName.contains("mac")) {
