@@ -1,5 +1,6 @@
 [versions]
 androidx-lifecycle = "2.11.0"
+buildKonfig = "0.22.0"
 clikt = "5.1.0"
 compose = "1.11.1"
 jinput = "2.0.10"
@@ -30,6 +31,7 @@ kotlinxCoroutinesTest = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-tes
 kotlinxCoroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
 
 [plugins]
+buildKonfig = { id = "com.codingfeline.buildkonfig", version.ref = "buildKonfig" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

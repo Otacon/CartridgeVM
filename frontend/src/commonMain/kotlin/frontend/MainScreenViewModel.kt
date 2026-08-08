@@ -2,6 +2,7 @@ package frontend
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cyanotic.kassette.BuildKonfig
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,7 @@ class MainScreenViewModel(
     private val config: Config,
     private val machine: NesMachine,
     private val parser: InesParserComposite,
+    private val buildKonfig: BuildKonfig,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainWindowState())
@@ -95,7 +97,7 @@ class MainScreenViewModel(
         } else {
             ""
         }
-        current.copy(windowTitle = "Kassette$values")
+        current.copy(windowTitle = "Kassette v${buildKonfig.version}$values")
     }
 }
 

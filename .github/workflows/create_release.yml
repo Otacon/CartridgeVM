@@ -45,7 +45,7 @@ jobs:
 
       - name: Build desktop artifact
         shell: bash
-        run: ./gradlew :frontend:zipDesktopDistribution -PappVersion="${{ github.ref_name }}"
+        run: ./gradlew :frontend:zipDesktopDistribution -PappVersion="${{ github.ref_name }}" -Pbuildkonfig.flavor=release
 
       - name: Upload desktop artifact
         uses: actions/upload-artifact@v7

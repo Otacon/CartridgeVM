@@ -1,5 +1,6 @@
 package di
 
+import com.cyanotic.kassette.BuildKonfig
 import frontend.*
 import io.Nes20Db
 import io.Nes20DbCsv
@@ -103,6 +104,10 @@ interface FrontendComponent {
         audio = audio,
         input = input,
     )
+
+    @AppScope
+    @Provides
+    fun buildKonfig() : BuildKonfig = BuildKonfig
 }
 
 @Scope

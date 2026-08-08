@@ -1,9 +1,11 @@
+import com.codingfeline.buildkonfig.compiler.FieldSpec
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.buildKonfig)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.metro)
 }
 
@@ -22,8 +24,11 @@ fun semVerToInt(version: String): String {
         .toString()
 }
 
-val appVersion = providers
-    .gradleProperty("appVersion")
+val propertyVersion = providers.gradleProperty("appVersion")
+
+val isRelease = propertyVersion.orNull != null
+
+val appVersion = propertyVersion
     .orElse("0.1.1-indev")
     .map { it.removePrefix("v") }
     .get()
@@ -117,6 +122,13 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "app.MainKt"
+
+        // LWJGL Memory-Safe backend (JVM 25+)
+        // jvmArgs += listOf(
+        //     "-Dorg.lwjgl.system.memoryBackend=ffm",
+        //     "--enable-native-access=ALL-UNNAMED"
+        // )
+
         nativeDistributions {
             val projectVersion = project.version as String
             packageName = "Kassette"
@@ -172,4 +184,26 @@ tasks.register<Zip>("zipDesktopDistribution") {
             unix("rwxr-xr-x")
         }
     }
+}
+
+buildkonfig {
+    packageName = "com.cyanotic.kassette"
+    exposeObjectWithName = "BuildKonfig"
+    defaultConfigs {
+        buildConfigField(FieldSpec.Type.STRING, "version", appVersion)
+        buildConfigField(FieldSpec.Type.INT, "loggingLevel", "${Severity.Info.ordinal}")
+    }
+    defaultConfigs("debug") {
+        buildConfigField(FieldSpec.Type.STRING, "loggingLevel", "debug")
+        buildConfigField(FieldSpec.Type.INT, "loggingLevel", "${Severity.Debug.ordinal}")
+    }
+}
+
+enum class Severity {
+    Verbose,
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Assert,
 }
