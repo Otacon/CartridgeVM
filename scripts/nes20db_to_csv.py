@@ -28,6 +28,7 @@ REGION_NAMES = {
 
 PREFERRED_COLUMNS = [
     "rom_sha1",
+    "console_type",
     "console_region",
     "pcb_mapper",
     "pcb_submapper",

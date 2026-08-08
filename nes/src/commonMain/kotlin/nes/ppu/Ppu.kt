@@ -475,8 +475,13 @@ class Ppu(
     }
 
     private fun readOamData(): Int {
-        val result = if (renderingEnabled() && scanline in -1 until SCREEN_HEIGHT) {
-            if (cycle in 257..320) secondaryOam[secondaryOamAddress and 0x1F].toUnsignedInt() else oamCopyBuffer
+        val result = if (renderingEnabled() && scanline in 0 until SCREEN_HEIGHT) {
+            when (cycle) {
+                in 1..64 -> 0xFF
+                in 257..320 -> secondaryOam[secondaryOamAddress and 0x1F].toUnsignedInt()
+                in 321..340, 0 -> secondaryOam[0].toUnsignedInt()
+                else -> oamCopyBuffer
+            }
         } else {
             oam[oamAddress].toUnsignedInt()
         }
