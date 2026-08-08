@@ -22,10 +22,12 @@ import kotlin.system.exitProcess
 @Inject
 class EmulatorApplication(
     private val keyboardInput: PlatformKeyboardInput,
+    private val controllerInput: PlatformControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val audio: PlatformAudioPipeline,
     private val renderer: PlatformRenderer,
     private val viewModel: MainScreenViewModel,
+    private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
 
@@ -82,9 +84,11 @@ class EmulatorApplication(
                 val romPicker = remember(window) { FileChooser(window) }
                 MainScreen(
                     viewModel = viewModel,
+                    controllerSettingsViewModel = controllerSettingsViewModel,
                     frameBuffer = runtimeHost.frameBuffer,
                     renderer = renderer,
                     keyboardInput = keyboardInput,
+                    controllerInput = controllerInput,
                     onTitleChanged = { window.title = it },
                     onOpenRomClick = {
                         coroutineScope.launch {
@@ -101,6 +105,18 @@ class EmulatorApplication(
                     onResetClick = {
                         coroutineScope.launch {
                             runtimeHost.reset()
+                            runtimeHost.resume()
+                            viewModel.setPaused(false)
+                        }
+                    },
+                    onControllerSettingsOpened = {
+                        coroutineScope.launch {
+                            runtimeHost.pause()
+                            viewModel.setPaused(true)
+                        }
+                    },
+                    onControllerSettingsClosed = {
+                        coroutineScope.launch {
                             runtimeHost.resume()
                             viewModel.setPaused(false)
                         }

@@ -1,5 +1,11 @@
 package frontend
 
+import frontend.controllerSettings.ControllerInputMapper
+import frontend.controllerSettings.InputBinding
+import frontend.controllerSettings.InputDevice
+import frontend.controllerSettings.gamepadAxisBinding
+import frontend.controllerSettings.gamepadButtonBinding
+import frontend.controllerSettings.gamepadPovBinding
 import nes.input.NesController
 import net.java.games.input.Component
 import net.java.games.input.Component.Identifier.Axis
@@ -11,7 +17,10 @@ import java.nio.file.StandardCopyOption
 
 actual class PlatformControllerInput actual constructor(
     private val controller: NesController,
+    private val inputMapper: ControllerInputMapper,
 ) : EmulatorInput {
+
+    private var ignoredBindings = emptySet<String>()
 
     private val gamepad: Controller?
         get() = ControllerEnvironment.getDefaultEnvironment().controllers.firstOrNull()
@@ -43,23 +52,86 @@ actual class PlatformControllerInput actual constructor(
     }
 
     actual override fun poll() {
-        val gamepad = gamepad ?: return
-        if (!gamepad.poll()) return
-        with(gamepad) {
-            if (getComponent(Button._1).isPressed) controller.press(NesController.BUTTON_A)
-            if (getComponent(Button._0).isPressed) controller.press(NesController.BUTTON_B)
-            if (getComponent(Button._9).isPressed) controller.press(NesController.BUTTON_SELECT)
-            if (getComponent(Button._8).isPressed) controller.press(NesController.BUTTON_START)
-
-            val y = getComponent(Axis.Y).poll
-            if (getComponent(Button._11).isPressed || y < -0.5f) controller.press(NesController.BUTTON_UP)
-            if (getComponent(Button._12).isPressed || y > 0.5f) controller.press(NesController.BUTTON_DOWN)
-
-            val x = getComponent(Axis.X).poll
-            if (getComponent(Button._13).isPressed || x < -0.5f) controller.press(NesController.BUTTON_LEFT)
-            if (getComponent(Button._14).isPressed || x > 0.5f) controller.press(NesController.BUTTON_RIGHT)
+        pressedBindings().forEach { binding ->
+            inputMapper.map(InputDevice.Gamepad, binding.code)?.let(controller::press)
         }
 
+    }
+
+    actual fun pressedBindings(): List<InputBinding> {
+        val current = currentPressedBindings()
+        if (current.none { it.code in ignoredBindings }) ignoredBindings = emptySet()
+        return current.filterNot { it.code in ignoredBindings }
+    }
+
+    private fun currentPressedBindings(): List<InputBinding> {
+        val gamepad = gamepad ?: return emptyList()
+        if (!gamepad.poll()) return emptyList()
+        return buildList {
+            with(gamepad) {
+                if (getComponent(Button._0).isPressed) add(gamepadButtonBinding(0))
+                if (getComponent(Button._1).isPressed) add(gamepadButtonBinding(1))
+                if (getComponent(Button._2).isPressed) add(gamepadButtonBinding(2))
+                if (getComponent(Button._3).isPressed) add(gamepadButtonBinding(3))
+                if (getComponent(Button._4).isPressed) add(gamepadButtonBinding(4))
+                if (getComponent(Button._5).isPressed) add(gamepadButtonBinding(5))
+                if (getComponent(Button._6).isPressed) add(gamepadButtonBinding(6))
+                if (getComponent(Button._7).isPressed) add(gamepadButtonBinding(7))
+                if (getComponent(Button._8).isPressed) add(gamepadButtonBinding(8))
+                if (getComponent(Button._9).isPressed) add(gamepadButtonBinding(9))
+                if (getComponent(Button._10).isPressed) add(gamepadButtonBinding(10))
+                if (getComponent(Button._11).isPressed) add(gamepadButtonBinding(11))
+                if (getComponent(Button._12).isPressed) add(gamepadButtonBinding(12))
+                if (getComponent(Button._13).isPressed) add(gamepadButtonBinding(13))
+                if (getComponent(Button._14).isPressed) add(gamepadButtonBinding(14))
+                if (getComponent(Button._15).isPressed) add(gamepadButtonBinding(15))
+
+                components.forEach { component ->
+                    val buttonIndex = component.identifier.name.toIntOrNull()
+                    if (buttonIndex != null && component.isPressed) add(gamepadButtonBinding(buttonIndex))
+                }
+
+                addPovBindings(getComponent(Axis.POV).poll)
+
+                val x = getComponent(Axis.X).poll
+                if (x < -0.5f) add(gamepadAxisBinding(0, negative = true))
+                if (x > 0.5f) add(gamepadAxisBinding(0, negative = false))
+
+                val y = getComponent(Axis.Y).poll
+                if (y < -0.5f) add(gamepadAxisBinding(1, negative = true))
+                if (y > 0.5f) add(gamepadAxisBinding(1, negative = false))
+            }
+        }.distinctBy { it.code }
+    }
+
+    private fun MutableList<InputBinding>.addPovBindings(value: Float) {
+        when (value) {
+            Component.POV.UP -> add(gamepadPovBinding("up"))
+            Component.POV.DOWN -> add(gamepadPovBinding("down"))
+            Component.POV.LEFT -> add(gamepadPovBinding("left"))
+            Component.POV.RIGHT -> add(gamepadPovBinding("right"))
+            Component.POV.UP_LEFT -> {
+                        add(gamepadPovBinding("up"))
+                        add(gamepadPovBinding("left"))
+            }
+            Component.POV.UP_RIGHT -> {
+                add(gamepadPovBinding("up"))
+                add(gamepadPovBinding("right"))
+            }
+            Component.POV.DOWN_LEFT -> {
+                add(gamepadPovBinding("down"))
+                add(gamepadPovBinding("left"))
+            }
+            Component.POV.DOWN_RIGHT -> {
+                add(gamepadPovBinding("down"))
+                add(gamepadPovBinding("right"))
+            }
+        }
+    }
+
+    actual fun clearPressedBindings() {
+        ignoredBindings = emptySet()
+        ignoredBindings = currentPressedBindings().mapTo(mutableSetOf()) { it.code }
     }
 
     override fun pause() = Unit

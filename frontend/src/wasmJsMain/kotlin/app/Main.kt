@@ -28,8 +28,10 @@ fun main() {
 class WebEmulatorApplication(
     private val machine: NesMachine,
     private val keyboardInput: PlatformKeyboardInput,
+    private val controllerInput: PlatformControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val viewModel: MainScreenViewModel,
+    private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
     private val renderer: PlatformRenderer,
 ) {
     private val romPicker = FileChooser()
@@ -60,9 +62,11 @@ class WebEmulatorApplication(
 
         MainScreen(
             viewModel = viewModel,
+            controllerSettingsViewModel = controllerSettingsViewModel,
             frameBuffer = runtimeHost.frameBuffer,
             renderer = renderer,
             keyboardInput = keyboardInput,
+            controllerInput = controllerInput,
             onTitleChanged = { document.title = it },
             onOpenRomClick = {
                 coroutineScope.launch {
@@ -79,6 +83,18 @@ class WebEmulatorApplication(
             onResetClick = {
                 coroutineScope.launch {
                     runtimeHost.reset()
+                    runtimeHost.resume()
+                    viewModel.setPaused(false)
+                }
+            },
+            onControllerSettingsOpened = {
+                coroutineScope.launch {
+                    runtimeHost.pause()
+                    viewModel.setPaused(true)
+                }
+            },
+            onControllerSettingsClosed = {
+                coroutineScope.launch {
                     runtimeHost.resume()
                     viewModel.setPaused(false)
                 }
