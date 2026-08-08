@@ -80,8 +80,8 @@ fun ControllerSettingsDialog(
 fun ButtonTable(
     rows: List<ButtonRow>,
     captureTarget: CaptureTarget?,
-    onCaptureStarted: (NesButton, InputDevice) -> Unit,
-    onKeyboardCaptured: (NesButton, InputBinding) -> Unit,
+    onCaptureStarted: (Int, InputDevice) -> Unit,
+    onKeyboardCaptured: (Int, InputBinding) -> Unit,
     onCaptureCancelled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -123,16 +123,16 @@ fun ButtonTable(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 TableCell(modifier = Modifier.weight(1.0f)) {
-                    BasicText(row.button)
+                    BasicText(row.label)
                 }
 
                 TableCell(
                     modifier = Modifier
                         .weight(1.0f)
-                        .clickable { onCaptureStarted(row.nesButton, InputDevice.Keyboard) },
+                        .clickable { onCaptureStarted(row.button, InputDevice.Keyboard) },
                 ) {
                     BindingText(
-                        value = row.keyboard,
+                        value = row.keyboardBinding,
                         modifier = Modifier
                             .fillMaxWidth(),
                     )
@@ -141,10 +141,10 @@ fun ButtonTable(
                 TableCell(
                     modifier = Modifier
                         .weight(1.0f)
-                        .clickable { onCaptureStarted(row.nesButton, InputDevice.Gamepad) },
+                        .clickable { onCaptureStarted(row.button, InputDevice.Gamepad) },
                 ) {
                     BindingText(
-                        value = row.gamepad,
+                        value = row.gamepadBinding,
                         modifier = Modifier
                             .fillMaxWidth(),
                     )
@@ -201,8 +201,8 @@ private fun TableCell(
 }
 
 data class ButtonRow(
-    val nesButton: NesButton,
-    val button: String,
-    val keyboard: String,
-    val gamepad: String,
+    val button: Int,
+    val label: String,
+    val keyboardBinding: String,
+    val gamepadBinding: String,
 )

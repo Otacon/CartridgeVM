@@ -7,6 +7,7 @@ import io.Preferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import nes.input.NesController.Companion.NES_BUTTONS
 
 @Inject
 class ControllerSettingsViewModel(
@@ -21,11 +22,11 @@ class ControllerSettingsViewModel(
         _state.value = ControllerSettingsState(mappings = mappings)
     }
 
-    fun onCaptureStarted(button: NesButton, device: InputDevice) {
+    fun onCaptureStarted(button: Int, device: InputDevice) {
         _state.update { it.copy(captureTarget = CaptureTarget(button, device)) }
     }
 
-    fun onBindingCaptured(button: NesButton, device: InputDevice, binding: InputBinding) {
+    fun onBindingCaptured(button: Int, device: InputDevice, binding: InputBinding) {
         _state.update { state ->
             state.copy(
                 mappings = state.mappings.withValue(device, button, binding.code),
@@ -52,16 +53,16 @@ data class ControllerSettingsState(
     val captureTarget: CaptureTarget? = null,
 ) {
     val rows: List<ButtonRow>
-        get() = NesButton.entries.map { button ->
+        get() = NES_BUTTONS.map { button ->
             ButtonRow(
-                nesButton = button,
-                button = button.label,
-                keyboard = if (captureTarget == CaptureTarget(button, InputDevice.Keyboard)) {
+                button = button,
+                label = button.asButtonLabel(),
+                keyboardBinding = if (captureTarget == CaptureTarget(button, InputDevice.Keyboard)) {
                     "Press keyboard input..."
                 } else {
                     labelFor(InputDevice.Keyboard, mappings.valueFor(InputDevice.Keyboard, button))
                 },
-                gamepad = if (captureTarget == CaptureTarget(button, InputDevice.Gamepad)) {
+                gamepadBinding = if (captureTarget == CaptureTarget(button, InputDevice.Gamepad)) {
                     "Press gamepad input..."
                 } else {
                     labelFor(InputDevice.Gamepad, mappings.valueFor(InputDevice.Gamepad, button))
@@ -73,6 +74,6 @@ data class ControllerSettingsState(
 }
 
 data class CaptureTarget(
-    val button: NesButton,
+    val button: Int,
     val device: InputDevice,
 )
