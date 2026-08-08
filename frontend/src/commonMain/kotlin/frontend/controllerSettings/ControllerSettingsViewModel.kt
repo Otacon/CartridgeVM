@@ -56,7 +56,7 @@ data class ControllerSettingsState(
         get() = NES_BUTTONS.map { button ->
             ButtonRow(
                 button = button,
-                label = button.asButtonLabel(),
+                label = BUTTON_LABELS[button],
                 keyboardBinding = if (captureTarget == CaptureTarget(button, InputDevice.Keyboard)) {
                     "Press keyboard input..."
                 } else {
@@ -70,10 +70,15 @@ data class ControllerSettingsState(
             )
         }
 
-    private fun labelFor(device: InputDevice, code: String): String = labels[device to code] ?: code.bindingLabel(device)
+    private fun labelFor(device: InputDevice, code: String): String =
+        labels[device to code] ?: code.bindingLabel(device)
 }
 
 data class CaptureTarget(
     val button: Int,
     val device: InputDevice,
+)
+
+private val BUTTON_LABELS = arrayOf(
+    "A", "B", "Select", "Start", "Up", "Down", "Left", "Right",
 )

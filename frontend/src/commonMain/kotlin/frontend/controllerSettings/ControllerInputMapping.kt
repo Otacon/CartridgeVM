@@ -4,7 +4,6 @@ import androidx.compose.ui.input.key.Key
 import io.ControllerMappings
 import io.DeviceMappings
 import nes.input.NesController
-import nes.input.NesController.Companion.NES_BUTTONS
 
 enum class InputDevice {
     Keyboard,
@@ -22,16 +21,18 @@ class ControllerInputMapper(
     var mappings: ControllerMappings = initialMappings ?: defaultControllerMappings()
         private set
 
+    private var keyboardLookup = mappings.keyboard.toButtonLookup()
+    private var gamepadLookup = mappings.controller.toButtonLookup()
+
     fun updateMappings(mappings: ControllerMappings) {
         this.mappings = mappings
+        keyboardLookup = mappings.keyboard.toButtonLookup()
+        gamepadLookup = mappings.controller.toButtonLookup()
     }
 
-    fun map(device: InputDevice, code: String): Int? {
-        val deviceMappings = when (device) {
-            InputDevice.Keyboard -> mappings.keyboard
-            InputDevice.Gamepad -> mappings.controller
-        }
-        return NES_BUTTONS.firstOrNull { button -> deviceMappings.valueFor(button) == code }
+    fun map(device: InputDevice, code: String): Int? = when (device) {
+        InputDevice.Keyboard -> keyboardLookup[code]
+        InputDevice.Gamepad -> gamepadLookup[code]
     }
 }
 
@@ -91,16 +92,8 @@ fun gamepadPovBinding(direction: String): InputBinding = InputBinding(
     label = "D-pad ${direction.replaceFirstChar { it.uppercase() }}",
 )
 
-private fun DeviceMappings.valueFor(button: Int): String = when (button) {
-    NesController.BUTTON_A -> a
-    NesController.BUTTON_B -> b
-    NesController.BUTTON_SELECT -> select
-    NesController.BUTTON_START -> start
-    NesController.BUTTON_UP -> up
-    NesController.BUTTON_DOWN -> down
-    NesController.BUTTON_LEFT -> left
-    NesController.BUTTON_RIGHT -> right
-    else -> throw IllegalArgumentException("Button $button is not supported.")
+private fun DeviceMappings.valueFor(button: Int): String = valuesByButton().getOrElse(button) {
+    throw IllegalArgumentException("Button $button is not supported.")
 }
 
 private fun DeviceMappings.withValue(button: Int, value: String): DeviceMappings = when (button) {
@@ -115,17 +108,13 @@ private fun DeviceMappings.withValue(button: Int, value: String): DeviceMappings
     else -> throw IllegalArgumentException("Button $button is not supported.")
 }
 
-fun Int.asButtonLabel(): String = when (this) {
-    NesController.BUTTON_UP -> "Up"
-    NesController.BUTTON_DOWN -> "Down"
-    NesController.BUTTON_LEFT -> "Left"
-    NesController.BUTTON_RIGHT -> "Right"
-    NesController.BUTTON_SELECT -> "Select"
-    NesController.BUTTON_START -> "Start"
-    NesController.BUTTON_A -> "A"
-    NesController.BUTTON_B -> "B"
-    else -> throw IllegalArgumentException("Button type not supported: $this")
-}
+private fun DeviceMappings.valuesByButton()= arrayOf(
+    a, b, select, start, up, down, left, right,
+)
+
+private fun DeviceMappings.toButtonLookup(): Map<String, Int> = valuesByButton()
+    .mapIndexed { button, code -> code to button }
+    .toMap()
 
 private fun gamepadButtonCode(index: Int): String = "button:$index"
 
