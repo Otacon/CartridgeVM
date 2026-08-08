@@ -4,17 +4,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import frontend.controllerSettings.ControllerSettingsDialog
+import frontend.controllerSettings.ControllerSettingsViewModel
 import io.VideoFilter
 
 @Composable
 fun MainScreen(
     viewModel: MainScreenViewModel,
+    controllerSettingsViewModel: ControllerSettingsViewModel,
     frameBuffer: SharedFrameBuffer,
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
+    controllerInput: PlatformControllerInput,
     onOpenRomClick: () -> Unit,
     onPauseToggleClick: (Boolean) -> Unit,
     onResetClick: () -> Unit,
+    onControllerSettingsOpened: () -> Unit,
+    onControllerSettingsClosed: () -> Unit,
     onTitleChanged: (String) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
@@ -39,7 +44,10 @@ fun MainScreen(
         onExit = onExitClick,
         onMenuOpened = { keyboardInput.releaseAll() },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
-        onControllerSettings = { showControllerSettings = true },
+        onControllerSettings = {
+            onControllerSettingsOpened()
+            showControllerSettings = true
+        },
         videoFilter = state.videoFilter,
         onToggleCrt = { viewModel.setVideoFilter(videoFilter = VideoFilter.CRT) },
         onToggleCastShadow = { viewModel.setVideoFilter(videoFilter = VideoFilter.CAST_SHADOWS) },
@@ -56,7 +64,12 @@ fun MainScreen(
     }
     if(showControllerSettings) {
         ControllerSettingsDialog(
-            onDismiss = { showControllerSettings = false },
+            viewModel = controllerSettingsViewModel,
+            controllerInput = controllerInput,
+            onDismiss = {
+                showControllerSettings = false
+                onControllerSettingsClosed()
+            },
         )
     }
 }

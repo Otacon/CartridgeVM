@@ -2,6 +2,8 @@ package di
 
 import com.cyanotic.kassette.BuildKonfig
 import frontend.*
+import frontend.controllerSettings.ControllerInputMapper
+import frontend.controllerSettings.ControllerSettingsViewModel
 import io.Nes20Db
 import io.Nes20DbCsv
 import dev.zacsweers.metro.DependencyGraph
@@ -29,6 +31,7 @@ interface FrontendComponent {
     val runtimeInput: DelegatingEmulatorInput
     val runtimeHost: EmulatorRuntimeHost
     val viewModel: MainScreenViewModel
+    val controllerSettingsViewModel: ControllerSettingsViewModel
 
     @DependencyGraph.Factory
     fun interface Factory {
@@ -80,13 +83,15 @@ interface FrontendComponent {
     @Provides
     fun keyboardInput(
         machine: NesMachine,
-    ): PlatformKeyboardInput = PlatformKeyboardInput(machine.controller)
+        inputMapper: ControllerInputMapper,
+    ): PlatformKeyboardInput = PlatformKeyboardInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
     fun controllerInput(
         machine: NesMachine,
-    ): PlatformControllerInput = PlatformControllerInput(machine.controller)
+        inputMapper: ControllerInputMapper,
+    ): PlatformControllerInput = PlatformControllerInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
@@ -98,6 +103,10 @@ interface FrontendComponent {
     @AppScope
     @Provides
     fun preferences() : Preferences = Preferences()
+
+    @AppScope
+    @Provides
+    fun controllerInputMapper(preferences: Preferences): ControllerInputMapper = ControllerInputMapper(preferences.mappings)
 
     @AppScope
     @Provides

@@ -47,6 +47,8 @@ data class ControllerMappings(
 data class DeviceMappings(
     @SerialName("a") val a: String,
     @SerialName("b") val b: String,
+    @SerialName("select") val select: String,
+    @SerialName("start") val start: String,
     @SerialName("up") val up: String,
     @SerialName("down") val down: String,
     @SerialName("left") val left: String,

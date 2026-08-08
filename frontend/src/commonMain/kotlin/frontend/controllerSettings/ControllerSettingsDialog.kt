@@ -1,5 +1,6 @@
 package frontend.controllerSettings
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,41 +8,58 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import frontend.components.Dialog
 import frontend.components.HorizontalDivider
 import frontend.components.TextField
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ControllerSettingsDialog(
+    viewModel: ControllerSettingsViewModel,
+    controllerInput: frontend.PlatformControllerInput,
     onDismiss: () -> Unit,
 ) {
-    var rows by remember {
-        mutableStateOf(
-            listOf(
-                ButtonRow("Up", "", ""),
-                ButtonRow("Down", "", ""),
-                ButtonRow("Left", "", ""),
-                ButtonRow("Right", "", ""),
-                ButtonRow("A", "", ""),
-                ButtonRow("B", "", ""),
-                ButtonRow("Start", "", ""),
-                ButtonRow("Select", "", ""),
-            )
-        )
+    val state by viewModel.state.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
     }
+
+    LaunchedEffect(state.captureTarget) {
+        val target = state.captureTarget ?: return@LaunchedEffect
+        if (target.device != InputDevice.Gamepad) return@LaunchedEffect
+        while (true) {
+            controllerInput.pressedBindings().firstOrNull()?.let { binding ->
+                viewModel.onBindingCaptured(target.button, target.device, binding)
+            }
+            delay(50.milliseconds)
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         title = "Controller Settings",
-        onPositive = { onDismiss() },
+        onPositive = {
+            viewModel.onSave()
+            onDismiss()
+        },
         onNegative = { onDismiss() },
         positiveText = "OK",
         negativeText = "Cancel",
     ) {
         ButtonTable(
-            rows = rows,
-            onPrimaryChange = { _, _ -> },
-            onSecondaryChange = { _, _ -> },
+            rows = state.rows,
+            onCaptureStarted = viewModel::onCaptureStarted,
+            onKeyboardCaptured = { button, binding ->
+                viewModel.onBindingCaptured(button, InputDevice.Keyboard, binding)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(all = 16.dp)
@@ -52,8 +70,8 @@ fun ControllerSettingsDialog(
 @Composable
 fun ButtonTable(
     rows: List<ButtonRow>,
-    onPrimaryChange: (index: Int, value: String) -> Unit,
-    onSecondaryChange: (index: Int, value: String) -> Unit,
+    onCaptureStarted: (NesButton, InputDevice) -> Unit,
+    onKeyboardCaptured: (NesButton, InputBinding) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -63,14 +81,14 @@ fun ButtonTable(
             modifier = Modifier.fillMaxWidth(),
         ) {
             TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Button")
-            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Primary")
-            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Secondary")
+            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Keyboard")
+            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Gamepad")
         }
 
         HorizontalDivider()
 
         // Rows
-        rows.forEachIndexed { index, row ->
+        rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -80,21 +98,33 @@ fun ButtonTable(
 
                 TableCell(modifier = Modifier.weight(1.0f)) {
                     TextField(
-                        value = row.primary,
-                        onValueChange = {
-                            onPrimaryChange(index, it)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        value = row.keyboard,
+                        onValueChange = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged {
+                                if (it.isFocused) onCaptureStarted(row.nesButton, InputDevice.Keyboard)
+                            }
+                            .onPreviewKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown) {
+                                    onKeyboardCaptured(row.nesButton, event.key.mappingBinding())
+                                }
+                                event.type == KeyEventType.KeyDown || event.type == KeyEventType.KeyUp
+                            }
+                            .focusable(),
                     )
                 }
 
                 TableCell(modifier = Modifier.weight(1.0f)) {
                     TextField(
-                        value = row.secondary,
-                        onValueChange = {
-                            onSecondaryChange(index, it)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        value = row.gamepad,
+                        onValueChange = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged {
+                                if (it.isFocused) onCaptureStarted(row.nesButton, InputDevice.Gamepad)
+                            }
+                            .focusable(),
                     )
                 }
             }
@@ -129,7 +159,8 @@ private fun TableCell(
 }
 
 data class ButtonRow(
+    val nesButton: NesButton,
     val button: String,
-    val primary: String,
-    val secondary: String,
+    val keyboard: String,
+    val gamepad: String,
 )
