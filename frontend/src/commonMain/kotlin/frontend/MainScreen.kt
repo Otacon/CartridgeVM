@@ -3,6 +3,7 @@ package frontend
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import frontend.controllerSettings.ControllerSettingsDialog
 import io.VideoFilter
 
 @Composable
@@ -18,6 +19,7 @@ fun MainScreen(
     onExitClick: (() -> Unit)? = null,
 ) {
     var focusRequestKey by remember { mutableStateOf(true) }
+    var showControllerSettings by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -37,6 +39,7 @@ fun MainScreen(
         onExit = onExitClick,
         onMenuOpened = { keyboardInput.releaseAll() },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
+        onControllerSettings = { showControllerSettings = true },
         videoFilter = state.videoFilter,
         onToggleCrt = { viewModel.setVideoFilter(videoFilter = VideoFilter.CRT) },
         onToggleCastShadow = { viewModel.setVideoFilter(videoFilter = VideoFilter.CAST_SHADOWS) },
@@ -49,6 +52,11 @@ fun MainScreen(
             videoFilter = state.videoFilter,
             focusRequestKey = focusRequestKey,
             modifier = contentModifier,
+        )
+    }
+    if(showControllerSettings) {
+        ControllerSettingsDialog(
+            onDismiss = { showControllerSettings = false },
         )
     }
 }
