@@ -35,6 +35,8 @@ expect class PlatformControllerInput(controller: NesController, inputMapper: Con
 
     fun pressedBindings(): List<InputBinding>
 
+    fun clearPressedBindings()
+
     override fun init()
 
     override fun poll()

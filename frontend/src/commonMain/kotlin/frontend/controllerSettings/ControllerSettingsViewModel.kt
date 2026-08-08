@@ -30,8 +30,13 @@ class ControllerSettingsViewModel(
             state.copy(
                 mappings = state.mappings.withValue(device, button, binding.code),
                 labels = state.labels + ((device to binding.code) to binding.label),
+                captureTarget = null,
             )
         }
+    }
+
+    fun onCaptureCancelled() {
+        _state.update { it.copy(captureTarget = null) }
     }
 
     fun onSave() {
@@ -51,8 +56,16 @@ data class ControllerSettingsState(
             ButtonRow(
                 nesButton = button,
                 button = button.label,
-                keyboard = labelFor(InputDevice.Keyboard, mappings.valueFor(InputDevice.Keyboard, button)),
-                gamepad = labelFor(InputDevice.Gamepad, mappings.valueFor(InputDevice.Gamepad, button)),
+                keyboard = if (captureTarget == CaptureTarget(button, InputDevice.Keyboard)) {
+                    "Press keyboard input..."
+                } else {
+                    labelFor(InputDevice.Keyboard, mappings.valueFor(InputDevice.Keyboard, button))
+                },
+                gamepad = if (captureTarget == CaptureTarget(button, InputDevice.Gamepad)) {
+                    "Press gamepad input..."
+                } else {
+                    labelFor(InputDevice.Gamepad, mappings.valueFor(InputDevice.Gamepad, button))
+                },
             )
         }
 

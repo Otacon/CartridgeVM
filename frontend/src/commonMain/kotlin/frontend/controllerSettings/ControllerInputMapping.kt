@@ -100,6 +100,11 @@ fun gamepadAxisBinding(index: Int, negative: Boolean): InputBinding = InputBindi
     label = "Axis $index ${if (negative) "-" else "+"}",
 )
 
+fun gamepadPovBinding(direction: String): InputBinding = InputBinding(
+    code = gamepadPovCode(direction),
+    label = "D-pad ${direction.replaceFirstChar { it.uppercase() }}",
+)
+
 private fun DeviceMappings.valueFor(button: NesButton): String = when (button) {
     NesButton.A -> a
     NesButton.B -> b
@@ -126,6 +131,8 @@ private fun gamepadButtonCode(index: Int): String = "button:$index"
 
 private fun gamepadAxisCode(index: Int, negative: Boolean): String = "axis:$index:${if (negative) "-" else "+"}"
 
+private fun gamepadPovCode(direction: String): String = "pov:$direction"
+
 fun String.bindingLabel(device: InputDevice): String = when (device) {
     InputDevice.Keyboard -> substringAfterLast('.')
     InputDevice.Gamepad -> when {
@@ -133,6 +140,7 @@ fun String.bindingLabel(device: InputDevice): String = when (device) {
         startsWith("axis:") -> split(':').let { parts ->
             if (parts.size == 3) "Axis ${parts[1]} ${parts[2]}" else this
         }
+        startsWith("pov:") -> "D-pad ${substringAfter(':').replaceFirstChar { it.uppercase() }}"
         else -> this
     }
 }

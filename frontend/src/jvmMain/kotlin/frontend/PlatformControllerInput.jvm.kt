@@ -5,6 +5,7 @@ import frontend.controllerSettings.InputBinding
 import frontend.controllerSettings.InputDevice
 import frontend.controllerSettings.gamepadAxisBinding
 import frontend.controllerSettings.gamepadButtonBinding
+import frontend.controllerSettings.gamepadPovBinding
 import nes.input.NesController
 import net.java.games.input.Component
 import net.java.games.input.Component.Identifier.Axis
@@ -18,6 +19,8 @@ actual class PlatformControllerInput actual constructor(
     private val controller: NesController,
     private val inputMapper: ControllerInputMapper,
 ) : EmulatorInput {
+
+    private var ignoredBindings = emptySet<String>()
 
     private val gamepad: Controller?
         get() = ControllerEnvironment.getDefaultEnvironment().controllers.firstOrNull()
@@ -56,6 +59,12 @@ actual class PlatformControllerInput actual constructor(
     }
 
     actual fun pressedBindings(): List<InputBinding> {
+        val current = currentPressedBindings()
+        if (current.none { it.code in ignoredBindings }) ignoredBindings = emptySet()
+        return current.filterNot { it.code in ignoredBindings }
+    }
+
+    private fun currentPressedBindings(): List<InputBinding> {
         val gamepad = gamepad ?: return emptyList()
         if (!gamepad.poll()) return emptyList()
         return buildList {
@@ -77,6 +86,13 @@ actual class PlatformControllerInput actual constructor(
                 if (getComponent(Button._14).isPressed) add(gamepadButtonBinding(14))
                 if (getComponent(Button._15).isPressed) add(gamepadButtonBinding(15))
 
+                components.forEach { component ->
+                    val buttonIndex = component.identifier.name.toIntOrNull()
+                    if (buttonIndex != null && component.isPressed) add(gamepadButtonBinding(buttonIndex))
+                }
+
+                addPovBindings(getComponent(Axis.POV).poll)
+
                 val x = getComponent(Axis.X).poll
                 if (x < -0.5f) add(gamepadAxisBinding(0, negative = true))
                 if (x > 0.5f) add(gamepadAxisBinding(0, negative = false))
@@ -85,7 +101,37 @@ actual class PlatformControllerInput actual constructor(
                 if (y < -0.5f) add(gamepadAxisBinding(1, negative = true))
                 if (y > 0.5f) add(gamepadAxisBinding(1, negative = false))
             }
+        }.distinctBy { it.code }
+    }
+
+    private fun MutableList<InputBinding>.addPovBindings(value: Float) {
+        when (value) {
+            Component.POV.UP -> add(gamepadPovBinding("up"))
+            Component.POV.DOWN -> add(gamepadPovBinding("down"))
+            Component.POV.LEFT -> add(gamepadPovBinding("left"))
+            Component.POV.RIGHT -> add(gamepadPovBinding("right"))
+            Component.POV.UP_LEFT -> {
+                        add(gamepadPovBinding("up"))
+                        add(gamepadPovBinding("left"))
+            }
+            Component.POV.UP_RIGHT -> {
+                add(gamepadPovBinding("up"))
+                add(gamepadPovBinding("right"))
+            }
+            Component.POV.DOWN_LEFT -> {
+                add(gamepadPovBinding("down"))
+                add(gamepadPovBinding("left"))
+            }
+            Component.POV.DOWN_RIGHT -> {
+                add(gamepadPovBinding("down"))
+                add(gamepadPovBinding("right"))
+            }
         }
+    }
+
+    actual fun clearPressedBindings() {
+        ignoredBindings = emptySet()
+        ignoredBindings = currentPressedBindings().mapTo(mutableSetOf()) { it.code }
     }
 
     override fun pause() = Unit

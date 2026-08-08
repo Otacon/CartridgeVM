@@ -1,5 +1,8 @@
 package frontend.controllerSettings
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,7 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -16,7 +22,6 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import frontend.components.Dialog
 import frontend.components.HorizontalDivider
-import frontend.components.TextField
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -32,12 +37,14 @@ fun ControllerSettingsDialog(
         viewModel.onCreate()
     }
 
-    LaunchedEffect(state.captureTarget) {
-        val target = state.captureTarget ?: return@LaunchedEffect
-        if (target.device != InputDevice.Gamepad) return@LaunchedEffect
+    val gamepadCaptureTarget = state.captureTarget?.takeIf { it.device == InputDevice.Gamepad }
+    LaunchedEffect(gamepadCaptureTarget) {
+        val target = gamepadCaptureTarget ?: return@LaunchedEffect
+        controllerInput.clearPressedBindings()
         while (true) {
             controllerInput.pressedBindings().firstOrNull()?.let { binding ->
                 viewModel.onBindingCaptured(target.button, target.device, binding)
+                return@LaunchedEffect
             }
             delay(50.milliseconds)
         }
@@ -56,10 +63,12 @@ fun ControllerSettingsDialog(
     ) {
         ButtonTable(
             rows = state.rows,
+            captureTarget = state.captureTarget,
             onCaptureStarted = viewModel::onCaptureStarted,
             onKeyboardCaptured = { button, binding ->
                 viewModel.onBindingCaptured(button, InputDevice.Keyboard, binding)
             },
+            onCaptureCancelled = viewModel::onCaptureCancelled,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(all = 16.dp)
@@ -70,12 +79,33 @@ fun ControllerSettingsDialog(
 @Composable
 fun ButtonTable(
     rows: List<ButtonRow>,
+    captureTarget: CaptureTarget?,
     onCaptureStarted: (NesButton, InputDevice) -> Unit,
     onKeyboardCaptured: (NesButton, InputBinding) -> Unit,
+    onCaptureCancelled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(captureTarget) {
+        if (captureTarget != null) focusRequester.requestFocus()
+    }
+
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                val target = captureTarget ?: return@onPreviewKeyEvent false
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
+                if (event.key == Key.Escape) {
+                    onCaptureCancelled()
+                } else if (target.device == InputDevice.Keyboard) {
+                    onKeyboardCaptured(target.button, event.key.mappingBinding())
+                }
+                true
+            }
+            .focusable(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -96,40 +126,52 @@ fun ButtonTable(
                     BasicText(row.button)
                 }
 
-                TableCell(modifier = Modifier.weight(1.0f)) {
-                    TextField(
+                TableCell(
+                    modifier = Modifier
+                        .weight(1.0f)
+                        .clickable { onCaptureStarted(row.nesButton, InputDevice.Keyboard) },
+                ) {
+                    BindingText(
                         value = row.keyboard,
-                        onValueChange = {},
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged {
-                                if (it.isFocused) onCaptureStarted(row.nesButton, InputDevice.Keyboard)
-                            }
-                            .onPreviewKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown) {
-                                    onKeyboardCaptured(row.nesButton, event.key.mappingBinding())
-                                }
-                                event.type == KeyEventType.KeyDown || event.type == KeyEventType.KeyUp
-                            }
-                            .focusable(),
+                            .fillMaxWidth(),
                     )
                 }
 
-                TableCell(modifier = Modifier.weight(1.0f)) {
-                    TextField(
+                TableCell(
+                    modifier = Modifier
+                        .weight(1.0f)
+                        .clickable { onCaptureStarted(row.nesButton, InputDevice.Gamepad) },
+                ) {
+                    BindingText(
                         value = row.gamepad,
-                        onValueChange = {},
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged {
-                                if (it.isFocused) onCaptureStarted(row.nesButton, InputDevice.Gamepad)
-                            }
-                            .focusable(),
+                            .fillMaxWidth(),
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun BindingText(
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    BasicText(
+        text = value,
+        modifier = modifier
+            .background(Color.White)
+            .border(
+                width = 1.dp,
+                color = Color.Gray,
+            )
+            .padding(
+                horizontal = 8.dp,
+                vertical = 6.dp,
+            ),
+    )
 }
 
 @Composable
