@@ -1,6 +1,8 @@
 package app
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -9,7 +11,10 @@ import androidx.compose.ui.window.application
 import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import frontend.*
+import kassette.frontend.generated.resources.Res
+import kassette.frontend.generated.resources.icon
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.painterResource
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import kotlin.system.exitProcess
@@ -58,6 +63,7 @@ class EmulatorApplication(
             Window(
                 onCloseRequest = ::exitApplication,
                 state = windowState,
+                icon = painterResource(Res.drawable.icon)
             ) {
                 DisposableEffect(window) {
                     val listener = object : WindowAdapter() {

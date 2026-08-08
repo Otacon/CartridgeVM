@@ -80,6 +80,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":nes"))
             implementation(libs.compose.foundation)
+            implementation(libs.compose.resources)
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
