@@ -32,16 +32,7 @@ class Nes20DbCsv(
             return null
         }
 
-        val legacyHeader = "rom_sha1,console_region,pcb_mapper,pcb_submapper,pcb_mirroring"
-        val expectedHeader = "$legacyHeader,prgram_size"
-
-        val actualHeader = lines.next().removePrefix("\uFEFF")
-
-        if (actualHeader != expectedHeader && actualHeader != legacyHeader) {
-            log.e { "The Nes20Db file format is incorrect!" }
-            return null
-        }
-
+        lines.next()
 
         var lineNumber = 1
 
@@ -50,8 +41,8 @@ class Nes20DbCsv(
 
             val columns = lines.next().split(',')
 
-            if (columns.size < 5) {
-                log.w { "Line $lineNumber contains ${columns.size} but rather than 5!" }
+            if (columns.size < 7) {
+                log.w { "Line $lineNumber contains ${columns.size} columns rather than 7" }
                 continue
             }
 
@@ -64,11 +55,12 @@ class Nes20DbCsv(
             if (normalizedSha1 == entrySha1) {
                 return Nes20DbEntry(
                     sha1 = entrySha1,
-                    region = parseRegion(columns[1], lineNumber),
-                    mapper = columns[2].toIntOrNull() ?: error("Invalid mapper at line $lineNumber"),
-                    submapper = columns[3].toIntOrNull() ?: error("Invalid submapper at line $lineNumber"),
-                    mirroring = parseMirroring(columns[4], lineNumber),
-                    prgRamSize = columns.getOrNull(5)?.toIntOrNull() ?: 0,
+                    consoleType = columns[1].toIntOrNull() ?: error("Invalid console type at line $lineNumber"),
+                    region = parseRegion(columns[2], lineNumber),
+                    mapper = columns[3].toIntOrNull() ?: error("Invalid mapper at line $lineNumber"),
+                    submapper = columns[4].toIntOrNull() ?: error("Invalid submapper at line $lineNumber"),
+                    mirroring = parseMirroring(columns[5], lineNumber),
+                    prgRamSize = columns[6].toIntOrNull() ?: 0,
                 )
             }
         }
@@ -104,6 +96,7 @@ class Nes20DbCsv(
 
 data class Nes20DbEntry(
     val sha1: String,
+    val consoleType: Int = 0,
     val region: ConsoleRegion,
     val mapper: Int,
     val submapper: Int,
