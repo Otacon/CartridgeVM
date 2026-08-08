@@ -17,9 +17,6 @@ class CliArgsParser : CliktCommand("kassette") {
     val debug: Boolean by option(names = arrayOf("-d", "--debug"), help = "Enable debug logging")
         .flag()
 
-    val crt: Boolean by option(names = arrayOf("--crt"), help = "Enable consumer CRT display emulation")
-        .flag()
-
     val rom: Path? by argument(help = "Path to .nes ROM")
         .path(mustExist = true, canBeDir = false)
         .optional()
@@ -30,7 +27,6 @@ class CliArgsParser : CliktCommand("kassette") {
         val romData = rom?.let { RomData(it.fileName.toString(), it.readBytes()) }
         return Config(
             debug = debug,
-            crt = crt,
             rom = romData,
         )
     }

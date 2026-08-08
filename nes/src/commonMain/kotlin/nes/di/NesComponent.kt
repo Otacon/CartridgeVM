@@ -16,6 +16,7 @@ import nes.ppu.PpuBus
 
 @NesScope
 @DependencyGraph
+@Suppress("unused")
 interface NesComponent {
     val nesMachine: NesMachine
 

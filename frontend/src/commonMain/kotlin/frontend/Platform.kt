@@ -1,11 +1,12 @@
 package frontend
 
 import androidx.compose.ui.input.key.KeyEvent
+import io.VideoFilter
 import nes.input.NesController
 import org.jetbrains.skia.Canvas
 
 interface Renderer {
-    fun init(crt: Boolean, castShadow: Boolean)
+    fun init(videoFilter: VideoFilter)
 
     fun present(frame: VideoFrame, windowWidth: Int, windowHeight: Int)
 

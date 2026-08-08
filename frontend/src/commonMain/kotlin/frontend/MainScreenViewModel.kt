@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cyanotic.kassette.BuildKonfig
 import dev.zacsweers.metro.Inject
+import io.Preferences
+import io.VideoFilter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -19,6 +21,7 @@ class MainScreenViewModel(
     private val machine: NesMachine,
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,
+    private val preferences: Preferences,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainWindowState())
@@ -31,13 +34,11 @@ class MainScreenViewModel(
     fun onCreate() {
         viewModelScope.launch {
             machine.isPoweredOn.collect { isPoweredOn ->
-                _state.update { it.copy(isRunning = isPoweredOn, isPaused = if (isPoweredOn) it.isPaused else false) }
+                _state.update { it.copy(isRunning = isPoweredOn, isPaused = isPoweredOn && it.isPaused) }
             }
         }
         config.rom?.let { loadRom(it) }
-        _state.update {
-            it.copy(isCrtEnabled = config.crt, isCastShadowEnabled = false)
-        }
+        _state.update { it.copy(videoFilter = preferences.videoFilter) }
     }
 
     fun onRomSelected(romData: RomData?) {
@@ -49,18 +50,10 @@ class MainScreenViewModel(
         updateTitle()
     }
 
-    fun setCrtEnabled(crtEnabled: Boolean) = _state.update {
-        it.copy(
-            isCrtEnabled = crtEnabled,
-            isCastShadowEnabled = if (crtEnabled) false else it.isCastShadowEnabled,
-        )
-    }
-
-    fun setCastShadowEnabled(castShadowEnabled: Boolean) = _state.update {
-        it.copy(
-            isCrtEnabled = if (castShadowEnabled) false else it.isCrtEnabled,
-            isCastShadowEnabled = castShadowEnabled,
-        )
+    fun setVideoFilter(videoFilter: VideoFilter) = _state.update {
+        val newVideoFilter = if(videoFilter == it.videoFilter) VideoFilter.NONE else videoFilter
+        preferences.videoFilter = newVideoFilter
+        it.copy(videoFilter = newVideoFilter)
     }
 
     fun setPaused(paused: Boolean) {
@@ -106,6 +99,5 @@ data class MainWindowState(
     val windowTitle: String = "",
     val showRomPicker: Boolean = false,
     val isPaused: Boolean = false,
-    val isCrtEnabled: Boolean = false,
-    val isCastShadowEnabled: Boolean = false,
+    val videoFilter: VideoFilter = VideoFilter.NONE,
 )

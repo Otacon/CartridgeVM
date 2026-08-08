@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import io.VideoFilter
 
 @Composable
 fun ComposeMenuBar(
@@ -32,9 +33,8 @@ fun ComposeMenuBar(
     paused: Boolean,
     onMenuOpened: () -> Unit,
     onMenuDismissed: () -> Unit,
-    crtEnabled: Boolean,
+    videoFilter: VideoFilter,
     onToggleCrt: () -> Unit,
-    castShadowEnabled: Boolean,
     onToggleCastShadow: () -> Unit,
     onExit: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -137,7 +137,7 @@ fun ComposeMenuBar(
                     MenuId.Video -> {
                         MenuItem(
                             label = "CRT Effect",
-                            checked = crtEnabled,
+                            checked = videoFilter == VideoFilter.CRT,
                             role = Role.Checkbox,
                         ) {
                             expandedMenu = null
@@ -145,7 +145,7 @@ fun ComposeMenuBar(
                         }
                         MenuItem(
                             label = "Cast Shadow",
-                            checked = castShadowEnabled,
+                            checked = videoFilter == VideoFilter.CAST_SHADOWS,
                             role = Role.Checkbox,
                         ) {
                             expandedMenu = null

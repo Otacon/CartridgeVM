@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.metro)
 }
 
@@ -91,6 +92,9 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kermit)
             implementation(libs.kotlinxCoroutinesCore)
+            implementation(libs.kotlinxSerializationJson)
+            implementation(libs.settings)
+            implementation(libs.settingsSerialization)
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)

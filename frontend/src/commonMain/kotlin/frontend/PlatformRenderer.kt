@@ -1,19 +1,8 @@
 package frontend
 
+import io.VideoFilter
 import io.readTextResource
-import org.jetbrains.skia.Canvas
-import org.jetbrains.skia.Color
-import org.jetbrains.skia.ColorAlphaType
-import org.jetbrains.skia.ColorSpace
-import org.jetbrains.skia.ColorType
-import org.jetbrains.skia.FilterTileMode
-import org.jetbrains.skia.Image
-import org.jetbrains.skia.ImageInfo
-import org.jetbrains.skia.Paint
-import org.jetbrains.skia.Rect
-import org.jetbrains.skia.RuntimeEffect
-import org.jetbrains.skia.RuntimeShaderBuilder
-import org.jetbrains.skia.SamplingMode
+import org.jetbrains.skia.*
 
 class PlatformRenderer : Renderer {
     private val backgroundUpload = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL)
@@ -33,27 +22,32 @@ class PlatformRenderer : Renderer {
     private var crtBuilder: RuntimeShaderBuilder? = null
     private var shadowEffect: RuntimeEffect? = null
     private var shadowBuilder: RuntimeShaderBuilder? = null
-    private var crtEnabled = false
+    private var videoFilter = VideoFilter.NONE
     private var castShadowEnabled = false
     private var initialized = false
     private var outputWidth = 0
     private var outputHeight = 0
     private var presentedFrames = 0L
 
-    override fun init(crt: Boolean, castShadow: Boolean) {
+    override fun init(videoFilter: VideoFilter) {
         release()
         try {
-            crtEnabled = crt
-            castShadowEnabled = castShadow && !crt
+            this.videoFilter = videoFilter
+            castShadowEnabled = videoFilter == VideoFilter.CAST_SHADOWS
             backgroundPaint = Paint().apply { color = Color.BLACK }
-            framePaint = Paint().apply { isAntiAlias = false }
-            if (castShadowEnabled) {
-                shadowEffect = RuntimeEffect.makeForShader(readTextResource(SHADOW_SHADER_RESOURCE))
-                shadowBuilder = RuntimeShaderBuilder(requireNotNull(shadowEffect))
-            }
-            if (crt) {
-                crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))
-                crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
+            framePaint = Paint().apply { isAntiAlias = true }
+            when (videoFilter) {
+                VideoFilter.CRT -> {
+                    crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))
+                    crtBuilder = RuntimeShaderBuilder(requireNotNull(crtEffect))
+                }
+
+                VideoFilter.CAST_SHADOWS -> {
+                    shadowEffect = RuntimeEffect.makeForShader(readTextResource(SHADOW_SHADER_RESOURCE))
+                    shadowBuilder = RuntimeShaderBuilder(requireNotNull(shadowEffect))
+                }
+
+                VideoFilter.NONE -> Unit
             }
             presentedFrames = 0L
             initialized = true
@@ -97,12 +91,21 @@ class PlatformRenderer : Renderer {
         val output = Rect.makeWH(outputWidth.toFloat(), outputHeight.toFloat())
         canvas.drawRect(output, requireNotNull(backgroundPaint))
         val destination = destinationRect()
-        if (crtEnabled) {
-            drawCrt(canvas, background, sprites, destination)
-        } else {
-            drawLayer(canvas, background, destination)
-            if (castShadowEnabled) drawShadow(canvas, sprites, destination)
-            drawLayer(canvas, sprites, destination)
+        when (videoFilter) {
+            VideoFilter.CRT -> {
+                drawCrt(canvas, background, sprites, destination)
+            }
+
+            VideoFilter.CAST_SHADOWS -> {
+                drawLayer(canvas, background, destination)
+                drawShadow(canvas, sprites, destination)
+                drawLayer(canvas, sprites, destination)
+            }
+
+            VideoFilter.NONE -> {
+                drawLayer(canvas, background, destination)
+                drawLayer(canvas, sprites, destination)
+            }
         }
         presentedFrames++
     }

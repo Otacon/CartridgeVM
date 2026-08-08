@@ -3,6 +3,7 @@ package frontend
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import io.VideoFilter
 
 @Composable
 fun MainScreen(
@@ -36,18 +37,16 @@ fun MainScreen(
         onExit = onExitClick,
         onMenuOpened = { keyboardInput.releaseAll() },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
-        crtEnabled = state.isCrtEnabled,
-        onToggleCrt = { viewModel.setCrtEnabled(!state.isCrtEnabled) },
-        castShadowEnabled = state.isCastShadowEnabled,
-        onToggleCastShadow = { viewModel.setCastShadowEnabled(!state.isCastShadowEnabled) },
+        videoFilter = state.videoFilter,
+        onToggleCrt = { viewModel.setVideoFilter(videoFilter = VideoFilter.CRT) },
+        onToggleCastShadow = { viewModel.setVideoFilter(videoFilter = VideoFilter.CAST_SHADOWS) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
         ComposeSkiaScreen(
             frameBuffer = frameBuffer,
             renderer = renderer,
             keyboardInput = keyboardInput,
-            crt = state.isCrtEnabled,
-            castShadow = state.isCastShadowEnabled,
+            videoFilter = state.videoFilter,
             focusRequestKey = focusRequestKey,
             modifier = contentModifier,
         )

@@ -8,6 +8,7 @@ import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.Scope
 import dev.zacsweers.metro.createGraph
+import io.Preferences
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParserUtils
@@ -17,6 +18,7 @@ import nes.di.NesComponent
 
 @AppScope
 @DependencyGraph
+@Suppress("unused")
 interface FrontendComponent {
     val inesParser: InesParserComposite
     val nesMachine: NesMachine
@@ -92,6 +94,10 @@ interface FrontendComponent {
         keyboardInput: PlatformKeyboardInput,
         controllerInput: PlatformControllerInput,
     ): DelegatingEmulatorInput = DelegatingEmulatorInput(CombinedEmulatorInput(keyboardInput, controllerInput))
+
+    @AppScope
+    @Provides
+    fun preferences() : Preferences = Preferences()
 
     @AppScope
     @Provides
