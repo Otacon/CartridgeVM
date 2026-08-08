@@ -265,10 +265,15 @@ class Ppu(
                     0, 2 -> readVram(0x2000 or (v and 0x0FFF))
                     4 -> fetchSprite((cycle - 257) shr 3)
                 }
-                secondaryOamAddress = ((cycle - 257) shr 1).coerceAtMost(32)
+                if (cycle == 257) {
+                    secondaryOamAddress = 0
+                } else if (((cycle - 1) and 4) == 0) {
+                    secondaryOamAddress++
+                }
                 if (scanline == -1 && cycle in 280..304) transferVerticalAddress()
             }
         } else if (cycle in 321..336 && renderingEnabled()) {
+            if (cycle == 321) secondaryOamAddress++
             shiftBackground()
             fetchBackground()
             if (cycle == 328 || cycle == 336) incrementCoarseX()
@@ -475,13 +480,11 @@ class Ppu(
     }
 
     private fun readOamData(): Int {
-        val result = if (renderingEnabled() && scanline in 0 until SCREEN_HEIGHT) {
-            when (cycle) {
-                in 1..64 -> 0xFF
-                in 257..320 -> secondaryOam[secondaryOamAddress and 0x1F].toUnsignedInt()
-                in 321..340, 0 -> secondaryOam[0].toUnsignedInt()
-                else -> oamCopyBuffer
+        val result = if (renderingEnabled() && scanline <= 239) {
+            if (cycle in 257..340 || cycle == 0) {
+                oamCopyBuffer = secondaryOam[secondaryOamAddress and 0x1F].toUnsignedInt()
             }
+            oamCopyBuffer
         } else {
             oam[oamAddress].toUnsignedInt()
         }

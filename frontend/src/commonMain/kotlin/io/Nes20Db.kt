@@ -32,17 +32,7 @@ class Nes20DbCsv(
             return null
         }
 
-        val legacyHeader = "rom_sha1,console_region,pcb_mapper,pcb_submapper,pcb_mirroring"
-        val previousHeader = "$legacyHeader,prgram_size"
-        val expectedHeader = "rom_sha1,console_type,console_region,pcb_mapper,pcb_submapper,pcb_mirroring,prgram_size"
-
-        val actualHeader = lines.next().removePrefix("\uFEFF")
-
-        if (actualHeader != expectedHeader && actualHeader != previousHeader && actualHeader != legacyHeader) {
-            log.e { "The Nes20Db file format is incorrect!" }
-            return null
-        }
-        val headerColumns = actualHeader.split(',')
+        lines.next()
 
         var lineNumber = 1
 
@@ -51,8 +41,8 @@ class Nes20DbCsv(
 
             val columns = lines.next().split(',')
 
-            if (columns.size < 5) {
-                log.w { "Line $lineNumber contains ${columns.size} but rather than 5!" }
+            if (columns.size < 7) {
+                log.w { "Line $lineNumber contains ${columns.size} columns rather than 7" }
                 continue
             }
 
@@ -65,25 +55,17 @@ class Nes20DbCsv(
             if (normalizedSha1 == entrySha1) {
                 return Nes20DbEntry(
                     sha1 = entrySha1,
-                    consoleType = columns.value(headerColumns, "console_type")?.toIntOrNull() ?: 0,
-                    region = parseRegion(columns.requiredValue(headerColumns, "console_region", lineNumber), lineNumber),
-                    mapper = columns.requiredValue(headerColumns, "pcb_mapper", lineNumber).toIntOrNull() ?: error("Invalid mapper at line $lineNumber"),
-                    submapper = columns.requiredValue(headerColumns, "pcb_submapper", lineNumber).toIntOrNull() ?: error("Invalid submapper at line $lineNumber"),
-                    mirroring = parseMirroring(columns.requiredValue(headerColumns, "pcb_mirroring", lineNumber), lineNumber),
-                    prgRamSize = columns.value(headerColumns, "prgram_size")?.toIntOrNull() ?: 0,
+                    consoleType = columns[1].toIntOrNull() ?: error("Invalid console type at line $lineNumber"),
+                    region = parseRegion(columns[2], lineNumber),
+                    mapper = columns[3].toIntOrNull() ?: error("Invalid mapper at line $lineNumber"),
+                    submapper = columns[4].toIntOrNull() ?: error("Invalid submapper at line $lineNumber"),
+                    mirroring = parseMirroring(columns[5], lineNumber),
+                    prgRamSize = columns[6].toIntOrNull() ?: 0,
                 )
             }
         }
         return null
     }
-
-    private fun List<String>.value(headerColumns: List<String>, name: String): String? {
-        val index = headerColumns.indexOf(name)
-        return if (index >= 0) getOrNull(index) else null
-    }
-
-    private fun List<String>.requiredValue(headerColumns: List<String>, name: String, lineNumber: Int): String =
-        value(headerColumns, name) ?: error("Missing $name at line $lineNumber")
 
     private fun parseRegion(value: String, lineNumber: Int): ConsoleRegion = when (value.trim().toIntOrNull()) {
         0 -> ConsoleRegion.NTSC
